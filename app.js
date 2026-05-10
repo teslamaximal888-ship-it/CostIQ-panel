@@ -422,6 +422,7 @@ const state = {
   panelData: null,
   pendingAction: null,
   panelDataTimer: null,
+  webStatusTimer: null,
 };
 
 function initTelegram() {
@@ -754,6 +755,7 @@ function startPanelDataRefresh() {
 function renderView() {
   renderTabs();
   renderSkills();
+  renderWebSkillOptions();
 }
 
 function findAction(actionKey) {
@@ -890,6 +892,173 @@ function showToast(text) {
   showToast.timer = window.setTimeout(() => toast.classList.remove("visible"), 2200);
 }
 
+function renderWebSkillOptions() {
+  const select = document.getElementById("web-skill");
+  if (!select || select.options.length) {
+    return;
+  }
+  skills
+    .filter((skill) => skill.status !== "админ")
+    .forEach((skill) => {
+      const option = document.createElement("option");
+      option.value = skill.id;
+      option.textContent = skill.title;
+      select.appendChild(option);
+    });
+}
+
+function webTaskStatusLabel(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "created") {
+    return "создана";
+  }
+  if (normalized === "queued") {
+    return "в очереди";
+  }
+  if (normalized === "in_progress") {
+    return "в работе";
+  }
+  if (normalized === "done") {
+    return "готово";
+  }
+  if (normalized === "failed") {
+    return "ошибка";
+  }
+  return status || "статус";
+}
+
+function renderWebTask(task) {
+  const card = document.getElementById("web-task-card");
+  if (!card || !task) {
+    return;
+  }
+
+  const traceId = task.trace_id || "";
+  const status = webTaskStatusLabel(task.status);
+  const taskUrl = traceId ? `${window.location.origin}${window.location.pathname}?trace=${encodeURIComponent(traceId)}` : "";
+  const result = task.result ? `<div class="web-result">${escapeHtml(task.result)}</div>` : `<p>Ответ появится здесь после обработки задачи.</p>`;
+
+  card.hidden = false;
+  card.innerHTML = `
+    <div class="web-task-head">
+      <span>
+        <strong>${escapeHtml(status)}</strong>
+        <small>${escapeHtml(traceId)}</small>
+      </span>
+      ${taskUrl ? `<button type="button" class="ghost-button" id="copy-task-link">Ссылка</button>` : ""}
+    </div>
+    <dl>
+      <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
+      <div><dt>Объект</dt><dd>${escapeHtml(task.object || "не указан")}</dd></div>
+      <div><dt>Срок</dt><dd>${escapeHtml(task.deadline || "не указан")}</dd></div>
+      <div><dt>Файл</dt><dd>${escapeHtml(task.file_name || "не приложен")}</dd></div>
+    </dl>
+    ${result}
+  `;
+
+  const copyButton = document.getElementById("copy-task-link");
+  if (copyButton && taskUrl) {
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(taskUrl);
+        showToast("Ссылка на задачу скопирована");
+      } catch (error) {
+        showToast(taskUrl);
+      }
+    });
+  }
+}
+
+async function fetchWebTask(traceId) {
+  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  if (!data || !data.ok) {
+    throw new Error(data && data.error ? data.error : "status_error");
+  }
+  renderWebTask(data.task);
+  return data.task;
+}
+
+function startWebTaskPolling(traceId) {
+  if (!traceId) {
+    return;
+  }
+  window.clearInterval(state.webStatusTimer);
+  fetchWebTask(traceId).catch(() => showToast("Статус задачи пока недоступен"));
+  state.webStatusTimer = window.setInterval(() => {
+    fetchWebTask(traceId).catch(() => {});
+  }, 30000);
+}
+
+function loadWebTaskFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const traceId = params.get("trace");
+  if (traceId) {
+    startWebTaskPolling(traceId);
+    const intake = document.getElementById("web-intake");
+    if (intake) {
+      intake.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+}
+
+async function submitWebIntake(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  const formData = new FormData(form);
+  const skill = skills.find((item) => item.id === formData.get("skill"));
+  if (skill) {
+    formData.set("skill_title", skill.title);
+    formData.set("command", skill.command);
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Создаю...";
+  }
+
+  try {
+    const response = await fetch("/api/panel/task", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    renderWebTask(data.task);
+    if (data.task && data.task.trace_id) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("trace", data.task.trace_id);
+      window.history.replaceState(null, "", url.toString());
+      if (data.persisted) {
+        startWebTaskPolling(data.task.trace_id);
+      }
+    }
+    showToast("Задача создана");
+  } catch (error) {
+    showToast("Не удалось создать задачу");
+    renderWebTask({
+      status: "failed",
+      trace_id: "submit-error",
+      skill_title: "Web intake",
+      object: "ошибка отправки",
+      deadline: "",
+      file_name: "",
+      result: "Проверьте соединение и настройки web intake.",
+    });
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Создать задачу";
+    }
+  }
+}
+
 document.addEventListener("click", (event) => {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
@@ -928,6 +1097,8 @@ document.getElementById("launcher-form").addEventListener("submit", (event) => {
   sendAction(state.pendingAction, collectLauncherFields());
 });
 
+document.getElementById("web-intake-form").addEventListener("submit", submitWebIntake);
+
 document.getElementById("search-input").addEventListener("input", (event) => {
   state.query = event.target.value.trim();
   renderSkills();
@@ -936,3 +1107,4 @@ document.getElementById("search-input").addEventListener("input", (event) => {
 renderView();
 initTelegram();
 startPanelDataRefresh();
+loadWebTaskFromUrl();

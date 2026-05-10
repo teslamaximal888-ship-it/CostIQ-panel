@@ -35,6 +35,14 @@ Version v6 adds automatic snapshot refresh:
 - `scripts/build_panel_data.py` keeps `panel-data.json` unchanged when metrics did not change
 - `scripts/refresh_panel_snapshot.sh` rebuilds, commits, and pushes snapshot changes for Cloudflare Pages
 
+Version v7.1 adds web intake for direct links:
+
+- public form on the panel: name, skill, project/object, comment, file, deadline
+- Cloudflare Pages Function `POST /api/panel/task` creates a `trace_id`
+- optional KV binding `WEB_INTAKE` stores task status for `GET /api/panel/task/:trace_id`
+- optional secrets `TELEGRAM_BOT_TOKEN` and `COSTIQ_NOTIFY_CHAT_ID` send a Telegram notification to the owner
+- task links use `?trace=<trace_id>` and can show the final answer when the backend updates `result`
+
 Manual snapshot refresh:
 
 ```bash
@@ -66,3 +74,11 @@ Payload format:
 ```
 
 The bridge maps `command` to existing CostIQ scenarios or to a short starter reply.
+
+Cloudflare environment for web intake:
+
+```text
+KV binding: WEB_INTAKE
+Secret: TELEGRAM_BOT_TOKEN
+Variable: COSTIQ_NOTIFY_CHAT_ID=5059630577
+```

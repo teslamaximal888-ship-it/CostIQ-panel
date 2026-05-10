@@ -265,12 +265,14 @@ h2 {
 .launcher,
 .workspace,
 .control,
-.activity {
+.activity,
+.web-intake {
   padding: 16px 0 4px;
   border-top: 1px solid var(--line);
 }
 
-.launcher {
+.launcher,
+.web-intake {
   margin-bottom: 8px;
 }
 
@@ -338,6 +340,89 @@ h2 {
 .submit-button {
   border-color: rgba(89, 209, 140, 0.55);
   background: #18231e;
+}
+
+.submit-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.web-task-card {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(110, 168, 255, 0.45);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.web-task-card[hidden] {
+  display: none;
+}
+
+.web-task-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.web-task-head strong,
+.web-task-head small {
+  display: block;
+}
+
+.web-task-head strong {
+  color: var(--green);
+  font-size: 17px;
+}
+
+.web-task-head small {
+  margin-top: 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.web-task-card dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.web-task-card dl div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.web-task-card dt {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.web-task-card dd {
+  margin: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.web-task-card p,
+.web-result {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.web-result {
+  padding: 10px;
+  border: 1px solid rgba(89, 209, 140, 0.35);
+  border-radius: var(--radius);
+  background: #18231e;
+  color: var(--text);
+  white-space: pre-wrap;
 }
 
 .toolbar {
@@ -650,7 +735,8 @@ h2 {
   .metrics,
   .insights,
   .ops,
-  .trace-summary {
+  .trace-summary,
+  .web-task-card dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -677,6 +763,7 @@ h2 {
   .grid,
   .activity-grid,
   .trace-summary,
+  .web-task-card dl,
   .form-grid,
   .ops {
     grid-template-columns: 1fr;

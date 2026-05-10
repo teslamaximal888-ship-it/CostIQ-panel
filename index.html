@@ -85,6 +85,49 @@
         </form>
       </section>
 
+      <section class="web-intake" id="web-intake">
+        <div class="section-head">
+          <div>
+            <h2>Создать задачу</h2>
+            <p>Прямая отправка без входа в Telegram</p>
+          </div>
+          <span id="web-intake-mode">web intake</span>
+        </div>
+        <form id="web-intake-form" enctype="multipart/form-data">
+          <div class="form-grid">
+            <div class="field">
+              <label for="web-name">Имя</label>
+              <input id="web-name" name="name" type="text" autocomplete="name" placeholder="ФИО / компания" required>
+            </div>
+            <div class="field">
+              <label for="web-skill">Навык</label>
+              <select id="web-skill" name="skill" required></select>
+            </div>
+            <div class="field">
+              <label for="web-object">Проект / объект</label>
+              <input id="web-object" name="object" type="text" autocomplete="off" placeholder="Проект, корпус, объект" required>
+            </div>
+            <div class="field">
+              <label for="web-deadline">Срок</label>
+              <input id="web-deadline" name="deadline" type="text" autocomplete="off" placeholder="Сегодня / до 18:00 / дата">
+            </div>
+            <div class="field wide">
+              <label for="web-comment">Комментарий</label>
+              <textarea id="web-comment" name="comment" placeholder="Что нужно сделать и на что обратить внимание" required></textarea>
+            </div>
+            <div class="field wide">
+              <label for="web-file">Файл</label>
+              <input id="web-file" name="file" type="file">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="ghost-button" type="reset">Очистить</button>
+            <button class="submit-button" type="submit">Создать задачу</button>
+          </div>
+        </form>
+        <div class="web-task-card" id="web-task-card" hidden></div>
+      </section>
+
       <section class="workspace">
         <div class="toolbar">
           <div class="search">
