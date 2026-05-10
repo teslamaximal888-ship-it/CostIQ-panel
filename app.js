@@ -351,11 +351,76 @@ const utilityActions = {
   },
 };
 
+const formConfigs = {
+  check_kp: {
+    title: "Проверка КП",
+    subtitle: "Контекст для проверки КП перед загрузкой файла",
+    fields: [
+      { name: "object", label: "Объект", type: "text", placeholder: "ЖК / корпус / очередь" },
+      { name: "contractor", label: "Подрядчик", type: "text", placeholder: "Название или ИНН" },
+      {
+        name: "section",
+        label: "Раздел",
+        type: "select",
+        options: ["не указан", "ОВ/ВК", "ЭОМ/СС", "АР/КР", "отделка", "благоустройство", "прочее"],
+      },
+      { name: "comment", label: "Комментарий", type: "textarea", placeholder: "Что проверить в первую очередь", wide: true },
+    ],
+  },
+  calc_ps: {
+    title: "Расчёт ПС по ВОР",
+    subtitle: "Параметры для расчёта предварительной стоимости",
+    fields: [
+      { name: "object", label: "Объект", type: "text", placeholder: "Проект / корпус" },
+      { name: "work_type", label: "Тип работ", type: "text", placeholder: "Например: отопление, отделка, ЭОМ" },
+      {
+        name: "priority",
+        label: "Приоритет",
+        type: "select",
+        options: ["обычный", "срочно", "черновик", "для проверки"],
+      },
+      { name: "comment", label: "Комментарий", type: "textarea", placeholder: "Особые условия расчёта", wide: true },
+    ],
+  },
+  ot_resolution: {
+    title: "Резолюция по ОТ",
+    subtitle: "Данные тендера перед загрузкой ОТ",
+    fields: [
+      { name: "object", label: "Объект", type: "text", placeholder: "Проект / корпус" },
+      { name: "tender", label: "Тендер / ОТ", type: "text", placeholder: "Номер или краткое название" },
+      { name: "deadline", label: "Срок", type: "text", placeholder: "Например: сегодня / до 18:00" },
+      { name: "comment", label: "Комментарий", type: "textarea", placeholder: "На что обратить внимание", wide: true },
+    ],
+  },
+  smet_reference: {
+    title: "Найти расценку",
+    subtitle: "Поиск по базе, КВР, ГЭСН, материалам и механизмам",
+    fields: [
+      { name: "query", label: "Запрос", type: "search", placeholder: "Описание работы, материал, КВР или ГЭСН", wide: true, required: true },
+      { name: "unit", label: "Ед. изм.", type: "text", placeholder: "м², пог. м, шт." },
+      {
+        name: "scope",
+        label: "Область поиска",
+        type: "select",
+        options: ["всё", "работы", "материалы", "ГЭСН", "КВР"],
+      },
+    ],
+  },
+  task_status: {
+    title: "Статус задачи",
+    subtitle: "Поиск по trace, очереди и последним событиям",
+    fields: [
+      { name: "query", label: "Trace ID / задача", type: "search", placeholder: "trace_id, файл, пользователь или навык", wide: true },
+    ],
+  },
+};
+
 const state = {
   view: "function",
   selected: "все",
   query: "",
   panelData: null,
+  pendingAction: null,
 };
 
 function initTelegram() {
@@ -560,7 +625,93 @@ function findAction(actionKey) {
   return utilityActions[actionKey] || null;
 }
 
-function sendAction(actionKey) {
+function fieldId(name) {
+  return `launcher-field-${name}`;
+}
+
+function renderField(field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = field.wide ? "field wide" : "field";
+
+  const label = document.createElement("label");
+  label.htmlFor = fieldId(field.name);
+  label.textContent = field.label;
+  wrapper.appendChild(label);
+
+  let input;
+  if (field.type === "select") {
+    input = document.createElement("select");
+    (field.options || []).forEach((option) => {
+      const node = document.createElement("option");
+      node.value = option;
+      node.textContent = option;
+      input.appendChild(node);
+    });
+  } else if (field.type === "textarea") {
+    input = document.createElement("textarea");
+  } else {
+    input = document.createElement("input");
+    input.type = field.type || "text";
+  }
+
+  input.id = fieldId(field.name);
+  input.name = field.name;
+  input.autocomplete = "off";
+  if (field.placeholder) {
+    input.placeholder = field.placeholder;
+  }
+  if (field.required) {
+    input.required = true;
+  }
+  wrapper.appendChild(input);
+  return wrapper;
+}
+
+function openLauncher(actionKey) {
+  const config = formConfigs[actionKey];
+  if (!config) {
+    sendAction(actionKey);
+    return;
+  }
+
+  state.pendingAction = actionKey;
+  setText("launcher-title", config.title);
+  setText("launcher-subtitle", config.subtitle);
+
+  const fields = document.getElementById("launcher-fields");
+  fields.innerHTML = "";
+  config.fields.forEach((field) => fields.appendChild(renderField(field)));
+
+  const launcher = document.getElementById("launcher");
+  launcher.hidden = false;
+  launcher.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const first = fields.querySelector("input, select, textarea");
+  if (first && !tg) {
+    first.focus();
+  }
+}
+
+function closeLauncher() {
+  state.pendingAction = null;
+  document.getElementById("launcher-form").reset();
+  document.getElementById("launcher").hidden = true;
+}
+
+function collectLauncherFields() {
+  const form = document.getElementById("launcher-form");
+  const data = new FormData(form);
+  const fields = {};
+  for (const [key, value] of data.entries()) {
+    const text = String(value || "").trim();
+    if (text) {
+      fields[key] = text;
+    }
+  }
+  return fields;
+}
+
+function sendAction(actionKey, fields = {}) {
   const item = findAction(actionKey);
   if (!item) {
     showToast("Неизвестное действие");
@@ -572,6 +723,7 @@ function sendAction(actionKey) {
     action: actionKey,
     command: item.command,
     label: item.title,
+    fields,
     ts: new Date().toISOString(),
   };
 
@@ -617,8 +769,21 @@ document.addEventListener("click", (event) => {
 
   const button = event.target.closest("[data-action]");
   if (button) {
-    sendAction(button.dataset.action);
+    openLauncher(button.dataset.action);
   }
+});
+
+document.getElementById("launcher-close").addEventListener("click", closeLauncher);
+document.getElementById("launcher-reset").addEventListener("click", () => {
+  document.getElementById("launcher-form").reset();
+});
+document.getElementById("launcher-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!state.pendingAction) {
+    closeLauncher();
+    return;
+  }
+  sendAction(state.pendingAction, collectLauncherFields());
 });
 
 document.getElementById("search-input").addEventListener("input", (event) => {

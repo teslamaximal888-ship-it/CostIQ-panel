@@ -29,7 +29,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -142,7 +144,9 @@ h2 {
 .card,
 .ops button,
 .tabs button,
-.view-toggle button {
+.view-toggle button,
+.ghost-button,
+.submit-button {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -180,7 +184,9 @@ h2 {
 .card:active,
 .ops button:active,
 .tabs button:active,
-.view-toggle button:active {
+.view-toggle button:active,
+.ghost-button:active,
+.submit-button:active {
   transform: scale(0.99);
 }
 
@@ -188,7 +194,9 @@ h2 {
 .card:hover,
 .ops button:hover,
 .tabs button:hover,
-.view-toggle button:hover {
+.view-toggle button:hover,
+.ghost-button:hover,
+.submit-button:hover {
   border-color: var(--blue);
   background: var(--surface-2);
 }
@@ -254,10 +262,81 @@ h2 {
   color: var(--muted);
 }
 
+.launcher,
 .workspace,
 .control {
   padding: 16px 0 4px;
   border-top: 1px solid var(--line);
+}
+
+.launcher {
+  margin-bottom: 8px;
+}
+
+.launcher[hidden] {
+  display: none;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field.wide {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  outline: 0;
+  padding: 10px 11px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.field textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: rgba(110, 168, 255, 0.75);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ghost-button,
+.submit-button {
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.submit-button {
+  border-color: rgba(89, 209, 140, 0.55);
+  background: #18231e;
 }
 
 .toolbar {
@@ -504,7 +583,13 @@ h2 {
   .metrics,
   .insights,
   .grid,
+  .form-grid,
   .ops {
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions {
+    display: grid;
     grid-template-columns: 1fr;
   }
 

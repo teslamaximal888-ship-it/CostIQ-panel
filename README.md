@@ -15,6 +15,12 @@ Version v3 adds real snapshot metrics from local CostIQ sources:
 - `panel-data.json` for top metrics and the control block
 - `scripts/build_panel_data.py` to rebuild the snapshot from `task_queue.json`, `guest_trace.jsonl`, and `bridge.log`
 
+Version v4 adds launch forms for the main workflows:
+
+- КП, ПС, ОТ, расценка, статус задачи
+- form fields are sent inside the same Telegram WebApp payload as `fields`
+- the bridge echoes those fields in the starter reply before the user attaches files or continues the task
+
 Before publishing a fresh metrics snapshot:
 
 ```bash
