@@ -18,40 +18,94 @@
         <div class="status" id="tg-status">Telegram</div>
       </header>
 
+      <section class="metrics" aria-label="Состояние">
+        <div class="metric">
+          <span>Бот</span>
+          <strong>активен</strong>
+        </div>
+        <div class="metric">
+          <span>Очередь</span>
+          <strong>trace</strong>
+        </div>
+        <div class="metric">
+          <span>Сегодня</span>
+          <strong>лог</strong>
+        </div>
+        <div class="metric danger">
+          <span>Ошибки</span>
+          <strong>контроль</strong>
+        </div>
+      </section>
+
       <section class="quick">
         <button class="primary-action" type="button" data-action="check_kp">
-          <span class="action-icon">▣</span>
+          <span class="action-icon">КП</span>
           <span>
             <strong>Проверить КП</strong>
-            <small>Excel подрядчика, отклонения, вывод САУ</small>
+            <small>Файл подрядчика, база расценок, отклонения</small>
           </span>
         </button>
-        <button class="primary-action secondary" type="button" data-action="calc_ps">
-          <span class="action-icon">∑</span>
+        <button class="primary-action blue" type="button" data-action="calc_ps">
+          <span class="action-icon">ПС</span>
           <span>
             <strong>Рассчитать ПС</strong>
-            <small>ВОР, расценки, основания, итоговый Excel</small>
+            <small>ВОР, подбор расценок, итоговый Excel</small>
+          </span>
+        </button>
+        <button class="primary-action copper" type="button" data-action="ot_resolution">
+          <span class="action-icon">ОТ</span>
+          <span>
+            <strong>Резолюция по ОТ</strong>
+            <small>Тендерная аналитика и AI-рекомендация</small>
+          </span>
+        </button>
+        <button class="primary-action violet" type="button" data-action="smet_reference">
+          <span class="action-icon">₽</span>
+          <span>
+            <strong>Найти расценку</strong>
+            <small>КВР, ГЭСН, материалы, механизмы</small>
           </span>
         </button>
       </section>
 
-      <section class="section">
-        <div class="section-head">
-          <h2>Навыки</h2>
-          <span id="user-label">Готово к запуску</span>
+      <section class="workspace">
+        <div class="toolbar">
+          <div class="search">
+            <span>⌕</span>
+            <input id="search-input" type="search" autocomplete="off" placeholder="Поиск: КП, ТЭП, претензия, ОДУ">
+          </div>
+          <div class="view-toggle" aria-label="Режим группировки">
+            <button type="button" class="active" data-view="function">Функции</button>
+            <button type="button" data-view="department">Подразделения</button>
+          </div>
         </div>
+
+        <nav class="tabs" id="tabs" aria-label="Разделы"></nav>
+
+        <div class="section-head">
+          <div>
+            <h2 id="section-title">Навыки</h2>
+            <p id="section-subtitle">Согласованная группировка v2</p>
+          </div>
+          <span id="user-label">Готово</span>
+        </div>
+
         <div class="grid" id="skill-grid"></div>
       </section>
 
-      <section class="section compact">
+      <section class="control">
         <div class="section-head">
-          <h2>Рабочий контур</h2>
+          <div>
+            <h2>Контроль</h2>
+            <p>Операционные действия</p>
+          </div>
           <span>SAUFSK</span>
         </div>
         <div class="ops">
           <button type="button" data-action="task_status">Статус задачи</button>
-          <button type="button" data-action="help">Помощь</button>
+          <button type="button" data-action="panel_stats">Статистика</button>
           <button type="button" data-action="menu">Обычное меню</button>
+          <button type="button" data-action="help">Помощь</button>
         </div>
       </section>
     </main>
