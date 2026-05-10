@@ -303,6 +303,35 @@ h2 {
   margin-top: 10px;
 }
 
+.web-intake-hint {
+  padding: 11px;
+  border: 1px solid rgba(110, 168, 255, 0.38);
+  border-radius: var(--radius);
+  background: #17202a;
+}
+
+.web-intake-hint strong,
+.web-intake-hint span,
+.web-intake-hint small {
+  display: block;
+}
+
+.web-intake-hint strong {
+  font-size: 14px;
+}
+
+.web-intake-hint span {
+  margin-top: 5px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.web-intake-hint small {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -339,6 +368,51 @@ h2 {
 .field select:focus,
 .field textarea:focus {
   border-color: rgba(110, 168, 255, 0.75);
+}
+
+.web-file-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 11px;
+  border: 1px solid rgba(89, 209, 140, 0.4);
+  border-radius: var(--radius);
+  background: #17251e;
+}
+
+.web-file-preview[hidden] {
+  display: none;
+}
+
+.web-file-preview strong,
+.web-file-preview small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.web-file-preview small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.web-file-preview em {
+  flex: 0 0 auto;
+  color: var(--green);
+  font-size: 12px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.web-file-preview.danger {
+  border-color: rgba(255, 122, 122, 0.5);
+  background: #2a1d1d;
+}
+
+.web-file-preview.danger em {
+  color: var(--red);
 }
 
 .form-actions {
@@ -394,6 +468,29 @@ h2 {
   min-height: 34px;
   padding: 0 10px;
   font-size: 13px;
+}
+
+.web-recent-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.web-recent-filters button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.web-recent-filters button.active {
+  border-color: rgba(89, 209, 140, 0.55);
+  background: #18231e;
+  color: var(--text);
 }
 
 .web-recent-list {
@@ -452,6 +549,34 @@ h2 {
   white-space: nowrap;
 }
 
+.web-recent-item em[data-tone="done"],
+.activity-item em[data-tone="done"],
+.web-task-title em[data-tone="done"] {
+  color: var(--green);
+  background: #17251e;
+}
+
+.web-recent-item em[data-tone="active"],
+.activity-item em[data-tone="active"],
+.web-task-title em[data-tone="active"] {
+  color: var(--blue);
+  background: #17202a;
+}
+
+.web-recent-item em[data-tone="retry"],
+.activity-item em[data-tone="retry"],
+.web-task-title em[data-tone="retry"] {
+  color: var(--copper);
+  background: #2a2119;
+}
+
+.web-recent-item em[data-tone="failed"],
+.activity-item em[data-tone="failed"],
+.web-task-title em[data-tone="failed"] {
+  color: var(--red);
+  background: #2a1d1d;
+}
+
 .web-task-head {
   display: flex;
   align-items: flex-start;
@@ -460,20 +585,32 @@ h2 {
   margin-bottom: 12px;
 }
 
-.web-task-head strong,
-.web-task-head small {
+.web-task-title,
+.web-task-title small {
   display: block;
 }
 
-.web-task-head strong {
-  color: var(--green);
-  font-size: 17px;
+.web-task-title em {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1;
 }
 
-.web-task-head small {
+.web-task-title small {
   margin-top: 4px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.web-task-message {
+  margin: -2px 0 12px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .web-task-card dl {
@@ -507,6 +644,17 @@ h2 {
 .web-result {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.web-result.pending {
+  border-color: rgba(110, 168, 255, 0.35);
+  background: #17202a;
+  color: var(--muted);
+}
+
+.web-result.danger {
+  border-color: rgba(255, 122, 122, 0.42);
+  background: #2a1d1d;
 }
 
 .web-result {
@@ -801,6 +949,18 @@ h2 {
   font-style: normal;
   line-height: 1;
   white-space: nowrap;
+}
+
+.queue-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.queue-actions .ghost-button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
 }
 
 .activity-list.compact .activity-item {

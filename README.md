@@ -97,6 +97,14 @@ Version v14 adds web-intake queue reliability:
 - `GET /api/panel/tasks` can filter by status and returns queue summary plus stale/due flags
 - `/admin/` includes a protected Web-очередь block for retries, stale tasks, and failures
 
+Version v15 improves public and admin UX:
+
+- public intake shows skill-specific hints and file requirements before submit
+- selected files are shown before upload, with a client-side 25 MB size check
+- result cards use user-facing statuses, timestamps, trace, file and clean waiting/error states
+- "Мои последние заявки" has filters for all / active / done / failed and clearer dates/statuses
+- `/admin/` web queue has a retry button for failed/retry tasks when an admin token is present
+
 Manual snapshot refresh:
 
 ```bash

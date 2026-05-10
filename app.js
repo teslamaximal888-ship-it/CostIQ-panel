@@ -3,6 +3,9 @@ const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
+const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
+const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
+const WEB_RECENT_FILTERS = ["all", "active", "done", "failed"];
 
 const functions = [
   "проверка",
@@ -460,6 +463,57 @@ const webFieldPresets = {
   file: { name: "file", label: "Файл", type: "file", wide: true },
 };
 
+const webSkillHints = {
+  check_kp: {
+    text: "Приложите КП подрядчика в Excel/PDF. Укажите объект, раздел и что проверить: цены, состав, отклонения, условия.",
+    file: "Подойдут XLSX, XLS, PDF, DOCX до 25 МБ.",
+  },
+  calc_ps: {
+    text: "Нужна ВОР или ведомость объёмов. Чем точнее раздел и объект, тем лучше подбор расценок.",
+    file: "Лучше XLSX/XLS. PDF подойдёт, если таблица читаемая.",
+  },
+  ot_resolution: {
+    text: "Приложите оценочную таблицу. В комментарии можно указать приоритет: цена, риски, подрядчик, сроки.",
+    file: "Основной формат XLSX/XLS.",
+  },
+  zamechaniya_ot: {
+    text: "Приложите ОТ и укажите, какие замечания нужны: цены, структура, подрядчики, ГТ.",
+    file: "Основной формат XLSX/XLS.",
+  },
+  calc_labor: {
+    text: "Приложите ВОР. Желательно указать раздел работ и нужен ли итог по ГЭСН/разрядам.",
+    file: "Лучше XLSX/XLS.",
+  },
+  smet_reference: {
+    text: "Опишите работу или материал обычными словами. Если знаете единицу измерения, укажите её.",
+    file: "Файл не обязателен.",
+  },
+  reglament: {
+    text: "Сформулируйте вопрос по процессу: порядок, согласование, авансирование, договор, регламент.",
+    file: "Файл не требуется.",
+  },
+  before_after: {
+    text: "Приложите отчёт было-стало. Укажите договор, объект и что важно проверить.",
+    file: "Основной формат XLSX/XLS.",
+  },
+  claim_pdc: {
+    text: "Приложите ПДЦ или акт дефектов. В комментарии укажите недостатки, сумму и нужный комплект.",
+    file: "Подойдут XLSX, DOCX, PDF.",
+  },
+  penalty_claim: {
+    text: "Приложите протоколы/договор. Укажите подрядчика и тип нарушения: ОТ, ПБ или качество.",
+    file: "Подойдут PDF, DOCX, XLSX.",
+  },
+  owners_odu: {
+    text: "Укажите собственника, ДДУ/квартиру и что нужно: статус, соглашение, претензия, сумма.",
+    file: "Документы можно приложить, если они есть.",
+  },
+  presentations: {
+    text: "Опишите тему, аудиторию и желаемую структуру. Материалы можно приложить файлом.",
+    file: "Подойдут DOCX, PDF, XLSX, ZIP.",
+  },
+};
+
 const webIntakeConfigs = {
   check_kp: {
     inputType: "file_required",
@@ -692,6 +746,7 @@ const state = {
   telegramInitData: "",
   telegramUser: null,
   telegramHistoryAvailable: false,
+  webRecentFilter: "all",
 };
 
 function detectMode() {
@@ -773,6 +828,22 @@ function formatSnapshotAge(value) {
   return `обновлено ${hours} ч назад`;
 }
 
+function formatShortDate(value) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function setSnapshotStatus(value) {
   const label = formatSnapshotAge(value);
   setText("activity-status", label);
@@ -797,6 +868,18 @@ function compact(value, limit = 90) {
     return text;
   }
   return `${text.slice(0, limit - 1)}…`;
+}
+
+function safeErrorMessage(message) {
+  const normalized = String(message || "").toLowerCase();
+  const map = {
+    file_required: "Приложите файл для этого типа заявки.",
+    telegram_auth_invalid: "Не удалось подтвердить Telegram-профиль. Откройте панель из Telegram ещё раз.",
+    storage_not_configured: "Хранилище файлов ещё настраивается. Текстовые заявки работают.",
+    storage_failed: "Файл не удалось сохранить. Попробуйте ещё раз или уменьшите размер файла.",
+    intake_not_configured: "Приём заявок ещё не настроен.",
+  };
+  return map[normalized] || "Не удалось создать задачу. Проверьте поля и попробуйте ещё раз.";
 }
 
 function currentGroups() {
@@ -1229,7 +1312,7 @@ function renderWebField(field) {
   const required = field.required ? " required" : "";
   const classes = field.wide ? "field wide" : "field";
   const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : "";
-  const accept = field.accept ? ` accept="${escapeHtml(field.accept)}"` : "";
+  const accept = (field.accept || field.type === "file") ? ` accept="${escapeHtml(field.accept || WEB_FILE_ACCEPT)}"` : "";
 
   if (field.type === "textarea") {
     return `
@@ -1266,7 +1349,49 @@ function renderWebIntakeFields(skillId) {
     return;
   }
   const config = webConfigForSkill(skillId);
-  container.innerHTML = config.fields.map(renderWebField).join("");
+  const selectedSkill = skills.find((skill) => skill.id === skillId);
+  const hint = webSkillHints[skillId] || {
+    text: selectedSkill ? selectedSkill.subtitle : "Опишите задачу и приложите файл, если он нужен для расчёта.",
+    file: config.fields.some((field) => field.name === "file" && field.required)
+      ? "Файл обязателен для этого сценария."
+      : "Файл можно приложить при необходимости.",
+  };
+  container.innerHTML = `
+    <div class="web-intake-hint field wide">
+      <strong>${escapeHtml(selectedSkill ? selectedSkill.title : "Заявка")}</strong>
+      <span>${escapeHtml(hint.text)}</span>
+      <small>${escapeHtml(hint.file)}</small>
+    </div>
+    ${config.fields.map(renderWebField).join("")}
+    <div class="web-file-preview field wide" id="web-file-preview" hidden></div>
+  `;
+  const fileInput = container.querySelector('input[type="file"]');
+  if (fileInput) {
+    fileInput.addEventListener("change", () => renderWebFilePreview(fileInput));
+  }
+}
+
+function renderWebFilePreview(input) {
+  const preview = document.getElementById("web-file-preview");
+  if (!preview) {
+    return;
+  }
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    preview.hidden = true;
+    preview.innerHTML = "";
+    return;
+  }
+  const overLimit = file.size > WEB_FILE_MAX_BYTES;
+  preview.hidden = false;
+  preview.classList.toggle("danger", overLimit);
+  preview.innerHTML = `
+    <span>
+      <strong>${escapeHtml(file.name)}</strong>
+      <small>${(file.size / 1024 / 1024).toFixed(2)} МБ</small>
+    </span>
+    <em>${overLimit ? "слишком большой файл" : "файл выбран"}</em>
+  `;
 }
 
 function currentWebFields(skillId) {
@@ -1314,6 +1439,71 @@ function webTaskStatusLabel(status) {
     return "ошибка";
   }
   return status || "статус";
+}
+
+function webTaskStatusTone(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "done") {
+    return "done";
+  }
+  if (normalized === "failed") {
+    return "failed";
+  }
+  if (normalized === "retry") {
+    return "retry";
+  }
+  if (normalized === "in_progress" || normalized === "queued" || normalized === "created") {
+    return "active";
+  }
+  return "neutral";
+}
+
+function webStatusMessage(task) {
+  const normalized = String((task && task.status) || "").toLowerCase();
+  if (normalized === "done") {
+    return "Результат готов.";
+  }
+  if (normalized === "failed") {
+    return "Заявка остановлена с ошибкой. Можно создать новую заявку или дождаться ручной проверки.";
+  }
+  if (normalized === "retry") {
+    return "Произошёл сбой обработки. Заявка автоматически повторится.";
+  }
+  if (normalized === "in_progress") {
+    return "Заявка в работе. Страница обновляет статус автоматически.";
+  }
+  if (normalized === "queued") {
+    return "Заявка в очереди на обработку.";
+  }
+  return "Заявка принята. Ответ появится здесь после обработки.";
+}
+
+function recentFilterLabel(filter) {
+  if (filter === "active") {
+    return "В работе";
+  }
+  if (filter === "done") {
+    return "Готово";
+  }
+  if (filter === "failed") {
+    return "Ошибка";
+  }
+  return "Все";
+}
+
+function matchesRecentFilter(task) {
+  const filter = state.webRecentFilter;
+  if (filter === "all") {
+    return true;
+  }
+  const status = String((task && task.status) || "").toLowerCase();
+  if (filter === "active") {
+    return ["created", "queued", "in_progress", "retry"].includes(status);
+  }
+  if (filter === "failed") {
+    return status === "failed";
+  }
+  return status === filter;
 }
 
 function readRecentWebTasks() {
@@ -1394,6 +1584,7 @@ function renderRecentWebTasks() {
     return;
   }
   container.hidden = false;
+  const filteredTasks = tasks.filter(matchesRecentFilter);
   container.innerHTML = `
     <div class="section-head">
       <div>
@@ -1402,21 +1593,30 @@ function renderRecentWebTasks() {
       </div>
       <button type="button" class="ghost-button" id="clear-web-recent">Очистить</button>
     </div>
+    <div class="web-recent-filters" role="group" aria-label="Фильтр заявок">
+      ${WEB_RECENT_FILTERS.map((filter) => `
+        <button type="button" data-web-recent-filter="${escapeHtml(filter)}" class="${state.webRecentFilter === filter ? "active" : ""}">
+          ${escapeHtml(recentFilterLabel(filter))}
+        </button>
+      `).join("")}
+    </div>
     <div class="web-recent-list">
-      ${tasks
+      ${filteredTasks.length
+        ? filteredTasks
         .map(
           (task) => `
             <button type="button" class="web-recent-item" data-web-trace="${escapeHtml(task.trace_id)}">
               <span>
                 <strong>${escapeHtml(compact(task.skill_title || "задача", 70))}</strong>
                 <small>${escapeHtml(compact(task.summary || task.trace_id, 120))}</small>
-                <small>${escapeHtml(task.trace_id)}</small>
+                <small>${escapeHtml(formatShortDate(task.updated_at || task.created_at))} · ${escapeHtml(task.trace_id)}</small>
               </span>
-              <em>${escapeHtml(webTaskStatusLabel(task.status))}</em>
+              <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
             </button>
           `,
         )
-        .join("")}
+        .join("")
+        : `<div class="empty">Нет заявок с таким статусом</div>`}
     </div>
   `;
 
@@ -1424,6 +1624,12 @@ function renderRecentWebTasks() {
   if (clearButton) {
     clearButton.addEventListener("click", clearRecentWebTasks);
   }
+  container.querySelectorAll("[data-web-recent-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.webRecentFilter = button.dataset.webRecentFilter || "all";
+      renderRecentWebTasks();
+    });
+  });
 }
 
 async function fetchMyWebTasks() {
@@ -1488,12 +1694,13 @@ function renderWebTask(task) {
 
   const traceId = task.trace_id || "";
   const status = webTaskStatusLabel(task.status);
+  const tone = webTaskStatusTone(task.status);
   const taskUrl = traceId ? `${window.location.origin}${window.location.pathname}?trace=${encodeURIComponent(traceId)}` : "";
   const result = task.result
     ? `<div class="web-result">${escapeHtml(task.result)}</div>`
     : task.error_text
-      ? `<p>${escapeHtml(task.error_text)}</p>`
-      : `<p>Ответ появится здесь после обработки задачи.</p>`;
+      ? `<div class="web-result danger">${escapeHtml(task.error_text)}</div>`
+      : `<div class="web-result pending">${escapeHtml(webStatusMessage(task))}</div>`;
   const objectLabel = task.object || task.project || task.topic || task.query || "не указан";
   const details = task.extra_fields && typeof task.extra_fields === "object" ? Object.values(task.extra_fields) : [];
   const extraDetails = details
@@ -1505,17 +1712,20 @@ function renderWebTask(task) {
   card.hidden = false;
   card.innerHTML = `
     <div class="web-task-head">
-      <span>
-        <strong>${escapeHtml(status)}</strong>
+      <span class="web-task-title">
+        <em data-tone="${escapeHtml(tone)}">${escapeHtml(status)}</em>
         <small>${escapeHtml(traceId)}</small>
       </span>
       ${taskUrl ? `<button type="button" class="ghost-button" id="copy-task-link">Ссылка</button>` : ""}
     </div>
+    <p class="web-task-message">${escapeHtml(webStatusMessage(task))}</p>
     <dl>
       <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
       <div><dt>Запрос</dt><dd>${escapeHtml(objectLabel)}</dd></div>
       <div><dt>Срок</dt><dd>${escapeHtml(task.deadline || "не указан")}</dd></div>
       <div><dt>Файл</dt><dd>${escapeHtml(task.file_name || "не приложен")}</dd></div>
+      <div><dt>Создана</dt><dd>${escapeHtml(formatShortDate(task.created_at) || "не указано")}</dd></div>
+      <div><dt>Обновлена</dt><dd>${escapeHtml(formatShortDate(task.updated_at) || "не указано")}</dd></div>
       ${extraDetails}
     </dl>
     ${result}
@@ -1574,11 +1784,42 @@ function renderWebQueue(data) {
             <small>${escapeHtml(detail)}</small>
             ${task.error_text ? `<small>${escapeHtml(compact(task.error_text, 160))}</small>` : ""}
           </span>
-          <em>${escapeHtml(webTaskStatusLabel(task.status))}</em>
+          <span class="queue-actions">
+            <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
+            ${["failed", "retry"].includes(String(task.status || "").toLowerCase()) ? `<button type="button" class="ghost-button" data-web-retry="${escapeHtml(task.trace_id)}">Повторить</button>` : ""}
+          </span>
         </div>
       `;
     })
     .join("");
+}
+
+async function retryWebTask(traceId) {
+  const token = webQueueToken();
+  if (!token || !traceId) {
+    showToast("Нужен админ-токен");
+    return;
+  }
+  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/result`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CostIQ-Admin": token,
+    },
+    body: JSON.stringify({
+      status: "retry",
+      result: "",
+      error_text: "",
+      retry_after: "",
+      attempts: 0,
+    }),
+  });
+  if (!response.ok) {
+    showToast(`Повтор не запущен: HTTP ${response.status}`);
+    return;
+  }
+  showToast("Заявка возвращена в обработку");
+  refreshWebQueue();
 }
 
 async function refreshWebQueue() {
@@ -1656,6 +1897,16 @@ async function submitWebIntake(event) {
     formData.set("command", skill.command);
   }
   appendWebMetadata(formData, skill);
+  const file = formData.get("file");
+  const requiresFile = formData.get("requires_file") === "1";
+  if (requiresFile && (!file || !file.size)) {
+    showToast("Приложите файл для этого сценария");
+    return;
+  }
+  if (file && file.size > WEB_FILE_MAX_BYTES) {
+    showToast("Файл больше 25 МБ");
+    return;
+  }
   if (state.telegramInitData) {
     formData.set("telegram_init_data", state.telegramInitData);
   }
@@ -1687,7 +1938,7 @@ async function submitWebIntake(event) {
     showToast("Задача создана");
   } catch (error) {
     const message = String(error && error.message ? error.message : "");
-    showToast(message === "intake_not_configured" ? "Web intake ещё не настроен" : "Не удалось создать задачу");
+    showToast(safeErrorMessage(message));
     renderWebTask({
       status: "failed",
       trace_id: "submit-error",
@@ -1695,10 +1946,7 @@ async function submitWebIntake(event) {
       object: "ошибка отправки",
       deadline: "",
       file_name: "",
-      result:
-        message === "intake_not_configured"
-          ? "Нужно подключить Cloudflare KV и Telegram Bot API secret."
-          : "Проверьте соединение и настройки web intake.",
+      result: safeErrorMessage(message),
     });
   } finally {
     if (button) {
@@ -1744,6 +1992,12 @@ document.addEventListener("click", (event) => {
     if (taskCard) {
       taskCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    return;
+  }
+
+  const retryButton = event.target.closest("[data-web-retry]");
+  if (retryButton) {
+    retryWebTask(retryButton.dataset.webRetry);
   }
 });
 
