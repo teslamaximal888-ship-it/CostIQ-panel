@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,9 @@ BRIDGE_LOG_FILE = STATE_DIR / "bridge.log"
 OUTPUT_FILE = PANEL_DIR / "panel-data.json"
 
 
+VOLATILE_KEYS = {"generated_at"}
+
+
 def iso_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -29,6 +33,14 @@ def read_json(path: Path, default: Any) -> Any:
         return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return default
+
+
+def comparable_payload(payload: Any) -> Any:
+    if isinstance(payload, dict):
+        return {key: comparable_payload(value) for key, value in payload.items() if key not in VOLATILE_KEYS}
+    if isinstance(payload, list):
+        return [comparable_payload(item) for item in payload]
+    return payload
 
 
 def read_jsonl_tail(path: Path, limit: int = 1000) -> list[dict[str, Any]]:
@@ -164,10 +176,26 @@ def build_payload() -> dict[str, Any]:
     }
 
 
-def main() -> None:
-    payload = build_payload()
+def write_payload(payload: dict[str, Any], quiet: bool = False) -> bool:
+    previous = read_json(OUTPUT_FILE, {})
+    if comparable_payload(previous) == comparable_payload(payload):
+        if not quiet:
+            print("[INFO] snapshot data unchanged")
+        return False
+
     OUTPUT_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"[INFO] wrote {OUTPUT_FILE}")
+    if not quiet:
+        print(f"[INFO] wrote {OUTPUT_FILE}")
+    return True
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build static CostIQ panel data snapshot.")
+    parser.add_argument("--quiet", action="store_true", help="Print only errors.")
+    args = parser.parse_args()
+
+    payload = build_payload()
+    write_payload(payload, quiet=args.quiet)
 
 
 if __name__ == "__main__":

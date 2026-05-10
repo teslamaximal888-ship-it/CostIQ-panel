@@ -421,6 +421,7 @@ const state = {
   query: "",
   panelData: null,
   pendingAction: null,
+  panelDataTimer: null,
 };
 
 function initTelegram() {
@@ -463,6 +464,31 @@ function formatGeneratedAt(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatSnapshotAge(value) {
+  if (!value) {
+    return "snapshot не загружен";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "snapshot без даты";
+  }
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) {
+    return "обновлено сейчас";
+  }
+  if (minutes < 60) {
+    return `обновлено ${minutes} мин назад`;
+  }
+  const hours = Math.round(minutes / 60);
+  return `обновлено ${hours} ч назад`;
+}
+
+function setSnapshotStatus(value) {
+  const label = formatSnapshotAge(value);
+  setText("activity-status", label);
+  setText("control-subtitle", `Snapshot: ${formatGeneratedAt(value)} · ${label}`);
 }
 
 function normalize(value) {
@@ -575,7 +601,7 @@ function renderPanelData(data) {
   setText("metric-queue", metrics.queue || "0 в ожидании");
   setText("metric-today", metrics.today || "0 входящих");
   setText("metric-errors", metrics.errors || "0");
-  setText("control-subtitle", `Snapshot: ${formatGeneratedAt(data.generated_at)}`);
+  setSnapshotStatus(data.generated_at);
 
   const tasks = data.tasks || {};
   const trace = data.trace || {};
@@ -701,14 +727,14 @@ function renderTrace(trace) {
 function renderActivity(data) {
   const tasks = data.tasks || {};
   const trace = data.trace || {};
-  setText("activity-status", formatGeneratedAt(data.generated_at));
+  setSnapshotStatus(data.generated_at);
   renderTaskList(tasks);
   renderTrace(trace);
 }
 
 async function loadPanelData() {
   try {
-    const response = await fetch("./panel-data.json", { cache: "no-store" });
+    const response = await fetch(`./panel-data.json?ts=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -716,7 +742,13 @@ async function loadPanelData() {
     renderPanelData(data);
   } catch (error) {
     setText("control-subtitle", "Snapshot пока не загружен");
+    setText("activity-status", "нет данных");
   }
+}
+
+function startPanelDataRefresh() {
+  loadPanelData();
+  state.panelDataTimer = window.setInterval(loadPanelData, 60000);
 }
 
 function renderView() {
@@ -903,4 +935,4 @@ document.getElementById("search-input").addEventListener("input", (event) => {
 
 renderView();
 initTelegram();
-loadPanelData();
+startPanelDataRefresh();

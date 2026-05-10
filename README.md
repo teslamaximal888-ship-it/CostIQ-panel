@@ -28,10 +28,29 @@ Version v5 adds an operational journal inside the panel:
 - top trace intents and statuses from `guest_trace.jsonl`
 - the same static `panel-data.json` snapshot powers both metrics and the journal
 
-Before publishing a fresh metrics snapshot:
+Version v6 adds automatic snapshot refresh:
+
+- the Mini App refetches `panel-data.json` every 60 seconds while it is open
+- the UI shows when the snapshot was updated
+- `scripts/build_panel_data.py` keeps `panel-data.json` unchanged when metrics did not change
+- `scripts/refresh_panel_snapshot.sh` rebuilds, commits, and pushes snapshot changes for Cloudflare Pages
+
+Manual snapshot refresh:
 
 ```bash
 python3 scripts/build_panel_data.py
+```
+
+Automatic refresh command:
+
+```bash
+scripts/refresh_panel_snapshot.sh
+```
+
+Recommended cron entry:
+
+```cron
+*/5 * * * * /home/ClawdCostIQ/workspace/costiq-panel/scripts/refresh_panel_snapshot.sh
 ```
 
 Payload format:
