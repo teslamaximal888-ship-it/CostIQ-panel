@@ -21,6 +21,13 @@ Version v4 adds launch forms for the main workflows:
 - form fields are sent inside the same Telegram WebApp payload as `fields`
 - the bridge echoes those fields in the starter reply before the user attaches files or continues the task
 
+Version v5 adds an operational journal inside the panel:
+
+- recent items from `task_queue.json`
+- trace summary for 24h / 7d / errors
+- top trace intents and statuses from `guest_trace.jsonl`
+- the same static `panel-data.json` snapshot powers both metrics and the journal
+
 Before publishing a fresh metrics snapshot:
 
 ```bash

@@ -469,6 +469,22 @@ function normalize(value) {
   return String(value || "").toLowerCase().replace(/ё/g, "е");
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function compact(value, limit = 90) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= limit) {
+    return text;
+  }
+  return `${text.slice(0, limit - 1)}…`;
+}
+
 function currentGroups() {
   return state.view === "department" ? departments : functions;
 }
@@ -594,6 +610,100 @@ function renderPanelData(data) {
       <strong>${lastLine}</strong>
     </div>
   `;
+
+  renderActivity(data);
+}
+
+function formatPairList(items) {
+  if (!Array.isArray(items) || !items.length) {
+    return [];
+  }
+  return items
+    .filter((item) => Array.isArray(item) && item.length >= 2)
+    .map((item) => ({ name: String(item[0] || "unknown"), count: item[1] || 0 }));
+}
+
+function renderTaskList(tasks) {
+  const list = document.getElementById("task-list");
+  if (!list) {
+    return;
+  }
+  const recent = Array.isArray(tasks.recent) ? tasks.recent : [];
+  if (!recent.length) {
+    list.innerHTML = `<div class="empty">Очередь пока пустая</div>`;
+    return;
+  }
+
+  list.innerHTML = recent
+    .slice(0, 5)
+    .map((task) => {
+      const title = task.skill || task.id || "задача";
+      const detail = [task.file_name, task.user, task.created_at].filter(Boolean).join(" · ");
+      return `
+        <div class="activity-item">
+          <span>
+            <strong>${escapeHtml(compact(title, 70))}</strong>
+            <small>${escapeHtml(compact(detail || "без деталей", 110))}</small>
+          </span>
+          <em>${escapeHtml(task.status || "status")}</em>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderTrace(trace) {
+  const summary = document.getElementById("trace-summary");
+  const list = document.getElementById("trace-list");
+  if (!summary || !list) {
+    return;
+  }
+
+  summary.innerHTML = `
+    <div>
+      <strong>${trace.finishes_24h || 0}</strong>
+      <span>за 24 часа</span>
+    </div>
+    <div>
+      <strong>${trace.finishes_7d || 0}</strong>
+      <span>за 7 дней</span>
+    </div>
+    <div>
+      <strong>${trace.errors_7d || 0}</strong>
+      <span>ошибки за 7 дней</span>
+    </div>
+  `;
+
+  const rows = [
+    ...formatPairList(trace.top_intents).map((item) => ({ type: "intent", ...item })),
+    ...formatPairList(trace.top_statuses).map((item) => ({ type: "status", ...item })),
+  ];
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty">Trace пока без данных</div>`;
+    return;
+  }
+  list.innerHTML = rows
+    .slice(0, 6)
+    .map(
+      (row) => `
+        <div class="activity-item">
+          <span>
+            <strong>${escapeHtml(compact(row.name, 70))}</strong>
+            <small>${escapeHtml(row.type)}</small>
+          </span>
+          <em>${escapeHtml(row.count)}</em>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderActivity(data) {
+  const tasks = data.tasks || {};
+  const trace = data.trace || {};
+  setText("activity-status", formatGeneratedAt(data.generated_at));
+  renderTaskList(tasks);
+  renderTrace(trace);
 }
 
 async function loadPanelData() {
