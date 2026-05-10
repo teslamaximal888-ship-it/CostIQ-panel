@@ -43,5 +43,9 @@ export async function onRequestGet({ env, params }) {
     return jsonResponse({ ok: false, error: "task_corrupted" }, 500);
   }
 
-  return jsonResponse({ ok: true, task });
+  const { attachment, ...publicTask } = task;
+  if (attachment) {
+    publicTask.attachment_status = task.attachment_status || "stored";
+  }
+  return jsonResponse({ ok: true, task: publicTask });
 }

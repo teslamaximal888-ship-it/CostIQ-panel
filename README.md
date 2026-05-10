@@ -72,6 +72,13 @@ Version v11 adds isolated web-intake autoprocessing support:
 - `POST /api/panel/task/:trace_id/result` accepts `in_progress` / `queued` without a final result so public users can see live status
 - file-based web tasks remain manual until uploaded files are stored in a retrievable backend such as R2
 
+Version v12 adds R2-backed file handoff for web intake:
+
+- file uploads are stored in R2 through the `WEB_ATTACHMENTS` binding when it is configured
+- `GET /api/panel/task/:trace_id/file` lets the bridge download the file with the admin token
+- public task status still hides the internal R2 key
+- if R2 is not configured, file tasks still notify Telegram but stay manual
+
 Manual snapshot refresh:
 
 ```bash
@@ -108,6 +115,7 @@ Cloudflare environment for web intake:
 
 ```text
 KV binding: WEB_INTAKE
+R2 binding: WEB_ATTACHMENTS
 Secret: TELEGRAM_BOT_TOKEN
 Variable: COSTIQ_NOTIFY_CHAT_ID=5059630577
 Optional secret: COSTIQ_PANEL_ADMIN_TOKEN

@@ -1,4 +1,5 @@
 const MAX_FILE_BYTES = 45 * 1024 * 1024;
+const ATTACHMENT_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -23,6 +24,11 @@ function makeTraceId() {
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
   const random = crypto.randomUUID().slice(0, 8);
   return `web-${stamp}-${random}`;
+}
+
+function safeFileName(value) {
+  const base = cleanText(value, 220) || "web-intake-file";
+  return base.replace(/[\\/:*?"<>|#%{}^~[\]`]/g, "_").slice(0, 180) || "web-intake-file";
 }
 
 function field(formData, name, limit) {
@@ -135,6 +141,33 @@ async function storeTask(env, task) {
   return true;
 }
 
+async function storeAttachment(env, task, file) {
+  if (!env.WEB_ATTACHMENTS || !file || !file.size) {
+    return null;
+  }
+  const name = safeFileName(file.name);
+  const key = `web-intake/${task.trace_id}/${crypto.randomUUID()}-${name}`;
+  await env.WEB_ATTACHMENTS.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type || "application/octet-stream",
+      contentDisposition: `attachment; filename="${name.replace(/"/g, "")}"`,
+    },
+    customMetadata: {
+      trace_id: task.trace_id,
+      file_name: name,
+      source: "costiq-panel",
+    },
+  });
+  return {
+    storage: "r2",
+    key,
+    name,
+    size: file.size,
+    type: file.type || "application/octet-stream",
+    expires_at: new Date(Date.now() + ATTACHMENT_TTL_SECONDS * 1000).toISOString(),
+  };
+}
+
 export async function onRequestOptions() {
   return jsonResponse({ ok: true });
 }
@@ -199,11 +232,19 @@ export async function onRequestPost({ request, env }) {
   }
 
   let persisted = false;
+  let attachment = null;
   let notification = { ok: false, skipped: "not_attempted" };
   try {
+    attachment = hasFile ? await storeAttachment(env, task, file) : null;
+    if (attachment) {
+      task.attachment = attachment;
+      task.attachment_status = "stored";
+    } else if (hasFile) {
+      task.attachment_status = "telegram_only";
+    }
     persisted = await storeTask(env, task);
   } catch (error) {
-    return jsonResponse({ ok: false, error: "storage_failed" }, 500);
+    return jsonResponse({ ok: false, error: "storage_failed", detail: "task_or_attachment" }, 500);
   }
 
   try {
