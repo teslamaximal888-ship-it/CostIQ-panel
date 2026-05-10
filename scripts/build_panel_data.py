@@ -38,7 +38,7 @@ def read_json(path: Path, default: Any) -> Any:
 def comparable_payload(payload: Any) -> Any:
     if isinstance(payload, dict):
         return {key: comparable_payload(value) for key, value in payload.items() if key not in VOLATILE_KEYS}
-    if isinstance(payload, list):
+    if isinstance(payload, (list, tuple)):
         return [comparable_payload(item) for item in payload]
     return payload
 
