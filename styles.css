@@ -739,6 +739,25 @@ h2 {
   letter-spacing: 0;
 }
 
+.web-queue {
+  margin-top: 24px;
+}
+
+.web-queue-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.web-queue-controls input {
+  min-width: 0;
+}
+
+.web-queue .activity-list {
+  margin-top: 12px;
+}
+
 .activity-list {
   display: grid;
   gap: 8px;

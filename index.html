@@ -176,6 +176,22 @@
           </div>
         </div>
       </section>
+
+      <section class="web-queue admin-only">
+        <div class="section-head">
+          <div>
+            <h2>Web-очередь</h2>
+            <p>Зависшие заявки, повторы и ошибки web intake</p>
+          </div>
+          <span id="web-queue-status">admin token</span>
+        </div>
+        <div class="web-queue-controls">
+          <input id="web-queue-token" type="password" autocomplete="off" placeholder="Админ-токен">
+          <button type="button" class="ghost-button" id="web-queue-refresh">Обновить</button>
+        </div>
+        <div class="trace-summary" id="web-queue-summary"></div>
+        <div class="activity-list" id="web-queue-list"></div>
+      </section>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

@@ -89,6 +89,14 @@ Version v13 adds Telegram Mini App identity for public intake:
 - "Мои последние заявки" combines Telegram-bound history with browser `localStorage`, so the same user can see tasks from another device inside Telegram
 - browser-only users keep the existing trace link and local history fallback
 
+Version v14 adds web-intake queue reliability:
+
+- tasks store `attempts`, `max_attempts`, `retry_after`, `error_text`, and processing timestamps
+- the bridge processes only fresh `created` tasks and due `retry` tasks, then retries transient failures before marking a task `failed`
+- stale `in_progress` tasks are detected and moved back to retry or final failure
+- `GET /api/panel/tasks` can filter by status and returns queue summary plus stale/due flags
+- `/admin/` includes a protected Web-очередь block for retries, stale tasks, and failures
+
 Manual snapshot refresh:
 
 ```bash

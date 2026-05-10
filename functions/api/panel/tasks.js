@@ -26,6 +26,40 @@ function cleanLimit(value) {
   return Math.min(Math.max(parsed, 1), 100);
 }
 
+function parseStatuses(value) {
+  return new Set(
+    String(value || "")
+      .split(",")
+      .map((item) => cleanText(item, 40).toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function parseMinutes(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, 1), 24 * 60);
+}
+
+function parseEpoch(value) {
+  if (!value) {
+    return 0;
+  }
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function queueState(task, now, staleMs) {
+  const status = String(task.status || "").toLowerCase();
+  const updated = parseEpoch(task.updated_at || task.created_at);
+  const retryAfter = parseEpoch(task.retry_after);
+  const stale = Boolean(updated && now - updated > staleMs && ["created", "queued", "in_progress", "retry"].includes(status));
+  const due = status === "retry" ? !retryAfter || retryAfter <= now : status === "created";
+  return { status, stale, due };
+}
+
 const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
 
 async function sha256Hex(value) {
@@ -73,16 +107,58 @@ export async function onRequestGet({ request, env }) {
 
   const url = new URL(request.url);
   const limit = cleanLimit(url.searchParams.get("limit"));
+  const statuses = parseStatuses(url.searchParams.get("status"));
+  const staleOnly = url.searchParams.get("stale") === "1";
+  const staleMinutes = parseMinutes(url.searchParams.get("stale_minutes"), 15);
+  const now = Date.now();
+  const staleMs = staleMinutes * 60 * 1000;
   const list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 100 });
-  const tasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
+  const allTasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
     .filter(Boolean)
-    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+    .map((task) => {
+      const state = queueState(task, now, staleMs);
+      return {
+        ...task,
+        queue_state: {
+          stale: state.stale,
+          due: state.due,
+        },
+      };
+    })
+    .filter((task) => {
+      const status = String(task.status || "").toLowerCase();
+      if (statuses.size && !statuses.has(status)) {
+        return false;
+      }
+      if (staleOnly && !task.queue_state.stale) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
+  const summary = allTasks.reduce(
+    (acc, task) => {
+      const status = String(task.status || "unknown").toLowerCase();
+      acc.total += 1;
+      acc.by_status[status] = (acc.by_status[status] || 0) + 1;
+      if (task.queue_state && task.queue_state.stale) {
+        acc.stale += 1;
+      }
+      if (task.queue_state && task.queue_state.due) {
+        acc.due += 1;
+      }
+      return acc;
+    },
+    { total: 0, stale: 0, due: 0, by_status: {} },
+  );
+  const tasks = allTasks
     .slice(0, limit);
 
   return jsonResponse({
     ok: true,
     tasks,
     count: tasks.length,
+    summary,
     cursor: list.list_complete ? "" : list.cursor || "",
   });
 }

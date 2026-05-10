@@ -25,6 +25,14 @@ function cleanText(value, limit = 4000) {
     .slice(0, limit);
 }
 
+function cleanInteger(value, fallback = 0, min = 0, max = 99) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, min), max);
+}
+
 async function parsePayload(request) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -88,16 +96,41 @@ export async function onRequestPost({ request, env, params }) {
   }
 
   const status = cleanText(payload.status, 40) || "done";
+  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done"]);
+  if (!allowedStatuses.has(status)) {
+    return jsonResponse({ ok: false, error: "invalid_status" }, 400);
+  }
   const result = cleanText(payload.result, 4000);
-  if (!result && !["queued", "in_progress"].includes(status)) {
+  if (!result && !["created", "queued", "in_progress", "retry"].includes(status)) {
     return jsonResponse({ ok: false, error: "result_required" }, 400);
   }
+  const errorText = cleanText(payload.error_text, 1400);
+  const retryAfter = cleanText(payload.retry_after, 80);
+  const attempts = payload.attempts === undefined ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(payload.attempts, 0, 0, 99);
+  const maxAttempts = payload.max_attempts === undefined ? cleanInteger(task.max_attempts, 3, 1, 99) : cleanInteger(payload.max_attempts, 3, 1, 99);
+  const now = new Date().toISOString();
 
   const updatedTask = {
     ...task,
     status,
     result,
-    updated_at: new Date().toISOString(),
+    attempts,
+    max_attempts: maxAttempts,
+    retry_after: retryAfter,
+    error_text: errorText,
+    processing_started_at:
+      payload.processing_started_at === undefined
+        ? status === "in_progress"
+          ? task.processing_started_at || now
+          : task.processing_started_at || ""
+        : cleanText(payload.processing_started_at, 80),
+    processing_finished_at:
+      payload.processing_finished_at === undefined
+        ? ["done", "failed"].includes(status)
+          ? now
+          : task.processing_finished_at || ""
+        : cleanText(payload.processing_finished_at, 80),
+    updated_at: now,
   };
 
   await env.WEB_INTAKE.put(`task:${traceId}`, JSON.stringify(updatedTask), {

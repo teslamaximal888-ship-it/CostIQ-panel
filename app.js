@@ -1,5 +1,6 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
+const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
 
@@ -687,6 +688,7 @@ const state = {
   panelDataTimer: null,
   webStatusTimer: null,
   webRecentTimer: null,
+  webQueueTimer: null,
   telegramInitData: "",
   telegramUser: null,
   telegramHistoryAvailable: false,
@@ -1302,6 +1304,9 @@ function webTaskStatusLabel(status) {
   if (normalized === "in_progress") {
     return "в работе";
   }
+  if (normalized === "retry") {
+    return "повтор";
+  }
   if (normalized === "done") {
     return "готово";
   }
@@ -1484,7 +1489,11 @@ function renderWebTask(task) {
   const traceId = task.trace_id || "";
   const status = webTaskStatusLabel(task.status);
   const taskUrl = traceId ? `${window.location.origin}${window.location.pathname}?trace=${encodeURIComponent(traceId)}` : "";
-  const result = task.result ? `<div class="web-result">${escapeHtml(task.result)}</div>` : `<p>Ответ появится здесь после обработки задачи.</p>`;
+  const result = task.result
+    ? `<div class="web-result">${escapeHtml(task.result)}</div>`
+    : task.error_text
+      ? `<p>${escapeHtml(task.error_text)}</p>`
+      : `<p>Ответ появится здесь после обработки задачи.</p>`;
   const objectLabel = task.object || task.project || task.topic || task.query || "не указан";
   const details = task.extra_fields && typeof task.extra_fields === "object" ? Object.values(task.extra_fields) : [];
   const extraDetails = details
@@ -1523,6 +1532,80 @@ function renderWebTask(task) {
       }
     });
   }
+}
+
+function webQueueToken() {
+  const input = document.getElementById("web-queue-token");
+  return String((input && input.value) || window.sessionStorage.getItem(WEB_QUEUE_TOKEN_STORAGE_KEY) || "").trim();
+}
+
+function renderWebQueue(data) {
+  const summary = document.getElementById("web-queue-summary");
+  const list = document.getElementById("web-queue-list");
+  if (!summary || !list) {
+    return;
+  }
+  const totals = data.summary || {};
+  const byStatus = totals.by_status || {};
+  setText("web-queue-status", data.ok ? "обновлено" : "ошибка");
+  summary.innerHTML = `
+    <div><span>Всего</span><strong>${totals.total || 0}</strong></div>
+    <div><span>К обработке</span><strong>${totals.due || 0}</strong></div>
+    <div><span>Зависшие</span><strong>${totals.stale || 0}</strong></div>
+    <div><span>Ошибки</span><strong>${byStatus.failed || 0}</strong></div>
+  `;
+  const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+  if (!tasks.length) {
+    list.innerHTML = `<div class="empty">Нет зависших или ошибочных web-заявок</div>`;
+    return;
+  }
+  list.innerHTML = tasks
+    .map((task) => {
+      const queueState = task.queue_state || {};
+      const flags = [queueState.stale ? "зависла" : "", queueState.due ? "к обработке" : ""].filter(Boolean).join(" · ");
+      const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, flags]
+        .filter(Boolean)
+        .join(" · ");
+      const title = recentTaskSummary(task);
+      return `
+        <div class="activity-item">
+          <span>
+            <strong>${escapeHtml(compact(title, 90))}</strong>
+            <small>${escapeHtml(detail)}</small>
+            ${task.error_text ? `<small>${escapeHtml(compact(task.error_text, 160))}</small>` : ""}
+          </span>
+          <em>${escapeHtml(webTaskStatusLabel(task.status))}</em>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function refreshWebQueue() {
+  if (!isAdminMode()) {
+    return;
+  }
+  const token = webQueueToken();
+  if (!token) {
+    setText("web-queue-status", "нужен токен");
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(WEB_QUEUE_TOKEN_STORAGE_KEY, token);
+  } catch (error) {
+    return;
+  }
+  const response = await fetch("/api/panel/tasks?limit=30&status=created,queued,in_progress,retry,failed&stale_minutes=15", {
+    cache: "no-store",
+    headers: {
+      "X-CostIQ-Admin": token,
+    },
+  });
+  if (!response.ok) {
+    setText("web-queue-status", `HTTP ${response.status}`);
+    return;
+  }
+  renderWebQueue(await response.json());
 }
 
 async function fetchWebTask(traceId) {
@@ -1699,6 +1782,20 @@ if (webIntakeForm) {
   });
 }
 
+const webQueueTokenInput = document.getElementById("web-queue-token");
+if (webQueueTokenInput) {
+  try {
+    webQueueTokenInput.value = window.sessionStorage.getItem(WEB_QUEUE_TOKEN_STORAGE_KEY) || "";
+  } catch (error) {
+    webQueueTokenInput.value = "";
+  }
+}
+
+const webQueueRefresh = document.getElementById("web-queue-refresh");
+if (webQueueRefresh) {
+  webQueueRefresh.addEventListener("click", refreshWebQueue);
+}
+
 const searchInput = document.getElementById("search-input");
 if (searchInput) {
   searchInput.addEventListener("input", (event) => {
@@ -1713,4 +1810,6 @@ startPanelDataRefresh();
 renderRecentWebTasks();
 refreshRecentWebTasks();
 state.webRecentTimer = window.setInterval(refreshRecentWebTasks, WEB_RECENT_REFRESH_MS);
+refreshWebQueue();
+state.webQueueTimer = window.setInterval(refreshWebQueue, WEB_RECENT_REFRESH_MS);
 loadWebTaskFromUrl();

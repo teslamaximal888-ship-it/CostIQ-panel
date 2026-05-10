@@ -104,29 +104,15 @@
               <label for="web-skill">Навык</label>
               <select id="web-skill" name="skill" required></select>
             </div>
-            <div class="field">
-              <label for="web-object">Проект / объект</label>
-              <input id="web-object" name="object" type="text" autocomplete="off" placeholder="Проект, корпус, объект" required>
-            </div>
-            <div class="field">
-              <label for="web-deadline">Срок</label>
-              <input id="web-deadline" name="deadline" type="text" autocomplete="off" placeholder="Сегодня / до 18:00 / дата">
-            </div>
-            <div class="field wide">
-              <label for="web-comment">Комментарий</label>
-              <textarea id="web-comment" name="comment" placeholder="Что нужно сделать и на что обратить внимание" required></textarea>
-            </div>
-            <div class="field wide">
-              <label for="web-file">Файл</label>
-              <input id="web-file" name="file" type="file">
-            </div>
           </div>
+          <div class="form-grid web-dynamic-fields" id="web-dynamic-fields"></div>
           <div class="form-actions">
             <button class="ghost-button" type="reset">Очистить</button>
             <button class="submit-button" type="submit">Создать задачу</button>
           </div>
         </form>
         <div class="web-task-card" id="web-task-card" hidden></div>
+        <div class="web-recent" id="web-recent" hidden></div>
       </section>
 
       <section class="workspace admin-only">
@@ -190,6 +176,22 @@
             <div class="activity-list compact" id="trace-list"></div>
           </div>
         </div>
+      </section>
+
+      <section class="web-queue admin-only">
+        <div class="section-head">
+          <div>
+            <h2>Web-очередь</h2>
+            <p>Зависшие заявки, повторы и ошибки web intake</p>
+          </div>
+          <span id="web-queue-status">admin token</span>
+        </div>
+        <div class="web-queue-controls">
+          <input id="web-queue-token" type="password" autocomplete="off" placeholder="Админ-токен">
+          <button type="button" class="ghost-button" id="web-queue-refresh">Обновить</button>
+        </div>
+        <div class="trace-summary" id="web-queue-summary"></div>
+        <div class="activity-list" id="web-queue-list"></div>
       </section>
     </main>
 
