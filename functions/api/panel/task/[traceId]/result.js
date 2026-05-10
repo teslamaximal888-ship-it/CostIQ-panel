@@ -36,8 +36,11 @@ async function parsePayload(request) {
 
 function hasAdminAccess(request, env, payload) {
   const provided = cleanText(request.headers.get("X-CostIQ-Admin") || payload.admin_key || "", 500);
-  const expected = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || env.COSTIQ_NOTIFY_CHAT_ID || "", 500);
-  return Boolean(provided && expected && provided === expected);
+  const allowed = [
+    cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500),
+    cleanText(env.COSTIQ_NOTIFY_CHAT_ID || "", 500),
+  ].filter(Boolean);
+  return Boolean(provided && allowed.includes(provided));
 }
 
 export async function onRequestOptions() {
