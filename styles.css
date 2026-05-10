@@ -1,0 +1,268 @@
+:root {
+  color-scheme: dark;
+  --bg: #111214;
+  --surface: #1b1d21;
+  --surface-2: #23262c;
+  --line: #343841;
+  --text: #f2f4f7;
+  --muted: #aab1bd;
+  --blue: #6ea8ff;
+  --green: #59d18c;
+  --copper: #f18a45;
+  --red: #ff7a7a;
+  --radius: 8px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.shell {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0 18px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 19px;
+}
+
+.status,
+.section-head span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: var(--surface);
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 8px 0 24px;
+}
+
+.primary-action,
+.card,
+.ops button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.primary-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 94px;
+  padding: 16px;
+  text-align: left;
+  border-color: rgba(89, 209, 140, 0.45);
+  background: #18231e;
+}
+
+.primary-action.secondary {
+  border-color: rgba(110, 168, 255, 0.45);
+  background: #18202d;
+}
+
+.primary-action:active,
+.card:active,
+.ops button:active {
+  transform: scale(0.99);
+}
+
+.primary-action strong,
+.card strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.primary-action small,
+.card small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.action-icon,
+.card-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--green);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.primary-action.secondary .action-icon {
+  color: var(--blue);
+}
+
+.section {
+  padding: 18px 0 4px;
+  border-top: 1px solid var(--line);
+}
+
+.section.compact {
+  margin-top: 16px;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 112px;
+  padding: 14px;
+  text-align: left;
+}
+
+.card:hover,
+.primary-action:hover,
+.ops button:hover {
+  border-color: var(--blue);
+  background: var(--surface-2);
+}
+
+.card[data-tone="green"] .card-icon {
+  color: var(--green);
+}
+
+.card[data-tone="copper"] .card-icon {
+  color: var(--copper);
+}
+
+.card[data-tone="blue"] .card-icon {
+  color: var(--blue);
+}
+
+.card[data-tone="red"] .card-icon {
+  color: var(--red);
+}
+
+.ops {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ops button {
+  min-height: 48px;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: none;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #22262d;
+  color: var(--text);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+}
+
+.toast.visible {
+  display: block;
+}
+
+@media (max-width: 740px) {
+  .shell {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  h1 {
+    font-size: 27px;
+  }
+
+  .quick,
+  .grid,
+  .ops {
+    grid-template-columns: 1fr;
+  }
+
+  .card,
+  .primary-action {
+    min-height: 88px;
+  }
+}
