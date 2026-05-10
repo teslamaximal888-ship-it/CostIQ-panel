@@ -40,6 +40,7 @@ Version v7.1 adds web intake for direct links:
 - public form on the panel: name, skill, project/object, comment, file, deadline
 - Cloudflare Pages Function `POST /api/panel/task` creates a `trace_id`
 - optional KV binding `WEB_INTAKE` stores task status for `GET /api/panel/task/:trace_id`
+- admin Function `POST /api/panel/task/:trace_id/result` writes the final answer into KV
 - optional secrets `TELEGRAM_BOT_TOKEN` and `COSTIQ_NOTIFY_CHAT_ID` send a Telegram notification to the owner
 - task links use `?trace=<trace_id>` and can show the final answer when the backend updates `result`
 - if neither KV nor Telegram notification is configured, the endpoint returns `intake_not_configured` to avoid losing submitted tasks
@@ -82,4 +83,5 @@ Cloudflare environment for web intake:
 KV binding: WEB_INTAKE
 Secret: TELEGRAM_BOT_TOKEN
 Variable: COSTIQ_NOTIFY_CHAT_ID=5059630577
+Optional secret: COSTIQ_PANEL_ADMIN_TOKEN
 ```
