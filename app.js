@@ -1763,6 +1763,7 @@ function renderWebQueue(data) {
     <div><span>К обработке</span><strong>${totals.due || 0}</strong></div>
     <div><span>Зависшие</span><strong>${totals.stale || 0}</strong></div>
     <div><span>Ошибки</span><strong>${byStatus.failed || 0}</strong></div>
+    <div><span>Среднее время</span><strong>${escapeHtml(formatDuration(totals.avg_processing_seconds || 0))}</strong></div>
   `;
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
   if (!tasks.length) {
@@ -1773,7 +1774,8 @@ function renderWebQueue(data) {
     .map((task) => {
       const queueState = task.queue_state || {};
       const flags = [queueState.stale ? "зависла" : "", queueState.due ? "к обработке" : ""].filter(Boolean).join(" · ");
-      const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, flags]
+      const eta = formatQueueEta(queueState);
+      const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, flags, eta]
         .filter(Boolean)
         .join(" · ");
       const title = recentTaskSummary(task);
@@ -1792,6 +1794,90 @@ function renderWebQueue(data) {
       `;
     })
     .join("");
+}
+
+function formatDuration(seconds) {
+  const value = Number(seconds || 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "нет данных";
+  }
+  if (value < 60) {
+    return `${Math.round(value)} сек`;
+  }
+  if (value < 60 * 60) {
+    return `${Math.round(value / 60)} мин`;
+  }
+  const hours = Math.floor(value / 3600);
+  const minutes = Math.round((value % 3600) / 60);
+  return minutes ? `${hours} ч ${minutes} мин` : `${hours} ч`;
+}
+
+function formatQueueEta(queueState) {
+  const position = Number(queueState.queue_position || 0);
+  const etaSeconds = Number(queueState.eta_seconds || 0);
+  if (position > 0) {
+    return position === 1 ? "ETA: следующая" : `ETA: ~${formatDuration(etaSeconds)}`;
+  }
+  if (etaSeconds > 0) {
+    return `ETA: ~${formatDuration(etaSeconds)}`;
+  }
+  return "";
+}
+
+function qualityRate(windowData) {
+  const total = Number(windowData.total || 0);
+  if (!total) {
+    return "0%";
+  }
+  const problem = Number(windowData.failed || 0) + Number(windowData.retry || 0) + Number(windowData.warning || 0);
+  return `${Math.round((problem / total) * 100)}%`;
+}
+
+function renderWebQuality(data) {
+  const summary = document.getElementById("web-quality-summary");
+  const skills = document.getElementById("web-quality-skills");
+  const problems = document.getElementById("web-quality-problems");
+  if (!summary || !skills || !problems) {
+    return;
+  }
+  const day = (data.windows && data.windows.day) || {};
+  const week = (data.windows && data.windows.week) || {};
+  setText("web-quality-status", data.ok ? "обновлено" : "ошибка");
+  summary.innerHTML = `
+    <div><span>24 часа</span><strong>${day.total || 0} заявок</strong></div>
+    <div><span>Ошибки 24ч</span><strong>${(day.failed || 0) + (day.retry || 0)}</strong></div>
+    <div><span>WARN/FAIL 24ч</span><strong>${day.warning || 0}</strong></div>
+    <div><span>7 дней</span><strong>${week.total || 0} заявок</strong></div>
+    <div><span>Проблемность 7д</span><strong>${qualityRate(week)}</strong></div>
+    <div><span>Макс. длительность</span><strong>${escapeHtml(formatDuration(week.max_processing_seconds || 0))}</strong></div>
+  `;
+  const topSkills = Array.isArray(data.top_problem_skills) ? data.top_problem_skills : [];
+  skills.innerHTML = topSkills.length
+    ? topSkills
+        .map((item) => `
+          <div class="activity-item">
+            <span>
+              <strong>${escapeHtml(compact(item.name, 80))}</strong>
+              <small>${item.total || 0} всего · ${item.failed || 0} ошибок · ${item.retry || 0} повторов · ${item.warning || 0} WARN/FAIL</small>
+            </span>
+          </div>
+        `)
+        .join("")
+    : `<div class="empty">Проблемных навыков за неделю нет</div>`;
+  const recentProblems = Array.isArray(data.recent_problems) ? data.recent_problems : [];
+  problems.innerHTML = recentProblems.length
+    ? recentProblems
+        .map((item) => `
+          <div class="activity-item">
+            <span>
+              <strong>${escapeHtml(compact(item.skill || item.trace_id, 80))}</strong>
+              <small>${escapeHtml([item.trace_id, webTaskStatusLabel(item.status), item.updated_at].filter(Boolean).join(" · "))}</small>
+              ${item.error_text ? `<small>${escapeHtml(compact(item.error_text, 150))}</small>` : ""}
+            </span>
+          </div>
+        `)
+        .join("")
+    : `<div class="empty">Ошибок и повторов за неделю нет</div>`;
 }
 
 async function retryWebTask(traceId) {
@@ -1847,6 +1933,29 @@ async function refreshWebQueue() {
     return;
   }
   renderWebQueue(await response.json());
+  refreshWebQuality();
+}
+
+async function refreshWebQuality() {
+  if (!isAdminMode()) {
+    return;
+  }
+  const token = webQueueToken();
+  if (!token) {
+    setText("web-quality-status", "нужен токен");
+    return;
+  }
+  const response = await fetch("/api/panel/quality", {
+    cache: "no-store",
+    headers: {
+      "X-CostIQ-Admin": token,
+    },
+  });
+  if (!response.ok) {
+    setText("web-quality-status", `HTTP ${response.status}`);
+    return;
+  }
+  renderWebQuality(await response.json());
 }
 
 async function fetchWebTask(traceId) {

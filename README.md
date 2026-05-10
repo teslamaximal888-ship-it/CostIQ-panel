@@ -105,6 +105,13 @@ Version v15 improves public and admin UX:
 - "Мои последние заявки" has filters for all / active / done / failed and clearer dates/statuses
 - `/admin/` web queue has a retry button for failed/retry tasks when an admin token is present
 
+Version v16 adds ETA and quality analytics:
+
+- `GET /api/panel/tasks` returns average processing time, queue position and ETA for due/retry web tasks
+- `/admin/` shows ETA in the Web-очередь block
+- `GET /api/panel/quality` returns 24h / 7d web-intake quality metrics, problem skills and recent failed/retry tasks
+- `/admin/` includes a protected Качество block for errors, WARN/FAIL signals and slow/problem scenarios
+
 Manual snapshot refresh:
 
 ```bash

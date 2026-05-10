@@ -51,13 +51,40 @@ function parseEpoch(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function isoAfter(now, seconds) {
+  if (!seconds) {
+    return "";
+  }
+  return new Date(now + seconds * 1000).toISOString();
+}
+
+function processingDurationSeconds(task) {
+  const started = parseEpoch(task.processing_started_at);
+  const finished = parseEpoch(task.processing_finished_at);
+  if (!started || !finished || finished <= started) {
+    return 0;
+  }
+  return Math.round((finished - started) / 1000);
+}
+
+function averageProcessingSeconds(tasks) {
+  const durations = tasks
+    .map(processingDurationSeconds)
+    .filter((seconds) => seconds >= 30 && seconds <= 60 * 60);
+  if (!durations.length) {
+    return 5 * 60;
+  }
+  const average = Math.round(durations.reduce((sum, seconds) => sum + seconds, 0) / durations.length);
+  return Math.min(Math.max(average, 60), 20 * 60);
+}
+
 function queueState(task, now, staleMs) {
   const status = String(task.status || "").toLowerCase();
   const updated = parseEpoch(task.updated_at || task.created_at);
   const retryAfter = parseEpoch(task.retry_after);
   const stale = Boolean(updated && now - updated > staleMs && ["created", "queued", "in_progress", "retry"].includes(status));
   const due = status === "retry" ? !retryAfter || retryAfter <= now : status === "created";
-  return { status, stale, due };
+  return { status, stale, due, retryAfter };
 }
 
 const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
@@ -113,7 +140,7 @@ export async function onRequestGet({ request, env }) {
   const now = Date.now();
   const staleMs = staleMinutes * 60 * 1000;
   const list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 100 });
-  const allTasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
+  const rawTasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
     .filter(Boolean)
     .map((task) => {
       const state = queueState(task, now, staleMs);
@@ -122,6 +149,34 @@ export async function onRequestGet({ request, env }) {
         queue_state: {
           stale: state.stale,
           due: state.due,
+        },
+      };
+    });
+  const avgProcessingSeconds = averageProcessingSeconds(rawTasks);
+  const dueOrder = rawTasks
+    .filter((task) => task.queue_state && task.queue_state.due)
+    .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+  const duePositionByTrace = new Map(dueOrder.map((task, index) => [task.trace_id, index + 1]));
+  const allTasks = rawTasks
+    .map((task) => {
+      const status = String(task.status || "").toLowerCase();
+      const retryAfter = parseEpoch(task.retry_after);
+      const duePosition = duePositionByTrace.get(task.trace_id) || 0;
+      let etaSeconds = 0;
+      if (duePosition) {
+        etaSeconds = Math.max(0, (duePosition - 1) * avgProcessingSeconds);
+      } else if (status === "in_progress") {
+        etaSeconds = 0;
+      } else if (status === "retry" && retryAfter && retryAfter > now) {
+        etaSeconds = Math.round((retryAfter - now) / 1000);
+      }
+      return {
+        ...task,
+        queue_state: {
+          ...task.queue_state,
+          queue_position: duePosition,
+          eta_seconds: etaSeconds,
+          eta_at: etaSeconds ? isoAfter(now, etaSeconds) : "",
         },
       };
     })
@@ -149,7 +204,7 @@ export async function onRequestGet({ request, env }) {
       }
       return acc;
     },
-    { total: 0, stale: 0, due: 0, by_status: {} },
+    { total: 0, stale: 0, due: 0, by_status: {}, avg_processing_seconds: avgProcessingSeconds },
   );
   const tasks = allTasks
     .slice(0, limit);

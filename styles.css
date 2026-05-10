@@ -887,7 +887,8 @@ h2 {
   letter-spacing: 0;
 }
 
-.web-queue {
+.web-queue,
+.web-quality {
   margin-top: 24px;
 }
 
@@ -902,7 +903,8 @@ h2 {
   min-width: 0;
 }
 
-.web-queue .activity-list {
+.web-queue .activity-list,
+.web-quality .activity-list {
   margin-top: 12px;
 }
 

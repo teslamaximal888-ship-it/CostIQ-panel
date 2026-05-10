@@ -192,6 +192,27 @@
         <div class="trace-summary" id="web-queue-summary"></div>
         <div class="activity-list" id="web-queue-list"></div>
       </section>
+
+      <section class="web-quality admin-only">
+        <div class="section-head">
+          <div>
+            <h2>Качество</h2>
+            <p>Ошибки, повторы и проблемные навыки web intake</p>
+          </div>
+          <span id="web-quality-status">admin token</span>
+        </div>
+        <div class="trace-summary" id="web-quality-summary"></div>
+        <div class="activity-grid">
+          <div class="activity-panel">
+            <h3>Проблемные навыки</h3>
+            <div class="activity-list compact" id="web-quality-skills"></div>
+          </div>
+          <div class="activity-panel">
+            <h3>Последние проблемы</h3>
+            <div class="activity-list compact" id="web-quality-problems"></div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
