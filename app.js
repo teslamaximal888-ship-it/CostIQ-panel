@@ -1,4 +1,7 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
+const WEB_STATUS_POLL_MS = 15000;
+const WEB_RECENT_REFRESH_MS = 60000;
 
 const functions = [
   "проверка",
@@ -683,6 +686,7 @@ const state = {
   pendingAction: null,
   panelDataTimer: null,
   webStatusTimer: null,
+  webRecentTimer: null,
 };
 
 function detectMode() {
@@ -1061,7 +1065,7 @@ function fieldId(name) {
   return `launcher-field-${name}`;
 }
 
-function renderField(field) {
+function renderLauncherField(field) {
   const wrapper = document.createElement("div");
   wrapper.className = field.wide ? "field wide" : "field";
 
@@ -1112,7 +1116,7 @@ function openLauncher(actionKey) {
 
   const fields = document.getElementById("launcher-fields");
   fields.innerHTML = "";
-  config.fields.forEach((field) => fields.appendChild(renderField(field)));
+  config.fields.forEach((field) => fields.appendChild(renderLauncherField(field)));
 
   const launcher = document.getElementById("launcher");
   launcher.hidden = false;
@@ -1209,7 +1213,7 @@ function webConfigForSkill(skillId) {
   };
 }
 
-function renderField(field) {
+function renderWebField(field) {
   const id = `web-${field.name}`;
   const required = field.required ? " required" : "";
   const classes = field.wide ? "field wide" : "field";
@@ -1251,7 +1255,7 @@ function renderWebIntakeFields(skillId) {
     return;
   }
   const config = webConfigForSkill(skillId);
-  container.innerHTML = config.fields.map(renderField).join("");
+  container.innerHTML = config.fields.map(renderWebField).join("");
 }
 
 function currentWebFields(skillId) {
@@ -1296,6 +1300,135 @@ function webTaskStatusLabel(status) {
     return "ошибка";
   }
   return status || "статус";
+}
+
+function readRecentWebTasks() {
+  try {
+    const raw = window.localStorage.getItem(WEB_RECENT_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((task) => task && task.trace_id).slice(0, 8) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeRecentWebTasks(tasks) {
+  try {
+    window.localStorage.setItem(WEB_RECENT_STORAGE_KEY, JSON.stringify(tasks.slice(0, 8)));
+  } catch (error) {
+    return;
+  }
+}
+
+function recentTaskSummary(task) {
+  return task.query || task.object || task.project || task.topic || task.contract || task.owner || task.comment || "без описания";
+}
+
+function rememberWebTask(task) {
+  if (!task || !task.trace_id || task.trace_id === "submit-error") {
+    return;
+  }
+  const item = {
+    trace_id: task.trace_id,
+    status: task.status || "created",
+    skill_title: task.skill_title || task.skill || "задача",
+    summary: recentTaskSummary(task),
+    created_at: task.created_at || new Date().toISOString(),
+    updated_at: task.updated_at || new Date().toISOString(),
+    has_result: Boolean(task.result),
+  };
+  const current = readRecentWebTasks().filter((recent) => recent.trace_id !== item.trace_id);
+  writeRecentWebTasks([item, ...current]);
+  renderRecentWebTasks();
+}
+
+function clearRecentWebTasks() {
+  try {
+    window.localStorage.removeItem(WEB_RECENT_STORAGE_KEY);
+  } catch (error) {
+    return;
+  }
+  renderRecentWebTasks();
+}
+
+function renderRecentWebTasks() {
+  const container = document.getElementById("web-recent");
+  if (!container) {
+    return;
+  }
+  const tasks = readRecentWebTasks();
+  if (!tasks.length) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = `
+    <div class="section-head">
+      <div>
+        <h2>Мои последние заявки</h2>
+        <p>Сохраняются только в этом браузере</p>
+      </div>
+      <button type="button" class="ghost-button" id="clear-web-recent">Очистить</button>
+    </div>
+    <div class="web-recent-list">
+      ${tasks
+        .map(
+          (task) => `
+            <button type="button" class="web-recent-item" data-web-trace="${escapeHtml(task.trace_id)}">
+              <span>
+                <strong>${escapeHtml(compact(task.skill_title || "задача", 70))}</strong>
+                <small>${escapeHtml(compact(task.summary || task.trace_id, 120))}</small>
+                <small>${escapeHtml(task.trace_id)}</small>
+              </span>
+              <em>${escapeHtml(webTaskStatusLabel(task.status))}</em>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  const clearButton = document.getElementById("clear-web-recent");
+  if (clearButton) {
+    clearButton.addEventListener("click", clearRecentWebTasks);
+  }
+}
+
+async function refreshRecentWebTasks() {
+  const tasks = readRecentWebTasks();
+  if (!tasks.length) {
+    return;
+  }
+  const updates = await Promise.all(
+    tasks.slice(0, 5).map((task) =>
+      fetch(`/api/panel/task/${encodeURIComponent(task.trace_id)}`, { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => (data && data.ok ? data.task : null))
+        .catch(() => null),
+    ),
+  );
+  const byTrace = new Map(
+    updates
+      .filter(Boolean)
+      .map((task) => [
+        task.trace_id,
+        {
+          trace_id: task.trace_id,
+          status: task.status || "created",
+          skill_title: task.skill_title || task.skill || "задача",
+          summary: recentTaskSummary(task),
+          created_at: task.created_at || new Date().toISOString(),
+          updated_at: task.updated_at || new Date().toISOString(),
+          has_result: Boolean(task.result),
+        },
+      ]),
+  );
+  if (!byTrace.size) {
+    return;
+  }
+  writeRecentWebTasks(tasks.map((task) => byTrace.get(task.trace_id) || task));
+  renderRecentWebTasks();
 }
 
 function renderWebTask(task) {
@@ -1358,6 +1491,7 @@ async function fetchWebTask(traceId) {
     throw new Error(data && data.error ? data.error : "status_error");
   }
   renderWebTask(data.task);
+  rememberWebTask(data.task);
   return data.task;
 }
 
@@ -1369,7 +1503,7 @@ function startWebTaskPolling(traceId) {
   fetchWebTask(traceId).catch(() => showToast("Статус задачи пока недоступен"));
   state.webStatusTimer = window.setInterval(() => {
     fetchWebTask(traceId).catch(() => {});
-  }, 30000);
+  }, WEB_STATUS_POLL_MS);
 }
 
 function loadWebTaskFromUrl() {
@@ -1411,6 +1545,7 @@ async function submitWebIntake(event) {
       throw new Error(data.error || `HTTP ${response.status}`);
     }
     renderWebTask(data.task);
+    rememberWebTask(data.task);
     if (data.task && data.task.trace_id) {
       const url = new URL(window.location.href);
       url.searchParams.set("trace", data.task.trace_id);
@@ -1465,6 +1600,20 @@ document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
   if (button) {
     openLauncher(button.dataset.action);
+    return;
+  }
+
+  const webTraceButton = event.target.closest("[data-web-trace]");
+  if (webTraceButton) {
+    const traceId = webTraceButton.dataset.webTrace;
+    const url = new URL(window.location.href);
+    url.searchParams.set("trace", traceId);
+    window.history.replaceState(null, "", url.toString());
+    startWebTaskPolling(traceId);
+    const taskCard = document.getElementById("web-task-card");
+    if (taskCard) {
+      taskCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 });
 
@@ -1514,4 +1663,7 @@ if (searchInput) {
 renderView();
 initTelegram();
 startPanelDataRefresh();
+renderRecentWebTasks();
+refreshRecentWebTasks();
+state.webRecentTimer = window.setInterval(refreshRecentWebTasks, WEB_RECENT_REFRESH_MS);
 loadWebTaskFromUrl();

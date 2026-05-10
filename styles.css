@@ -376,6 +376,82 @@ h2 {
   display: none;
 }
 
+.web-recent {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.web-recent[hidden] {
+  display: none;
+}
+
+.web-recent .section-head {
+  align-items: center;
+}
+
+.web-recent .ghost-button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.web-recent-list {
+  display: grid;
+  gap: 8px;
+}
+
+.web-recent-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  min-height: 70px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.web-recent-item:hover {
+  border-color: rgba(110, 168, 255, 0.75);
+  background: var(--surface-2);
+}
+
+.web-recent-item strong,
+.web-recent-item small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.web-recent-item strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.web-recent-item small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.web-recent-item em {
+  align-self: start;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .web-task-head {
   display: flex;
   align-items: flex-start;

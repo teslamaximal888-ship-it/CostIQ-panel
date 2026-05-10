@@ -59,6 +59,12 @@ Version v9 adds dynamic public intake forms:
 - `POST /api/panel/task` accepts structured fields such as `query`, `unit`, `project`, `contract`, `owner`, `parameters`, and `extra_fields`
 - Telegram notifications include the submitted structured fields, not only the old object/comment pair
 
+Version v10 improves the public result flow:
+
+- after submit the page URL is replaced with `?trace=<trace_id>` and the current task status is polled every 15 seconds
+- public users see "Мои последние заявки" on the main page from browser `localStorage`
+- recent tasks are clickable and refreshed from KV while the page is open, so a user can return from the same browser without manually searching trace_id
+
 Manual snapshot refresh:
 
 ```bash
