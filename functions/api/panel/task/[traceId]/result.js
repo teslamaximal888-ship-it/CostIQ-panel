@@ -77,12 +77,12 @@ export async function onRequestPost({ request, env, params }) {
     return jsonResponse({ ok: false, error: "task_corrupted" }, 500);
   }
 
+  const status = cleanText(payload.status, 40) || "done";
   const result = cleanText(payload.result, 4000);
-  if (!result) {
+  if (!result && !["queued", "in_progress"].includes(status)) {
     return jsonResponse({ ok: false, error: "result_required" }, 400);
   }
 
-  const status = cleanText(payload.status, 40) || "done";
   const updatedTask = {
     ...task,
     status,

@@ -65,6 +65,13 @@ Version v10 improves the public result flow:
 - public users see "Мои последние заявки" on the main page from browser `localStorage`
 - recent tasks are clickable and refreshed from KV while the page is open, so a user can return from the same browser without manually searching trace_id
 
+Version v11 adds isolated web-intake autoprocessing support:
+
+- the Telegram bridge can poll `/api/panel/tasks` and process new text-only public web tasks outside the Telegram chat context
+- processing uses an isolated Codex prompt and does not append the web request or answer to Telegram `history.jsonl`
+- `POST /api/panel/task/:trace_id/result` accepts `in_progress` / `queued` without a final result so public users can see live status
+- file-based web tasks remain manual until uploaded files are stored in a retrievable backend such as R2
+
 Manual snapshot refresh:
 
 ```bash
