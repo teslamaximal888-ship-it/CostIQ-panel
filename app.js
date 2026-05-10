@@ -21,6 +21,19 @@ const departments = [
   "администрирование",
 ];
 
+const publicSkillIds = new Set([
+  "check_kp",
+  "calc_ps",
+  "ot_resolution",
+  "zamechaniya_ot",
+  "calc_labor",
+  "smet_reference",
+  "object_precalc",
+  "tep_calc",
+  "claim_pdc",
+  "penalty_claim",
+]);
+
 const skills = [
   {
     id: "check_kp",
@@ -416,6 +429,7 @@ const formConfigs = {
 };
 
 const state = {
+  mode: detectMode(),
   view: "function",
   selected: "все",
   query: "",
@@ -424,6 +438,18 @@ const state = {
   panelDataTimer: null,
   webStatusTimer: null,
 };
+
+function detectMode() {
+  const bodyMode = document.body && document.body.dataset ? document.body.dataset.mode : "";
+  if (bodyMode === "admin" || window.location.pathname.startsWith("/admin")) {
+    return "admin";
+  }
+  return "public";
+}
+
+function isAdminMode() {
+  return state.mode === "admin";
+}
 
 function initTelegram() {
   if (!tg) {
@@ -540,6 +566,9 @@ function visibleSkills() {
 
 function renderTabs() {
   const tabs = document.getElementById("tabs");
+  if (!tabs) {
+    return;
+  }
   tabs.innerHTML = "";
 
   ["все", ...currentGroups()].forEach((group) => {
@@ -554,6 +583,9 @@ function renderTabs() {
 
 function renderSkills() {
   const grid = document.getElementById("skill-grid");
+  if (!grid) {
+    return;
+  }
   const items = visibleSkills();
   grid.innerHTML = "";
 
@@ -734,6 +766,9 @@ function renderActivity(data) {
 }
 
 async function loadPanelData() {
+  if (!isAdminMode()) {
+    return;
+  }
   try {
     const response = await fetch(`./panel-data.json?ts=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) {
@@ -748,11 +783,18 @@ async function loadPanelData() {
 }
 
 function startPanelDataRefresh() {
+  if (!isAdminMode()) {
+    return;
+  }
   loadPanelData();
   state.panelDataTimer = window.setInterval(loadPanelData, 60000);
 }
 
 function renderView() {
+  if (!isAdminMode()) {
+    renderWebSkillOptions();
+    return;
+  }
   renderTabs();
   renderSkills();
   renderWebSkillOptions();
@@ -898,7 +940,7 @@ function renderWebSkillOptions() {
     return;
   }
   skills
-    .filter((skill) => skill.status !== "админ")
+    .filter((skill) => (isAdminMode() ? skill.status !== "админ" : publicSkillIds.has(skill.id)))
     .forEach((skill) => {
       const option = document.createElement("option");
       option.value = skill.id;
@@ -1088,25 +1130,42 @@ document.addEventListener("click", (event) => {
   }
 });
 
-document.getElementById("launcher-close").addEventListener("click", closeLauncher);
-document.getElementById("launcher-reset").addEventListener("click", () => {
-  document.getElementById("launcher-form").reset();
-});
-document.getElementById("launcher-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (!state.pendingAction) {
-    closeLauncher();
-    return;
-  }
-  sendAction(state.pendingAction, collectLauncherFields());
-});
+const launcherClose = document.getElementById("launcher-close");
+if (launcherClose) {
+  launcherClose.addEventListener("click", closeLauncher);
+}
 
-document.getElementById("web-intake-form").addEventListener("submit", submitWebIntake);
+const launcherReset = document.getElementById("launcher-reset");
+if (launcherReset) {
+  launcherReset.addEventListener("click", () => {
+    document.getElementById("launcher-form").reset();
+  });
+}
 
-document.getElementById("search-input").addEventListener("input", (event) => {
-  state.query = event.target.value.trim();
-  renderSkills();
-});
+const launcherForm = document.getElementById("launcher-form");
+if (launcherForm) {
+  launcherForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!state.pendingAction) {
+      closeLauncher();
+      return;
+    }
+    sendAction(state.pendingAction, collectLauncherFields());
+  });
+}
+
+const webIntakeForm = document.getElementById("web-intake-form");
+if (webIntakeForm) {
+  webIntakeForm.addEventListener("submit", submitWebIntake);
+}
+
+const searchInput = document.getElementById("search-input");
+if (searchInput) {
+  searchInput.addEventListener("input", (event) => {
+    state.query = event.target.value.trim();
+    renderSkills();
+  });
+}
 
 renderView();
 initTelegram();

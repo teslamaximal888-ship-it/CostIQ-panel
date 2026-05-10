@@ -45,6 +45,13 @@ Version v7.1 adds web intake for direct links:
 - task links use `?trace=<trace_id>` and can show the final answer when the backend updates `result`
 - if neither KV nor Telegram notification is configured, the endpoint returns `intake_not_configured` to avoid losing submitted tasks
 
+Version v8 splits public and admin UI:
+
+- `/` is a public client intake: task form plus trace/result view only
+- `/admin/` keeps the full internal panel: metrics, quick actions, skills, control block and journal
+- public mode does not load `panel-data.json`, so internal snapshot data is not requested by regular users
+- public skill options are limited to client-facing workflows; admin/management skills stay inside `/admin/`
+
 Manual snapshot refresh:
 
 ```bash

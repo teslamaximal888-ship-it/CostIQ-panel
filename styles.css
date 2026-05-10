@@ -45,6 +45,14 @@ button {
   padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
 }
 
+.mode-public .shell {
+  width: min(720px, 100%);
+}
+
+.mode-public .admin-only {
+  display: none;
+}
+
 .topbar {
   display: flex;
   align-items: flex-start;
@@ -274,6 +282,11 @@ h2 {
 .launcher,
 .web-intake {
   margin-bottom: 8px;
+}
+
+.mode-public .web-intake {
+  padding-top: 18px;
+  border-top: 0;
 }
 
 .launcher[hidden] {
