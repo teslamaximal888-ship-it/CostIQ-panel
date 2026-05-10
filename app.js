@@ -1041,7 +1041,8 @@ async function submitWebIntake(event) {
     }
     showToast("Задача создана");
   } catch (error) {
-    showToast("Не удалось создать задачу");
+    const message = String(error && error.message ? error.message : "");
+    showToast(message === "intake_not_configured" ? "Web intake ещё не настроен" : "Не удалось создать задачу");
     renderWebTask({
       status: "failed",
       trace_id: "submit-error",
@@ -1049,7 +1050,10 @@ async function submitWebIntake(event) {
       object: "ошибка отправки",
       deadline: "",
       file_name: "",
-      result: "Проверьте соединение и настройки web intake.",
+      result:
+        message === "intake_not_configured"
+          ? "Нужно подключить Cloudflare KV и Telegram Bot API secret."
+          : "Проверьте соединение и настройки web intake.",
     });
   } finally {
     if (button) {

@@ -143,6 +143,19 @@ export async function onRequestPost({ request, env }) {
     notification = { ok: false, error: "telegram_failed" };
   }
 
+  if (!persisted && !notification.ok) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "intake_not_configured",
+        task,
+        persisted,
+        notification,
+      },
+      503,
+    );
+  }
+
   return jsonResponse({
     ok: true,
     task,

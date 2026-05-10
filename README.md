@@ -42,6 +42,7 @@ Version v7.1 adds web intake for direct links:
 - optional KV binding `WEB_INTAKE` stores task status for `GET /api/panel/task/:trace_id`
 - optional secrets `TELEGRAM_BOT_TOKEN` and `COSTIQ_NOTIFY_CHAT_ID` send a Telegram notification to the owner
 - task links use `?trace=<trace_id>` and can show the final answer when the backend updates `result`
+- if neither KV nor Telegram notification is configured, the endpoint returns `intake_not_configured` to avoid losing submitted tasks
 
 Manual snapshot refresh:
 
