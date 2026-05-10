@@ -81,6 +81,14 @@ Version v12 adds R2-backed file handoff for web intake:
 - public task status still hides the internal R2 key
 - if R2 is not configured, file tasks still notify Telegram but stay manual
 
+Version v13 adds Telegram Mini App identity for public intake:
+
+- when opened inside Telegram, the public form sends signed `Telegram.WebApp.initData`
+- `POST /api/panel/task` validates `initData` with the bot token and stores `telegram_user`
+- `GET /api/panel/my-tasks` returns only the signed Telegram user's own tasks
+- "Мои последние заявки" combines Telegram-bound history with browser `localStorage`, so the same user can see tasks from another device inside Telegram
+- browser-only users keep the existing trace link and local history fallback
+
 Manual snapshot refresh:
 
 ```bash

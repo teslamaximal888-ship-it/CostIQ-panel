@@ -68,6 +68,75 @@ function parseExtraFields(value) {
   }
 }
 
+async function hmacSha256(key, value) {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(value)));
+}
+
+function hex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function publicTelegramUser(user) {
+  if (!user || typeof user !== "object") {
+    return null;
+  }
+  const id = Number(user.id);
+  if (!Number.isFinite(id)) {
+    return null;
+  }
+  return {
+    id,
+    first_name: cleanText(user.first_name, 120),
+    last_name: cleanText(user.last_name, 120),
+    username: cleanText(user.username, 120),
+    language_code: cleanText(user.language_code, 20),
+  };
+}
+
+async function verifyTelegramInitData(initData, env) {
+  const token = env.TELEGRAM_BOT_TOKEN || env.COSTIQ_TELEGRAM_BOT_TOKEN || "";
+  const raw = cleanText(initData, 5000);
+  if (!raw) {
+    return { ok: false, skipped: "empty" };
+  }
+  if (!token) {
+    return { ok: false, error: "bot_token_missing" };
+  }
+
+  const params = new URLSearchParams(raw);
+  const providedHash = params.get("hash") || "";
+  if (!providedHash) {
+    return { ok: false, error: "hash_missing" };
+  }
+  params.delete("hash");
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, value]) => `${name}=${value}`)
+    .join("\n");
+  const secret = await hmacSha256(new TextEncoder().encode("WebAppData"), token);
+  const expectedHash = hex(await hmacSha256(secret, dataCheckString));
+  if (expectedHash !== providedHash) {
+    return { ok: false, error: "hash_mismatch" };
+  }
+
+  let user = null;
+  try {
+    user = publicTelegramUser(JSON.parse(params.get("user") || "{}"));
+  } catch (error) {
+    user = null;
+  }
+  if (!user) {
+    return { ok: false, error: "user_missing" };
+  }
+  return {
+    ok: true,
+    user,
+    auth_date: cleanText(params.get("auth_date"), 40),
+    query_id: cleanText(params.get("query_id"), 160),
+  };
+}
+
 function hasAnyTaskText(task) {
   return Boolean(
     task.object ||
@@ -191,11 +260,21 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ ok: false, error: "file_too_large" }, 413);
   }
 
+  const telegramInitData = formData.get("telegram_init_data");
+  const telegramAuth = telegramInitData ? await verifyTelegramInitData(telegramInitData, env) : { ok: false, skipped: "not_provided" };
+  if (telegramInitData && !telegramAuth.ok) {
+    return jsonResponse({ ok: false, error: "telegram_auth_invalid" }, 401);
+  }
+
+  const telegramUser = telegramAuth.ok ? telegramAuth.user : null;
+  const telegramName = telegramUser
+    ? [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(" ").trim() || telegramUser.username
+    : "";
   const task = {
     trace_id: makeTraceId(),
     source: "web_intake",
     status: "created",
-    name: field(formData, "name", 160),
+    name: field(formData, "name", 160) || telegramName,
     skill: field(formData, "skill", 80),
     skill_title: field(formData, "skill_title", 160),
     command: field(formData, "command", 80),
@@ -217,6 +296,8 @@ export async function onRequestPost({ request, env }) {
     comment: field(formData, "comment", 1400),
     deadline: field(formData, "deadline", 160),
     extra_fields: parseExtraFields(formData.get("extra_fields")),
+    telegram_user: telegramUser,
+    telegram_auth_date: telegramAuth.ok ? telegramAuth.auth_date : "",
     file_name: hasFile ? cleanText(file.name, 220) : "",
     file_size: hasFile ? file.size : 0,
     created_at: new Date().toISOString(),

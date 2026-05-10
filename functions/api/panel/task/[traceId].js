@@ -43,7 +43,7 @@ export async function onRequestGet({ env, params }) {
     return jsonResponse({ ok: false, error: "task_corrupted" }, 500);
   }
 
-  const { attachment, ...publicTask } = task;
+  const { attachment, telegram_user, telegram_auth_date, ...publicTask } = task;
   if (attachment) {
     publicTask.attachment_status = task.attachment_status || "stored";
   }

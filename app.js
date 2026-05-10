@@ -687,6 +687,9 @@ const state = {
   panelDataTimer: null,
   webStatusTimer: null,
   webRecentTimer: null,
+  telegramInitData: "",
+  telegramUser: null,
+  telegramHistoryAvailable: false,
 };
 
 function detectMode() {
@@ -714,9 +717,15 @@ function initTelegram() {
 
   const user = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
   const name = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
+  state.telegramInitData = tg.initData || "";
+  state.telegramUser = user || null;
   setText("tg-status", "Telegram WebApp");
   if (name) {
     setText("user-label", name);
+    const webName = document.getElementById("web-name");
+    if (webName && !webName.value) {
+      webName.value = name;
+    }
   }
 }
 
@@ -1320,15 +1329,8 @@ function writeRecentWebTasks(tasks) {
   }
 }
 
-function recentTaskSummary(task) {
-  return task.query || task.object || task.project || task.topic || task.contract || task.owner || task.comment || "без описания";
-}
-
-function rememberWebTask(task) {
-  if (!task || !task.trace_id || task.trace_id === "submit-error") {
-    return;
-  }
-  const item = {
+function compactWebTask(task) {
+  return {
     trace_id: task.trace_id,
     status: task.status || "created",
     skill_title: task.skill_title || task.skill || "задача",
@@ -1337,6 +1339,30 @@ function rememberWebTask(task) {
     updated_at: task.updated_at || new Date().toISOString(),
     has_result: Boolean(task.result),
   };
+}
+
+function mergeRecentWebTasks(primaryTasks, secondaryTasks) {
+  const byTrace = new Map();
+  [...primaryTasks, ...secondaryTasks].forEach((task) => {
+    if (!task || !task.trace_id || byTrace.has(task.trace_id)) {
+      return;
+    }
+    byTrace.set(task.trace_id, task);
+  });
+  return [...byTrace.values()]
+    .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))
+    .slice(0, 8);
+}
+
+function recentTaskSummary(task) {
+  return task.query || task.object || task.project || task.topic || task.contract || task.owner || task.comment || "без описания";
+}
+
+function rememberWebTask(task) {
+  if (!task || !task.trace_id || task.trace_id === "submit-error") {
+    return;
+  }
+  const item = compactWebTask(task);
   const current = readRecentWebTasks().filter((recent) => recent.trace_id !== item.trace_id);
   writeRecentWebTasks([item, ...current]);
   renderRecentWebTasks();
@@ -1367,7 +1393,7 @@ function renderRecentWebTasks() {
     <div class="section-head">
       <div>
         <h2>Мои последние заявки</h2>
-        <p>Сохраняются только в этом браузере</p>
+        <p>${state.telegramHistoryAvailable ? "Привязаны к Telegram, локальные заявки тоже сохранены" : "Сохраняются только в этом браузере"}</p>
       </div>
       <button type="button" class="ghost-button" id="clear-web-recent">Очистить</button>
     </div>
@@ -1395,8 +1421,37 @@ function renderRecentWebTasks() {
   }
 }
 
+async function fetchMyWebTasks() {
+  if (!state.telegramInitData) {
+    return [];
+  }
+  const response = await fetch("/api/panel/my-tasks?limit=8", {
+    cache: "no-store",
+    headers: {
+      "X-Telegram-Init-Data": state.telegramInitData,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  const tasks = data && data.ok && Array.isArray(data.tasks) ? data.tasks : [];
+  state.telegramHistoryAvailable = true;
+  return tasks.map(compactWebTask);
+}
+
 async function refreshRecentWebTasks() {
-  const tasks = readRecentWebTasks();
+  let tasks = readRecentWebTasks();
+  try {
+    const serverTasks = await fetchMyWebTasks();
+    if (serverTasks.length) {
+      tasks = mergeRecentWebTasks(serverTasks, tasks);
+      writeRecentWebTasks(tasks);
+      renderRecentWebTasks();
+    }
+  } catch (error) {
+    state.telegramHistoryAvailable = false;
+  }
   if (!tasks.length) {
     return;
   }
@@ -1411,18 +1466,7 @@ async function refreshRecentWebTasks() {
   const byTrace = new Map(
     updates
       .filter(Boolean)
-      .map((task) => [
-        task.trace_id,
-        {
-          trace_id: task.trace_id,
-          status: task.status || "created",
-          skill_title: task.skill_title || task.skill || "задача",
-          summary: recentTaskSummary(task),
-          created_at: task.created_at || new Date().toISOString(),
-          updated_at: task.updated_at || new Date().toISOString(),
-          has_result: Boolean(task.result),
-        },
-      ]),
+      .map((task) => [task.trace_id, compactWebTask(task)]),
   );
   if (!byTrace.size) {
     return;
@@ -1529,6 +1573,9 @@ async function submitWebIntake(event) {
     formData.set("command", skill.command);
   }
   appendWebMetadata(formData, skill);
+  if (state.telegramInitData) {
+    formData.set("telegram_init_data", state.telegramInitData);
+  }
 
   if (button) {
     button.disabled = true;
