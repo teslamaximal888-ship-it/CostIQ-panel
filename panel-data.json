@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-10T18:50:01Z",
+  "generated_at": "2026-05-10T18:55:02Z",
   "status": "активен",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "107 входящих",
+    "today": "110 входящих",
     "errors": "0"
   },
   "tasks": {
@@ -72,8 +72,8 @@
     }
   },
   "bridge": {
-    "incoming_today": 107,
+    "incoming_today": 110,
     "webapp_today": 7,
-    "last_event": "2026-05-10 21:48:59,374 INFO Incoming update uid=5059630577 chat=5059630577 message_id=5125 content_type=ContentType.PHOTO media_group_id=14227511514539258 text_len=0 attachment_ki"
+    "last_event": "2026-05-10 21:54:05,562 INFO Incoming update uid=5059630577 chat=5059630577 message_id=5130 content_type=ContentType.TEXT media_group_id=None text_len=10 attachment_kind=None attac"
   }
 }
