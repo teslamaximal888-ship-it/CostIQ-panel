@@ -103,23 +103,8 @@
               <label for="web-skill">Навык</label>
               <select id="web-skill" name="skill" required></select>
             </div>
-            <div class="field">
-              <label for="web-object">Проект / объект</label>
-              <input id="web-object" name="object" type="text" autocomplete="off" placeholder="Проект, корпус, объект" required>
-            </div>
-            <div class="field">
-              <label for="web-deadline">Срок</label>
-              <input id="web-deadline" name="deadline" type="text" autocomplete="off" placeholder="Сегодня / до 18:00 / дата">
-            </div>
-            <div class="field wide">
-              <label for="web-comment">Комментарий</label>
-              <textarea id="web-comment" name="comment" placeholder="Что нужно сделать и на что обратить внимание" required></textarea>
-            </div>
-            <div class="field wide">
-              <label for="web-file">Файл</label>
-              <input id="web-file" name="file" type="file">
-            </div>
           </div>
+          <div class="form-grid web-dynamic-fields" id="web-dynamic-fields"></div>
           <div class="form-actions">
             <button class="ghost-button" type="reset">Очистить</button>
             <button class="submit-button" type="submit">Создать задачу</button>

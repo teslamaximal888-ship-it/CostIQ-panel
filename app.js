@@ -27,11 +27,24 @@ const publicSkillIds = new Set([
   "ot_resolution",
   "zamechaniya_ot",
   "calc_labor",
+  "airducts",
   "smet_reference",
+  "ncs",
+  "upss",
   "object_precalc",
+  "office_calc",
   "tep_calc",
+  "project_analytics",
+  "tep_cost_chat",
+  "procurement_analytics",
+  "contract_analytics",
+  "before_after",
+  "counterparty",
+  "reglament",
+  "owners_odu",
   "claim_pdc",
   "penalty_claim",
+  "presentations",
 ]);
 
 const skills = [
@@ -424,6 +437,239 @@ const formConfigs = {
     subtitle: "Поиск по trace, очереди и последним событиям",
     fields: [
       { name: "query", label: "Trace ID / задача", type: "search", placeholder: "trace_id, файл, пользователь или навык", wide: true },
+    ],
+  },
+};
+
+const webFieldPresets = {
+  object: { name: "object", label: "Проект / объект", type: "text", placeholder: "Проект, корпус, объект", required: true },
+  project: { name: "project", label: "Проект", type: "text", placeholder: "Название проекта / ЖК / БЦ", required: true },
+  deadline: { name: "deadline", label: "Срок", type: "text", placeholder: "Сегодня / до 18:00 / дата" },
+  comment: {
+    name: "comment",
+    label: "Комментарий",
+    type: "textarea",
+    placeholder: "Что нужно сделать и на что обратить внимание",
+    wide: true,
+    required: true,
+  },
+  file: { name: "file", label: "Файл", type: "file", wide: true },
+};
+
+const webIntakeConfigs = {
+  check_kp: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "contractor", label: "Подрядчик", type: "text", placeholder: "Название или ИНН" },
+      { name: "section", label: "Раздел", type: "text", placeholder: "ОВ, ВК, ЭОМ, отделка..." },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Что проверить в КП: цены, состав, отклонения, условия" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  calc_ps: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "work_type", label: "Тип работ", type: "text", placeholder: "Отопление, ЭОМ, отделка..." },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Особые условия расчёта, что важно учесть" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  ot_resolution: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "tender", label: "Тендер / ОТ", type: "text", placeholder: "Номер ОТ или краткое название" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "На что обратить внимание в резолюции" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  zamechaniya_ot: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "tender", label: "ОТ", type: "text", placeholder: "Номер ОТ" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Какие замечания нужны: цены, структура, подрядчики" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  calc_labor: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "work_type", label: "Тип работ", type: "text", placeholder: "Раздел ВОР / вид работ" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Нужны ли итоги по разделам, разрядам, ГЭСН" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  airducts: {
+    inputType: "file_optional",
+    fields: [
+      webFieldPresets.object,
+      { name: "query", label: "Что рассчитать", type: "textarea", placeholder: "Размеры воздуховодов, фасонные элементы, количество", wide: true, required: true },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.file, label: "Файл / схема" },
+    ],
+  },
+  smet_reference: {
+    inputType: "text_query",
+    fields: [
+      { name: "query", label: "Запрос", type: "textarea", placeholder: "Каменная кладка, кабель ВВГнг, ГЭСН, КВР или описание работы", wide: true, required: true },
+      { name: "unit", label: "Ед. изм.", type: "text", placeholder: "м², м³, пог. м, шт." },
+      { name: "section", label: "Раздел", type: "text", placeholder: "Если известен" },
+      { ...webFieldPresets.comment, required: false, placeholder: "Дополнительный контекст" },
+      { ...webFieldPresets.file, label: "Файл, если есть" },
+    ],
+  },
+  reglament: {
+    inputType: "text_query",
+    fields: [
+      { name: "query", label: "Вопрос", type: "textarea", placeholder: "Какой порядок, регламент или процесс нужно проверить", wide: true, required: true },
+      { name: "topic", label: "Тема / процесс", type: "text", placeholder: "Авансирование, договор, согласование..." },
+      { ...webFieldPresets.comment, required: false, placeholder: "Контекст ситуации" },
+    ],
+  },
+  ncs: {
+    inputType: "text_query",
+    fields: [
+      { name: "query", label: "Объект / норматив", type: "textarea", placeholder: "Код НЦС или описание объекта", wide: true, required: true },
+      { name: "parameters", label: "Параметры", type: "text", placeholder: "Площадь, глубина, диаметр, регион..." },
+      { ...webFieldPresets.comment, required: false, placeholder: "Что нужно получить в ответе" },
+    ],
+  },
+  upss: {
+    inputType: "text_query",
+    fields: [
+      { name: "query", label: "Шифр / объект", type: "textarea", placeholder: "Шифр УПСС или описание объекта", wide: true, required: true },
+      { name: "parameters", label: "Параметры", type: "text", placeholder: "Площадь, коэффициенты, условия" },
+      { ...webFieldPresets.comment, required: false, placeholder: "Что нужно рассчитать" },
+    ],
+  },
+  object_precalc: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Что оценить", type: "textarea", placeholder: "Тип объекта, площадь, состав: корпус, паркинг, ДОУ...", wide: true, required: true },
+      { name: "parameters", label: "Параметры", type: "text", placeholder: "Площадь, этажность, класс, регион" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.file, label: "Файл / ТЗ, если есть" },
+    ],
+  },
+  office_calc: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Запрос", type: "textarea", placeholder: "Класс офиса, площадь, fit-out, технические опции", wide: true, required: true },
+      { name: "parameters", label: "Параметры", type: "text", placeholder: "Prime/A/B+, м², этажность, локация" },
+      webFieldPresets.deadline,
+    ],
+  },
+  tep_calc: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Что посчитать", type: "textarea", placeholder: "СПП, НП, население, соцобъекты, парковки", wide: true, required: true },
+      { name: "parameters", label: "Исходные данные", type: "text", placeholder: "Площадь участка, ГПЗУ, ВРИ, этажность" },
+      { ...webFieldPresets.file, label: "Файл / схема, если есть" },
+    ],
+  },
+  project_analytics: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Вопрос", type: "textarea", placeholder: "Карточка объекта, себестоимость, сравнение, бенчмарк", wide: true, required: true },
+      { name: "period", label: "Период / корпус", type: "text", placeholder: "Если нужен конкретный корпус или период" },
+      { ...webFieldPresets.comment, required: false, placeholder: "Дополнительный контекст" },
+    ],
+  },
+  tep_cost_chat: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Вопрос", type: "textarea", placeholder: "Сравни, покажи динамику, дай карточку, найди отклонение", wide: true, required: true },
+      { name: "period", label: "Период / срез", type: "text", placeholder: "Месяц, год, корпус, очередь" },
+    ],
+  },
+  procurement_analytics: {
+    inputType: "file_optional",
+    fields: [
+      webFieldPresets.object,
+      { name: "query", label: "Что проанализировать", type: "textarea", placeholder: "Закупки, ТП, АНЦТ, СЗ, контрагент, статья", wide: true, required: true },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.file, label: "Реестр / файл, если есть" },
+    ],
+  },
+  contract_analytics: {
+    inputType: "file_optional",
+    fields: [
+      webFieldPresets.object,
+      { name: "contract", label: "Договор / подрядчик", type: "text", placeholder: "Номер договора, подрядчик" },
+      { name: "query", label: "Вопрос", type: "textarea", placeholder: "ГББ, паспорт, было-стало, суммы, КС-2", wide: true, required: true },
+      { ...webFieldPresets.file, label: "Файл / реестр, если есть" },
+    ],
+  },
+  before_after: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "contract", label: "Договор", type: "text", placeholder: "Номер договора / подрядчик" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Что проверить в отчёте было-стало" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  counterparty: {
+    inputType: "text_query",
+    fields: [
+      { name: "query", label: "Контрагент", type: "text", placeholder: "Название или ИНН", required: true },
+      { name: "contract", label: "Договор / закупка", type: "text", placeholder: "Если есть контекст" },
+      { ...webFieldPresets.comment, required: false, placeholder: "Какие риски проверить" },
+      { ...webFieldPresets.file, label: "Файл, если есть" },
+    ],
+  },
+  owners_odu: {
+    inputType: "file_optional",
+    fields: [
+      webFieldPresets.object,
+      { name: "owner", label: "Собственник / ДДУ", type: "text", placeholder: "ФИО, квартира, ДДУ" },
+      { name: "query", label: "Что нужно", type: "textarea", placeholder: "Соглашение, статус переговоров, претензия, сумма", wide: true, required: true },
+      { ...webFieldPresets.file, label: "Документы, если есть" },
+    ],
+  },
+  claim_pdc: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "contract", label: "ПДЦ / договор", type: "text", placeholder: "Номер договора / подрядчик" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Недостатки, сумма, что включить в комплект" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  penalty_claim: {
+    inputType: "file_required",
+    fields: [
+      webFieldPresets.object,
+      { name: "contractor", label: "Подрядчик", type: "text", placeholder: "Название подрядчика" },
+      { name: "violation", label: "Нарушение", type: "text", placeholder: "ОТ, ПБ, качество" },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.comment, placeholder: "Что включить в претензию" },
+      { ...webFieldPresets.file, required: true },
+    ],
+  },
+  presentations: {
+    inputType: "file_optional",
+    fields: [
+      { name: "topic", label: "Тема", type: "text", placeholder: "Тема презентации", required: true },
+      { name: "query", label: "Содержание", type: "textarea", placeholder: "Цель, структура, тезисы, аудитория", wide: true, required: true },
+      webFieldPresets.deadline,
+      { ...webFieldPresets.file, label: "Материалы, если есть" },
     ],
   },
 };
@@ -947,6 +1193,89 @@ function renderWebSkillOptions() {
       option.textContent = skill.title;
       select.appendChild(option);
     });
+  select.addEventListener("change", () => renderWebIntakeFields(select.value));
+  renderWebIntakeFields(select.value);
+}
+
+function webConfigForSkill(skillId) {
+  return webIntakeConfigs[skillId] || {
+    inputType: "file_optional",
+    fields: [
+      webFieldPresets.object,
+      { name: "query", label: "Запрос", type: "textarea", placeholder: "Что нужно сделать", wide: true, required: true },
+      webFieldPresets.deadline,
+      webFieldPresets.file,
+    ],
+  };
+}
+
+function renderField(field) {
+  const id = `web-${field.name}`;
+  const required = field.required ? " required" : "";
+  const classes = field.wide ? "field wide" : "field";
+  const placeholder = field.placeholder ? ` placeholder="${escapeHtml(field.placeholder)}"` : "";
+  const accept = field.accept ? ` accept="${escapeHtml(field.accept)}"` : "";
+
+  if (field.type === "textarea") {
+    return `
+      <div class="${classes}">
+        <label for="${id}">${escapeHtml(field.label)}</label>
+        <textarea id="${id}" name="${escapeHtml(field.name)}"${placeholder}${required}></textarea>
+      </div>
+    `;
+  }
+
+  if (field.type === "select") {
+    const options = Array.isArray(field.options) ? field.options : [];
+    return `
+      <div class="${classes}">
+        <label for="${id}">${escapeHtml(field.label)}</label>
+        <select id="${id}" name="${escapeHtml(field.name)}"${required}>
+          ${options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+        </select>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="${classes}">
+      <label for="${id}">${escapeHtml(field.label)}</label>
+      <input id="${id}" name="${escapeHtml(field.name)}" type="${escapeHtml(field.type || "text")}" autocomplete="off"${placeholder}${accept}${required}>
+    </div>
+  `;
+}
+
+function renderWebIntakeFields(skillId) {
+  const container = document.getElementById("web-dynamic-fields");
+  if (!container) {
+    return;
+  }
+  const config = webConfigForSkill(skillId);
+  container.innerHTML = config.fields.map(renderField).join("");
+}
+
+function currentWebFields(skillId) {
+  const config = webConfigForSkill(skillId);
+  return config.fields.filter((field) => field.name !== "file");
+}
+
+function appendWebMetadata(formData, skill) {
+  const config = webConfigForSkill(skill ? skill.id : "");
+  formData.set("input_type", config.inputType || "file_optional");
+  formData.set("requires_file", config.fields.some((field) => field.name === "file" && field.required) ? "1" : "0");
+
+  const extraFields = {};
+  currentWebFields(skill ? skill.id : "").forEach((field) => {
+    const value = String(formData.get(field.name) || "").trim();
+    if (value) {
+      extraFields[field.name] = {
+        name: field.name,
+        label: field.label,
+        value,
+      };
+    }
+  });
+  formData.set("extra_fields", JSON.stringify(extraFields));
 }
 
 function webTaskStatusLabel(status) {
@@ -979,6 +1308,13 @@ function renderWebTask(task) {
   const status = webTaskStatusLabel(task.status);
   const taskUrl = traceId ? `${window.location.origin}${window.location.pathname}?trace=${encodeURIComponent(traceId)}` : "";
   const result = task.result ? `<div class="web-result">${escapeHtml(task.result)}</div>` : `<p>Ответ появится здесь после обработки задачи.</p>`;
+  const objectLabel = task.object || task.project || task.topic || task.query || "не указан";
+  const details = task.extra_fields && typeof task.extra_fields === "object" ? Object.values(task.extra_fields) : [];
+  const extraDetails = details
+    .filter((item) => item && item.value && !["object", "project", "deadline"].includes(item.name))
+    .slice(0, 4)
+    .map((item) => `<div><dt>${escapeHtml(item.label || "Поле")}</dt><dd>${escapeHtml(item.value)}</dd></div>`)
+    .join("");
 
   card.hidden = false;
   card.innerHTML = `
@@ -991,9 +1327,10 @@ function renderWebTask(task) {
     </div>
     <dl>
       <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
-      <div><dt>Объект</dt><dd>${escapeHtml(task.object || "не указан")}</dd></div>
+      <div><dt>Запрос</dt><dd>${escapeHtml(objectLabel)}</dd></div>
       <div><dt>Срок</dt><dd>${escapeHtml(task.deadline || "не указан")}</dd></div>
       <div><dt>Файл</dt><dd>${escapeHtml(task.file_name || "не приложен")}</dd></div>
+      ${extraDetails}
     </dl>
     ${result}
   `;
@@ -1057,6 +1394,7 @@ async function submitWebIntake(event) {
     formData.set("skill_title", skill.title);
     formData.set("command", skill.command);
   }
+  appendWebMetadata(formData, skill);
 
   if (button) {
     button.disabled = true;
@@ -1157,6 +1495,12 @@ if (launcherForm) {
 const webIntakeForm = document.getElementById("web-intake-form");
 if (webIntakeForm) {
   webIntakeForm.addEventListener("submit", submitWebIntake);
+  webIntakeForm.addEventListener("reset", () => {
+    window.setTimeout(() => {
+      const select = document.getElementById("web-skill");
+      renderWebIntakeFields(select ? select.value : "");
+    }, 0);
+  });
 }
 
 const searchInput = document.getElementById("search-input");

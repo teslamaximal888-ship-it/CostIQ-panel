@@ -29,15 +29,66 @@ function field(formData, name, limit) {
   return cleanText(formData.get(name), limit);
 }
 
+function parseExtraFields(value) {
+  if (!value) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(String(value));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([name, item]) => {
+          const label = cleanText(item && item.label, 80);
+          const fieldValue = cleanText(item && item.value, 1400);
+          if (!fieldValue) {
+            return null;
+          }
+          return [
+            cleanText(name, 80),
+            {
+              name: cleanText(item && item.name ? item.name : name, 80),
+              label: label || cleanText(name, 80),
+              value: fieldValue,
+            },
+          ];
+        })
+        .filter(Boolean),
+    );
+  } catch (error) {
+    return {};
+  }
+}
+
+function hasAnyTaskText(task) {
+  return Boolean(
+    task.object ||
+      task.project ||
+      task.query ||
+      task.topic ||
+      task.contract ||
+      task.owner ||
+      task.comment ||
+      Object.values(task.extra_fields || {}).some((item) => item && item.value),
+  );
+}
+
 function telegramCaption(task) {
+  const extraLines = Object.values(task.extra_fields || {})
+    .filter((item) => item && item.value)
+    .map((item) => `• ${item.label || item.name}: ${item.value}`);
+
   return [
     "🟢 Web intake / новая задача",
     `• trace_id: ${task.trace_id}`,
     `• имя: ${task.name || "не указано"}`,
     `• навык: ${task.skill_title || task.skill || "не указан"}`,
-    `• объект: ${task.object || "не указан"}`,
+    `• тип ввода: ${task.input_type || "не указан"}`,
+    ...extraLines,
     `• срок: ${task.deadline || "не указан"}`,
-    task.comment ? `• комментарий: ${task.comment}` : "",
+    task.file_name ? `• файл: ${task.file_name}` : "• файл: не приложен",
     "",
     "Задача создана из публичной ссылки панели CostIQ.",
   ]
@@ -115,9 +166,24 @@ export async function onRequestPost({ request, env }) {
     skill: field(formData, "skill", 80),
     skill_title: field(formData, "skill_title", 160),
     command: field(formData, "command", 80),
+    input_type: field(formData, "input_type", 80),
+    requires_file: field(formData, "requires_file", 10) === "1",
     object: field(formData, "object", 220),
+    project: field(formData, "project", 220),
+    query: field(formData, "query", 1400),
+    topic: field(formData, "topic", 220),
+    unit: field(formData, "unit", 80),
+    section: field(formData, "section", 160),
+    contractor: field(formData, "contractor", 220),
+    contract: field(formData, "contract", 220),
+    owner: field(formData, "owner", 220),
+    tender: field(formData, "tender", 220),
+    period: field(formData, "period", 160),
+    parameters: field(formData, "parameters", 500),
+    violation: field(formData, "violation", 220),
     comment: field(formData, "comment", 1400),
     deadline: field(formData, "deadline", 160),
+    extra_fields: parseExtraFields(formData.get("extra_fields")),
     file_name: hasFile ? cleanText(file.name, 220) : "",
     file_size: hasFile ? file.size : 0,
     created_at: new Date().toISOString(),
@@ -125,8 +191,11 @@ export async function onRequestPost({ request, env }) {
     result: "",
   };
 
-  if (!task.name || !task.skill || !task.object || !task.comment) {
+  if (!task.name || !task.skill || !hasAnyTaskText(task)) {
     return jsonResponse({ ok: false, error: "required_fields_missing" }, 400);
+  }
+  if (task.requires_file && !hasFile) {
+    return jsonResponse({ ok: false, error: "file_required" }, 400);
   }
 
   let persisted = false;

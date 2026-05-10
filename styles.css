@@ -299,6 +299,10 @@ h2 {
   gap: 10px;
 }
 
+.web-dynamic-fields {
+  margin-top: 10px;
+}
+
 .field {
   display: grid;
   gap: 6px;

@@ -52,6 +52,13 @@ Version v8 splits public and admin UI:
 - public mode does not load `panel-data.json`, so internal snapshot data is not requested by regular users
 - public skill options are limited to client-facing workflows; admin/management skills stay inside `/admin/`
 
+Version v9 adds dynamic public intake forms:
+
+- public skills now include all client-facing workflows, while admin and rate-management tools stay private
+- the form changes fields by skill: file workflows require an upload, reference/regulation/project requests use text query fields
+- `POST /api/panel/task` accepts structured fields such as `query`, `unit`, `project`, `contract`, `owner`, `parameters`, and `extra_fields`
+- Telegram notifications include the submitted structured fields, not only the old object/comment pair
+
 Manual snapshot refresh:
 
 ```bash
