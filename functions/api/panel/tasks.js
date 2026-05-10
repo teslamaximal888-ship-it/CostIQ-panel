@@ -29,11 +29,8 @@ function cleanLimit(value) {
 function hasAdminAccess(request, env) {
   const url = new URL(request.url);
   const provided = cleanText(request.headers.get("X-CostIQ-Admin") || url.searchParams.get("admin_key") || "", 500);
-  const allowed = [
-    cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500),
-    cleanText(env.COSTIQ_NOTIFY_CHAT_ID || "", 500),
-  ].filter(Boolean);
-  return Boolean(provided && allowed.includes(provided));
+  const allowed = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  return Boolean(provided && allowed && provided === allowed);
 }
 
 async function readTask(env, key) {

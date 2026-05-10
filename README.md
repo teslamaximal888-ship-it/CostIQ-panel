@@ -42,6 +42,7 @@ Version v7.1 adds web intake for direct links:
 - optional KV binding `WEB_INTAKE` stores task status for `GET /api/panel/task/:trace_id`
 - admin Function `POST /api/panel/task/:trace_id/result` writes the final answer into KV
 - optional secrets `TELEGRAM_BOT_TOKEN` and `COSTIQ_NOTIFY_CHAT_ID` send a Telegram notification to the owner
+- secret `COSTIQ_PANEL_ADMIN_TOKEN` protects admin-only task list, result writeback, and file download endpoints
 - task links use `?trace=<trace_id>` and can show the final answer when the backend updates `result`
 - if neither KV nor Telegram notification is configured, the endpoint returns `intake_not_configured` to avoid losing submitted tasks
 
@@ -75,7 +76,7 @@ Version v11 adds isolated web-intake autoprocessing support:
 Version v12 adds R2-backed file handoff for web intake:
 
 - file uploads are stored in R2 through the `WEB_ATTACHMENTS` binding when it is configured
-- `GET /api/panel/task/:trace_id/file` lets the bridge download the file with the admin token
+- `GET /api/panel/task/:trace_id/file` lets the bridge download the file with `COSTIQ_PANEL_ADMIN_TOKEN`
 - public task status still hides the internal R2 key
 - if R2 is not configured, file tasks still notify Telegram but stay manual
 
@@ -118,5 +119,5 @@ KV binding: WEB_INTAKE
 R2 binding: WEB_ATTACHMENTS
 Secret: TELEGRAM_BOT_TOKEN
 Variable: COSTIQ_NOTIFY_CHAT_ID=5059630577
-Optional secret: COSTIQ_PANEL_ADMIN_TOKEN
+Secret: COSTIQ_PANEL_ADMIN_TOKEN
 ```
