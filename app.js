@@ -355,6 +355,7 @@ const state = {
   view: "function",
   selected: "все",
   query: "",
+  panelData: null,
 };
 
 function initTelegram() {
@@ -381,6 +382,22 @@ function setText(id, value) {
   if (node) {
     node.textContent = value;
   }
+}
+
+function formatGeneratedAt(value) {
+  if (!value) {
+    return "нет snapshot";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function normalize(value) {
@@ -463,6 +480,67 @@ function renderSkills() {
     empty.className = "empty";
     empty.textContent = "Ничего не найдено";
     grid.appendChild(empty);
+  }
+}
+
+function renderPanelData(data) {
+  if (!data || typeof data !== "object") {
+    return;
+  }
+  state.panelData = data;
+
+  const metrics = data.metrics || {};
+  setText("metric-bot", metrics.bot || "активен");
+  setText("metric-queue", metrics.queue || "0 в ожидании");
+  setText("metric-today", metrics.today || "0 входящих");
+  setText("metric-errors", metrics.errors || "0");
+  setText("control-subtitle", `Snapshot: ${formatGeneratedAt(data.generated_at)}`);
+
+  const tasks = data.tasks || {};
+  const trace = data.trace || {};
+  const bridge = data.bridge || {};
+  const insights = document.getElementById("insights");
+  if (!insights) {
+    return;
+  }
+
+  const lastTrace = trace.last || {};
+  const queueLine = `${tasks.total || 0} всего / ${tasks.done || 0} готово / ${tasks.waiting || 0} ожидание`;
+  const traceLine = `${trace.finishes_24h || 0} за 24ч / ${trace.finishes_7d || 0} за 7д / ${trace.avg_latency_ms || 0} мс среднее`;
+  const lastLine = lastTrace.intent
+    ? `${lastTrace.intent} · ${lastTrace.status} · ${lastTrace.latency_ms || 0} мс`
+    : "нет завершённых trace";
+
+  insights.innerHTML = `
+    <div>
+      <span>Очередь задач</span>
+      <strong>${queueLine}</strong>
+    </div>
+    <div>
+      <span>Trace / Guest</span>
+      <strong>${traceLine}</strong>
+    </div>
+    <div>
+      <span>Mini App</span>
+      <strong>${bridge.webapp_today || 0} действий сегодня</strong>
+    </div>
+    <div>
+      <span>Последний trace</span>
+      <strong>${lastLine}</strong>
+    </div>
+  `;
+}
+
+async function loadPanelData() {
+  try {
+    const response = await fetch("./panel-data.json", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    renderPanelData(data);
+  } catch (error) {
+    setText("control-subtitle", "Snapshot пока не загружен");
   }
 }
 
@@ -550,3 +628,4 @@ document.getElementById("search-input").addEventListener("input", (event) => {
 
 renderView();
 initTelegram();
+loadPanelData();

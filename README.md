@@ -10,6 +10,17 @@ Cloudflare Pages settings:
 
 Version v2 groups CostIQ skills by function and supports a second view by department/process owner. Cards send actions to the bot with `Telegram.WebApp.sendData()`.
 
+Version v3 adds real snapshot metrics from local CostIQ sources:
+
+- `panel-data.json` for top metrics and the control block
+- `scripts/build_panel_data.py` to rebuild the snapshot from `task_queue.json`, `guest_trace.jsonl`, and `bridge.log`
+
+Before publishing a fresh metrics snapshot:
+
+```bash
+python3 scripts/build_panel_data.py
+```
+
 Payload format:
 
 ```json

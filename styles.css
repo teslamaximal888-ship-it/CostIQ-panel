@@ -415,6 +415,35 @@ h2 {
   margin-top: 16px;
 }
 
+.insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.insights div {
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.insights span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.insights strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
 .ops {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -450,6 +479,7 @@ h2 {
 @media (max-width: 980px) {
   .quick,
   .metrics,
+  .insights,
   .ops {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -472,6 +502,7 @@ h2 {
   .toolbar,
   .quick,
   .metrics,
+  .insights,
   .grid,
   .ops {
     grid-template-columns: 1fr;

@@ -21,19 +21,19 @@
       <section class="metrics" aria-label="Состояние">
         <div class="metric">
           <span>Бот</span>
-          <strong>активен</strong>
+          <strong id="metric-bot">активен</strong>
         </div>
         <div class="metric">
           <span>Очередь</span>
-          <strong>trace</strong>
+          <strong id="metric-queue">trace</strong>
         </div>
         <div class="metric">
           <span>Сегодня</span>
-          <strong>лог</strong>
+          <strong id="metric-today">лог</strong>
         </div>
         <div class="metric danger">
           <span>Ошибки</span>
-          <strong>контроль</strong>
+          <strong id="metric-errors">контроль</strong>
         </div>
       </section>
 
@@ -97,10 +97,11 @@
         <div class="section-head">
           <div>
             <h2>Контроль</h2>
-            <p>Операционные действия</p>
+            <p id="control-subtitle">Операционные действия</p>
           </div>
           <span>SAUFSK</span>
         </div>
+        <div class="insights" id="insights" aria-label="Сводка панели"></div>
         <div class="ops">
           <button type="button" data-action="task_status">Статус задачи</button>
           <button type="button" data-action="panel_stats">Статистика</button>
