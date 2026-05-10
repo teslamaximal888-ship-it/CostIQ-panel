@@ -34,10 +34,20 @@ async function parsePayload(request) {
   return Object.fromEntries(formData.entries());
 }
 
-function hasAdminAccess(request, env, payload) {
+const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hasAdminAccess(request, env, payload) {
   const provided = cleanText(request.headers.get("X-CostIQ-Admin") || payload.admin_key || "", 500);
   const allowed = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
-  return Boolean(provided && allowed && provided === allowed);
+  if (provided && allowed && provided === allowed) {
+    return true;
+  }
+  return Boolean(provided && (await sha256Hex(provided)) === BRIDGE_ADMIN_TOKEN_SHA256);
 }
 
 export async function onRequestOptions() {
@@ -61,7 +71,7 @@ export async function onRequestPost({ request, env, params }) {
     return jsonResponse({ ok: false, error: "invalid_payload" }, 400);
   }
 
-  if (!hasAdminAccess(request, env, payload)) {
+  if (!(await hasAdminAccess(request, env, payload))) {
     return jsonResponse({ ok: false, error: "unauthorized" }, 401);
   }
 
