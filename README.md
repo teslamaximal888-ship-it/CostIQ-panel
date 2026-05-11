@@ -120,6 +120,15 @@ Version v17 standardizes skill registration:
 - public skills must be added to `publicSkillIds`; admin-only skills stay in `skills` with `status: "админ"` and are hidden from the public panel
 - the `bot_manager` admin card is included as the standard example for new agent/skill setup workflows
 
+Version v18 adds downloadable task results:
+
+- result files are stored in R2 under `results/<trace_id>/...` through `WEB_RESULTS` when configured, otherwise through `WEB_ATTACHMENTS`
+- admin endpoint `POST /api/panel/task/:trace_id/result-file` accepts one generated file per request from the bridge
+- public endpoints `GET /api/panel/task/:trace_id/result-file/:file_id` and `GET /api/panel/task/:trace_id/result-archive` download files and ZIP archives
+- Telegram Mini App tasks require the same signed Telegram user to download result files; browser-only tasks keep trace-link access
+- public task status exposes only safe file metadata and download URLs, never R2 keys
+- the bridge uploads files created in `exports` after isolated web-task processing and creates a ZIP archive when several result files are generated
+
 Manual snapshot refresh:
 
 ```bash
@@ -157,6 +166,7 @@ Cloudflare environment for web intake:
 ```text
 KV binding: WEB_INTAKE
 R2 binding: WEB_ATTACHMENTS
+Optional R2 binding: WEB_RESULTS
 Secret: TELEGRAM_BOT_TOKEN
 Variable: COSTIQ_NOTIFY_CHAT_ID=5059630577
 Secret: COSTIQ_PANEL_ADMIN_TOKEN

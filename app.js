@@ -1531,10 +1531,21 @@ function renderWebFilePreview(input) {
   preview.innerHTML = `
     <span>
       <strong>${escapeHtml(file.name)}</strong>
-      <small>${(file.size / 1024 / 1024).toFixed(2)} МБ</small>
+      <small>${escapeHtml(formatFileSize(file.size))}</small>
     </span>
     <em>${overLimit ? "слишком большой файл" : "файл выбран"}</em>
   `;
+}
+
+function formatFileSize(size) {
+  const value = Number(size || 0);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "0 Б";
+  }
+  if (value < 1024 * 1024) {
+    return `${Math.max(1, Math.round(value / 1024))} КБ`;
+  }
+  return `${(value / 1024 / 1024).toFixed(2)} МБ`;
 }
 
 function currentWebFields(skillId) {
@@ -1675,7 +1686,7 @@ function compactWebTask(task) {
     summary: recentTaskSummary(task),
     created_at: task.created_at || new Date().toISOString(),
     updated_at: task.updated_at || new Date().toISOString(),
-    has_result: Boolean(task.result),
+    has_result: Boolean(task.result || (Array.isArray(task.result_files) && task.result_files.length) || task.result_archive),
   };
 }
 
@@ -1844,6 +1855,29 @@ function renderWebTask(task) {
     : task.error_text
       ? `<div class="web-result danger">${escapeHtml(task.error_text)}</div>`
       : `<div class="web-result pending">${escapeHtml(webStatusMessage(task))}</div>`;
+  const resultFiles = Array.isArray(task.result_files) ? task.result_files : [];
+  const archive = task.result_archive && task.result_archive.url ? task.result_archive : null;
+  const downloads = resultFiles.length || archive
+    ? `
+      <div class="web-downloads">
+        <strong>Файлы результата</strong>
+        <div>
+          ${resultFiles.map((file) => `
+            <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener">
+              <span>${escapeHtml(file.name || "Скачать файл")}</span>
+              <small>${escapeHtml(formatFileSize(file.size))}</small>
+            </a>
+          `).join("")}
+          ${archive ? `
+            <a class="web-download-button accent" href="${escapeHtml(withTelegramInitData(archive.url || ""))}" target="_blank" rel="noopener">
+              <span>${escapeHtml(archive.name || "Скачать архив ZIP")}</span>
+              <small>${escapeHtml(formatFileSize(archive.size))}</small>
+            </a>
+          ` : ""}
+        </div>
+      </div>
+    `
+    : "";
   const objectLabel = task.object || task.project || task.topic || task.query || "не указан";
   const details = task.extra_fields && typeof task.extra_fields === "object" ? Object.values(task.extra_fields) : [];
   const extraDetails = details
@@ -1872,6 +1906,7 @@ function renderWebTask(task) {
       ${extraDetails}
     </dl>
     ${result}
+    ${downloads}
   `;
 
   const copyButton = document.getElementById("copy-task-link");
@@ -1885,6 +1920,15 @@ function renderWebTask(task) {
       }
     });
   }
+}
+
+function withTelegramInitData(url) {
+  if (!url || !state.telegramInitData) {
+    return url;
+  }
+  const fullUrl = new URL(url, window.location.origin);
+  fullUrl.searchParams.set("tg_init_data", state.telegramInitData);
+  return fullUrl.pathname + fullUrl.search;
 }
 
 function webQueueToken() {

@@ -715,6 +715,59 @@ h2 {
   white-space: pre-wrap;
 }
 
+.web-downloads {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(110, 168, 255, 0.35);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.web-downloads > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.web-downloads > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.web-download-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.web-download-button:hover {
+  border-color: rgba(110, 168, 255, 0.75);
+  background: var(--surface-3);
+}
+
+.web-download-button.accent {
+  border-color: rgba(89, 209, 140, 0.55);
+}
+
+.web-download-button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.web-download-button small {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 .toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;

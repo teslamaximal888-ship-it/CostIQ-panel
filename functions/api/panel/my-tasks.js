@@ -103,6 +103,26 @@ function publicTask(task) {
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }
+  if (Array.isArray(safeTask.result_files)) {
+    safeTask.result_files = safeTask.result_files.map((file) => ({
+      id: file.id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      created_at: file.created_at,
+      url: `/api/panel/task/${encodeURIComponent(task.trace_id)}/result-file/${encodeURIComponent(file.id)}`,
+    }));
+  }
+  if (safeTask.result_archive && safeTask.result_archive.id) {
+    safeTask.result_archive = {
+      id: safeTask.result_archive.id,
+      name: safeTask.result_archive.name,
+      type: safeTask.result_archive.type,
+      size: safeTask.result_archive.size,
+      created_at: safeTask.result_archive.created_at,
+      url: `/api/panel/task/${encodeURIComponent(task.trace_id)}/result-archive`,
+    };
+  }
   return safeTask;
 }
 

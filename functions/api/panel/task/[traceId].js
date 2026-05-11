@@ -47,6 +47,26 @@ export async function onRequestGet({ env, params }) {
   if (attachment) {
     publicTask.attachment_status = task.attachment_status || "stored";
   }
+  if (Array.isArray(publicTask.result_files)) {
+    publicTask.result_files = publicTask.result_files.map((file) => ({
+      id: file.id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      created_at: file.created_at,
+      url: `/api/panel/task/${encodeURIComponent(traceId)}/result-file/${encodeURIComponent(file.id)}`,
+    }));
+  }
+  if (publicTask.result_archive && publicTask.result_archive.id) {
+    publicTask.result_archive = {
+      id: publicTask.result_archive.id,
+      name: publicTask.result_archive.name,
+      type: publicTask.result_archive.type,
+      size: publicTask.result_archive.size,
+      created_at: publicTask.result_archive.created_at,
+      url: `/api/panel/task/${encodeURIComponent(traceId)}/result-archive`,
+    };
+  }
   if (publicTask.error_text) {
     publicTask.error_text = String(publicTask.error_text).slice(0, 500);
   }
