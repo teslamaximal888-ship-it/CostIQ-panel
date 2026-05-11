@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-10T22:30:01Z",
+  "generated_at": "2026-05-11T08:05:01Z",
   "status": "активен",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "17 входящих",
+    "today": "18 входящих",
     "errors": "0"
   },
   "tasks": {
@@ -72,8 +72,8 @@
     }
   },
   "bridge": {
-    "incoming_today": 17,
+    "incoming_today": 18,
     "webapp_today": 1,
-    "last_event": "2026-05-11 01:25:49,386 INFO WebApp action uid=5059630577 command=/panel_stats payload={\"source\": \"costiq_panel\", \"action\": \"panel_stats\", \"command\": \"/panel_stats\", \"label\": \"Стат"
+    "last_event": "2026-05-11 11:03:24,622 INFO Incoming update uid=5059630577 chat=5059630577 message_id=5222 content_type=ContentType.PHOTO media_group_id=None text_len=202 attachment_kind=photo at"
   }
 }
