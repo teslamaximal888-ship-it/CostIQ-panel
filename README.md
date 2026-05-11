@@ -113,6 +113,13 @@ Version v16 adds ETA and quality analytics:
 - `GET /api/panel/quality` returns 24h / 7d web-intake quality metrics, problem skills and recent failed/retry tasks
 - `/admin/` includes a protected Качество block for errors, WARN/FAIL signals and slow/problem scenarios
 
+Version v17 standardizes skill registration:
+
+- every new skill card must include `id`, `title`, `subtitle/description`, `function`, `department`, public/admin visibility, required inputs, expected output, example request, command, roles, Telegram menu visibility and Mini App card visibility
+- `function` and `department` are the only grouping fields; do not create a separate public grouping
+- public skills must be added to `publicSkillIds`; admin-only skills stay in `skills` with `status: "админ"` and are hidden from the public panel
+- the `bot_manager` admin card is included as the standard example for new agent/skill setup workflows
+
 Manual snapshot refresh:
 
 ```bash
