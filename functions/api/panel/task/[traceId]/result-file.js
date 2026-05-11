@@ -1,4 +1,6 @@
 const RESULT_TTL_SECONDS = 60 * 60 * 24 * 30;
+const TASK_INDEX_KEY = "tasks:index";
+const TASK_INDEX_LIMIT = 500;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -54,6 +56,30 @@ async function hasAdminAccess(request, env, payload) {
     return true;
   }
   return Boolean(provided && (await sha256Hex(provided)) === BRIDGE_ADMIN_TOKEN_SHA256);
+}
+
+async function upsertTaskIndex(env, task) {
+  let index = [];
+  try {
+    const raw = await env.WEB_INTAKE.get(TASK_INDEX_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    index = Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    index = [];
+  }
+  const traceId = cleanText(task.trace_id, 100);
+  if (!traceId) {
+    return;
+  }
+  const entry = {
+    trace_id: traceId,
+    created_at: cleanText(task.created_at, 80),
+    updated_at: cleanText(task.updated_at || task.created_at, 80),
+  };
+  const nextIndex = [entry, ...index.filter((item) => item && item.trace_id !== traceId)].slice(0, TASK_INDEX_LIMIT);
+  await env.WEB_INTAKE.put(TASK_INDEX_KEY, JSON.stringify(nextIndex), {
+    expirationTtl: RESULT_TTL_SECONDS,
+  });
 }
 
 async function parsePayload(request) {
@@ -163,6 +189,7 @@ export async function onRequestPost({ request, env, params }) {
   await env.WEB_INTAKE.put(`task:${traceId}`, JSON.stringify(updatedTask), {
     expirationTtl: RESULT_TTL_SECONDS,
   });
+  await upsertTaskIndex(env, updatedTask);
 
   const publicMeta = {
     id: fileMeta.id,

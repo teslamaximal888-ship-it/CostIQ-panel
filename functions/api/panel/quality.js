@@ -18,6 +18,8 @@ function cleanText(value, limit = 500) {
     .slice(0, limit);
 }
 
+const TASK_INDEX_KEY = "tasks:index";
+
 function parseEpoch(value) {
   if (!value) {
     return 0;
@@ -88,6 +90,30 @@ async function readTask(env, key) {
   }
 }
 
+async function taskKeys(env, limit = 500) {
+  const rawIndex = await env.WEB_INTAKE.get(TASK_INDEX_KEY);
+  if (rawIndex) {
+    try {
+      const index = JSON.parse(rawIndex);
+      if (Array.isArray(index) && index.length) {
+        return {
+          keys: index
+            .map((item) => cleanText(item && item.trace_id, 100))
+            .filter(Boolean)
+            .slice(0, limit)
+            .map((traceId) => ({ name: `task:${traceId}` })),
+          list_complete: true,
+          cursor: "",
+          source: "index",
+        };
+      }
+    } catch (error) {
+      // Fall through to KV list for legacy data.
+    }
+  }
+  return env.WEB_INTAKE.list({ prefix: "task:", limit });
+}
+
 function normalizeTask(task, fallbackTraceId = "") {
   if (!task || typeof task !== "object" || Array.isArray(task)) {
     return {
@@ -153,7 +179,7 @@ export async function onRequestGet({ request, env }) {
   let list;
   let tasks;
   try {
-    list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 1000 });
+    list = await taskKeys(env, 500);
     tasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
       .map((task, index) => normalizeTask(task, list.keys[index] && list.keys[index].name ? list.keys[index].name.replace(/^task:/, "") : ""))
       .filter(Boolean);
