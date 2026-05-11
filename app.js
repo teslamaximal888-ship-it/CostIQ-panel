@@ -1857,6 +1857,9 @@ function renderWebTask(task) {
       : `<div class="web-result pending">${escapeHtml(webStatusMessage(task))}</div>`;
   const resultFiles = Array.isArray(task.result_files) ? task.result_files : [];
   const archive = task.result_archive && task.result_archive.url ? task.result_archive : null;
+  const primaryDownload = archive || resultFiles[0] || null;
+  const primaryDownloadLabel = archive ? "Скачать ZIP" : "Скачать файл";
+  const primaryDownloadUrl = primaryDownload ? withTelegramInitData(primaryDownload.url || "") : "";
   const downloads = resultFiles.length || archive
     ? `
       <div class="web-downloads">
@@ -1893,7 +1896,10 @@ function renderWebTask(task) {
         <em data-tone="${escapeHtml(tone)}">${escapeHtml(status)}</em>
         <small>${escapeHtml(traceId)}</small>
       </span>
-      ${taskUrl ? `<button type="button" class="ghost-button" id="copy-task-link">Ссылка</button>` : ""}
+      <span class="web-task-actions">
+        ${primaryDownloadUrl ? `<a class="web-download-button accent" href="${escapeHtml(primaryDownloadUrl)}" target="_blank" rel="noopener">${escapeHtml(primaryDownloadLabel)}</a>` : ""}
+        ${taskUrl ? `<button type="button" class="ghost-button" id="copy-task-link">Копировать ссылку</button>` : ""}
+      </span>
     </div>
     <p class="web-task-message">${escapeHtml(webStatusMessage(task))}</p>
     <dl>

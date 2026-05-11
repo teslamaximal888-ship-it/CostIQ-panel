@@ -634,6 +634,19 @@ h2 {
   margin-bottom: 12px;
 }
 
+.web-task-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.web-task-actions .ghost-button,
+.web-task-actions .web-download-button {
+  min-height: 38px;
+}
+
 .web-task-title,
 .web-task-title small {
   display: block;
