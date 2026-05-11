@@ -317,6 +317,16 @@ export async function onRequestPost({ request, env }) {
   if (task.requires_file && !hasFile) {
     return jsonResponse({ ok: false, error: "file_required" }, 400);
   }
+  if (task.requires_file && hasFile && !env.WEB_ATTACHMENTS) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "attachment_storage_not_configured",
+        detail: "R2 binding WEB_ATTACHMENTS is required for file-required web tasks",
+      },
+      503,
+    );
+  }
 
   let persisted = false;
   let attachment = null;

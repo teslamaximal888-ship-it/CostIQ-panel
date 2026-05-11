@@ -88,6 +88,19 @@ async function readTask(env, key) {
   }
 }
 
+function normalizeTask(task, fallbackTraceId = "") {
+  if (!task || typeof task !== "object" || Array.isArray(task)) {
+    return {
+      trace_id: fallbackTraceId,
+      status: "corrupted",
+      error_text: "task_payload_not_object",
+      created_at: "",
+      updated_at: "",
+    };
+  }
+  return task;
+}
+
 function addToWindow(bucket, task) {
   const status = String(task.status || "unknown").toLowerCase();
   const errorText = cleanText(task.error_text || task.result || "", 4000);
@@ -137,8 +150,16 @@ export async function onRequestGet({ request, env }) {
   const now = Date.now();
   const dayAgo = now - 24 * 60 * 60 * 1000;
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 1000 });
-  const tasks = (await Promise.all(list.keys.map((key) => readTask(env, key)))).filter(Boolean);
+  let list;
+  let tasks;
+  try {
+    list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 1000 });
+    tasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
+      .map((task, index) => normalizeTask(task, list.keys[index] && list.keys[index].name ? list.keys[index].name.replace(/^task:/, "") : ""))
+      .filter(Boolean);
+  } catch (error) {
+    return jsonResponse({ ok: false, error: "quality_read_failed", detail: cleanText(error && error.message, 240) }, 500);
+  }
   const day = emptyWindow();
   const week = emptyWindow();
   const bySkill = new Map();

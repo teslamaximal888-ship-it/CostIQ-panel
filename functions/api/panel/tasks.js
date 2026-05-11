@@ -120,6 +120,19 @@ async function readTask(env, key) {
   }
 }
 
+function normalizeTask(task, fallbackTraceId = "") {
+  if (!task || typeof task !== "object" || Array.isArray(task)) {
+    return {
+      trace_id: fallbackTraceId,
+      status: "corrupted",
+      error_text: "task_payload_not_object",
+      created_at: "",
+      updated_at: "",
+    };
+  }
+  return task;
+}
+
 export async function onRequestOptions() {
   return jsonResponse({ ok: true });
 }
@@ -139,10 +152,14 @@ export async function onRequestGet({ request, env }) {
   const staleMinutes = parseMinutes(url.searchParams.get("stale_minutes"), 15);
   const now = Date.now();
   const staleMs = staleMinutes * 60 * 1000;
-  const list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 100 });
-  const rawTasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
-    .filter(Boolean)
-    .map((task) => {
+  let list;
+  let rawTasks;
+  try {
+    list = await env.WEB_INTAKE.list({ prefix: "task:", limit: 100 });
+    rawTasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
+      .map((task, index) => normalizeTask(task, list.keys[index] && list.keys[index].name ? list.keys[index].name.replace(/^task:/, "") : ""))
+      .filter(Boolean)
+      .map((task) => {
       const state = queueState(task, now, staleMs);
       return {
         ...task,
@@ -152,6 +169,9 @@ export async function onRequestGet({ request, env }) {
         },
       };
     });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: "queue_read_failed", detail: cleanText(error && error.message, 240) }, 500);
+  }
   const avgProcessingSeconds = averageProcessingSeconds(rawTasks);
   const dueOrder = rawTasks
     .filter((task) => task.queue_state && task.queue_state.due)
