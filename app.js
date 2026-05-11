@@ -746,6 +746,10 @@ const state = {
   telegramInitData: "",
   telegramUser: null,
   telegramHistoryAvailable: false,
+  webSkillView: "function",
+  webSkillGroup: "все",
+  webSkillQuery: "",
+  webSelectedSkillId: "",
   webRecentFilter: "all",
 };
 
@@ -906,6 +910,42 @@ function skillMatchesSearch(skill) {
 
 function visibleSkills() {
   return skills.filter((skill) => skillMatchesGroup(skill) && skillMatchesSearch(skill));
+}
+
+function publicSkills() {
+  return skills.filter((skill) => (isAdminMode() ? skill.status !== "админ" : publicSkillIds.has(skill.id)));
+}
+
+function publicCurrentGroups() {
+  const field = state.webSkillView === "department" ? "department" : "function";
+  return currentGroupsForSkills(publicSkills(), field);
+}
+
+function currentGroupsForSkills(items, field) {
+  const source = field === "department" ? departments : functions;
+  return source.filter((group) => items.some((skill) => normalize(skill[field]).includes(normalize(group))));
+}
+
+function webSkillMatchesGroup(skill) {
+  if (state.webSkillGroup === "все") {
+    return true;
+  }
+  const field = state.webSkillView === "department" ? skill.department : skill.function;
+  return normalize(field).includes(normalize(state.webSkillGroup));
+}
+
+function webSkillMatchesSearch(skill) {
+  if (!state.webSkillQuery) {
+    return true;
+  }
+  const haystack = [skill.title, skill.subtitle, skill.function, skill.department, skill.command]
+    .map(normalize)
+    .join(" ");
+  return haystack.includes(normalize(state.webSkillQuery));
+}
+
+function visibleWebSkills() {
+  return publicSkills().filter((skill) => webSkillMatchesGroup(skill) && webSkillMatchesSearch(skill));
 }
 
 function renderTabs() {
@@ -1280,19 +1320,104 @@ function showToast(text) {
 
 function renderWebSkillOptions() {
   const select = document.getElementById("web-skill");
-  if (!select || select.options.length) {
+  if (!select) {
     return;
   }
-  skills
-    .filter((skill) => (isAdminMode() ? skill.status !== "админ" : publicSkillIds.has(skill.id)))
-    .forEach((skill) => {
+  const items = publicSkills();
+  if (!select.options.length) {
+    items.forEach((skill) => {
       const option = document.createElement("option");
       option.value = skill.id;
       option.textContent = skill.title;
       select.appendChild(option);
     });
-  select.addEventListener("change", () => renderWebIntakeFields(select.value));
-  renderWebIntakeFields(select.value);
+    select.addEventListener("change", () => selectWebSkill(select.value, { renderCards: true }));
+  }
+  if (!select.value && items.length) {
+    select.value = items[0].id;
+  }
+  selectWebSkill(select.value, { renderCards: false });
+  renderWebSkillPicker();
+}
+
+function selectWebSkill(skillId, options = {}) {
+  const select = document.getElementById("web-skill");
+  const skill = publicSkills().find((item) => item.id === skillId) || publicSkills()[0];
+  if (!skill) {
+    return;
+  }
+  state.webSelectedSkillId = skill.id;
+  if (select && select.value !== skill.id) {
+    select.value = skill.id;
+  }
+  renderWebIntakeFields(skill.id);
+  if (options.renderCards) {
+    renderWebSkillCards();
+  }
+}
+
+function renderWebSkillTabs() {
+  const tabs = document.getElementById("web-skill-tabs");
+  if (!tabs) {
+    return;
+  }
+  const groups = ["все", ...publicCurrentGroups()];
+  if (!groups.includes(state.webSkillGroup)) {
+    state.webSkillGroup = "все";
+  }
+  tabs.innerHTML = "";
+  groups.forEach((group) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = group;
+    button.dataset.webGroup = group;
+    button.className = group === state.webSkillGroup ? "active" : "";
+    tabs.appendChild(button);
+  });
+}
+
+function renderWebSkillCards() {
+  const grid = document.getElementById("web-skill-grid");
+  if (!grid) {
+    return;
+  }
+  const items = visibleWebSkills();
+  grid.innerHTML = "";
+
+  items.forEach((skill) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = skill.id === state.webSelectedSkillId ? "public-skill-card active" : "public-skill-card";
+    button.dataset.webSkill = skill.id;
+    button.dataset.tone = skill.tone;
+    button.innerHTML = `
+      <span class="card-icon">${skill.icon}</span>
+      <span class="card-body">
+        <span class="card-top">
+          <strong>${escapeHtml(skill.title)}</strong>
+          <em>${escapeHtml(webConfigForSkill(skill.id).inputType === "file_required" ? "нужен файл" : "текст/файл")}</em>
+        </span>
+        <small>${escapeHtml(skill.subtitle)}</small>
+        <span class="tags">
+          <span>${escapeHtml(skill.function)}</span>
+          <span>${escapeHtml(skill.department)}</span>
+        </span>
+      </span>
+    `;
+    grid.appendChild(button);
+  });
+
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "Ничего не найдено";
+    grid.appendChild(empty);
+  }
+}
+
+function renderWebSkillPicker() {
+  renderWebSkillTabs();
+  renderWebSkillCards();
 }
 
 function webConfigForSkill(skillId) {
@@ -2140,8 +2265,50 @@ if (webIntakeForm) {
   webIntakeForm.addEventListener("reset", () => {
     window.setTimeout(() => {
       const select = document.getElementById("web-skill");
-      renderWebIntakeFields(select ? select.value : "");
+      selectWebSkill(select ? select.value : "", { renderCards: true });
     }, 0);
+  });
+}
+
+document.querySelectorAll("[data-web-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.webSkillView = button.dataset.webView || "function";
+    state.webSkillGroup = "все";
+    document.querySelectorAll("[data-web-view]").forEach((item) => {
+      item.classList.toggle("active", item === button);
+    });
+    renderWebSkillPicker();
+  });
+});
+
+const webSkillSearch = document.getElementById("web-skill-search");
+if (webSkillSearch) {
+  webSkillSearch.addEventListener("input", (event) => {
+    state.webSkillQuery = event.target.value || "";
+    renderWebSkillCards();
+  });
+}
+
+const webSkillTabs = document.getElementById("web-skill-tabs");
+if (webSkillTabs) {
+  webSkillTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-web-group]");
+    if (!button) {
+      return;
+    }
+    state.webSkillGroup = button.dataset.webGroup || "все";
+    renderWebSkillPicker();
+  });
+}
+
+const webSkillGrid = document.getElementById("web-skill-grid");
+if (webSkillGrid) {
+  webSkillGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-web-skill]");
+    if (!button) {
+      return;
+    }
+    selectWebSkill(button.dataset.webSkill, { renderCards: true });
   });
 }
 

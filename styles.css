@@ -150,6 +150,7 @@ h2 {
 
 .primary-action,
 .card,
+.public-skill-card,
 .ops button,
 .tabs button,
 .view-toggle button,
@@ -190,6 +191,7 @@ h2 {
 
 .primary-action:active,
 .card:active,
+.public-skill-card:active,
 .ops button:active,
 .tabs button:active,
 .view-toggle button:active,
@@ -200,6 +202,7 @@ h2 {
 
 .primary-action:hover,
 .card:hover,
+.public-skill-card:hover,
 .ops button:hover,
 .tabs button:hover,
 .view-toggle button:hover,
@@ -210,14 +213,16 @@ h2 {
 }
 
 .primary-action strong,
-.card strong {
+.card strong,
+.public-skill-card strong {
   display: block;
   font-size: 16px;
   line-height: 1.2;
 }
 
 .primary-action small,
-.card small {
+.card small,
+.public-skill-card small {
   display: block;
   margin-top: 6px;
   color: var(--muted);
@@ -240,33 +245,40 @@ h2 {
 }
 
 .primary-action.blue .action-icon,
-.card[data-tone="blue"] .card-icon {
+.card[data-tone="blue"] .card-icon,
+.public-skill-card[data-tone="blue"] .card-icon {
   color: var(--blue);
 }
 
 .primary-action.copper .action-icon,
-.card[data-tone="copper"] .card-icon {
+.card[data-tone="copper"] .card-icon,
+.public-skill-card[data-tone="copper"] .card-icon {
   color: var(--copper);
 }
 
 .primary-action.violet .action-icon,
-.card[data-tone="violet"] .card-icon {
+.card[data-tone="violet"] .card-icon,
+.public-skill-card[data-tone="violet"] .card-icon {
   color: var(--violet);
 }
 
-.card[data-tone="green"] .card-icon {
+.card[data-tone="green"] .card-icon,
+.public-skill-card[data-tone="green"] .card-icon {
   color: var(--green);
 }
 
-.card[data-tone="red"] .card-icon {
+.card[data-tone="red"] .card-icon,
+.public-skill-card[data-tone="red"] .card-icon {
   color: var(--red);
 }
 
-.card[data-tone="teal"] .card-icon {
+.card[data-tone="teal"] .card-icon,
+.public-skill-card[data-tone="teal"] .card-icon {
   color: var(--teal);
 }
 
-.card[data-tone="gray"] .card-icon {
+.card[data-tone="gray"] .card-icon,
+.public-skill-card[data-tone="gray"] .card-icon {
   color: var(--muted);
 }
 
@@ -287,6 +299,42 @@ h2 {
 .mode-public .web-intake {
   padding-top: 18px;
   border-top: 0;
+}
+
+.public-skill-picker {
+  margin-bottom: 14px;
+}
+
+.public-skill-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.public-skill-tabs {
+  padding-bottom: 10px;
+}
+
+.public-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.public-skill-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 148px;
+  padding: 14px;
+  text-align: left;
+}
+
+.public-skill-card.active {
+  border-color: rgba(89, 209, 140, 0.72);
+  background: #18231e;
+  box-shadow: inset 0 0 0 1px rgba(89, 209, 140, 0.22);
 }
 
 .launcher[hidden] {
@@ -1031,10 +1079,12 @@ h2 {
   }
 
   .toolbar,
+  .public-skill-toolbar,
   .quick,
   .metrics,
   .insights,
   .grid,
+  .public-skill-grid,
   .activity-grid,
   .trace-summary,
   .web-task-card dl,
@@ -1053,6 +1103,7 @@ h2 {
   }
 
   .card,
+  .public-skill-card,
   .primary-action {
     min-height: 118px;
   }

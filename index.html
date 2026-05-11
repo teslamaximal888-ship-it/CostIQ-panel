@@ -94,14 +94,25 @@
           <span id="web-intake-mode">web intake</span>
         </div>
         <form id="web-intake-form" enctype="multipart/form-data">
+          <select id="web-skill" name="skill" required hidden aria-hidden="true"></select>
+          <div class="public-skill-picker">
+            <div class="toolbar public-skill-toolbar">
+              <div class="search">
+                <span>⌕</span>
+                <input id="web-skill-search" type="search" autocomplete="off" placeholder="Поиск навыка: КП, ПС, ОТ, договор, ТЭП">
+              </div>
+              <div class="view-toggle" aria-label="Группировка навыков">
+                <button type="button" class="active" data-web-view="function">Функции</button>
+                <button type="button" data-web-view="department">Подразделения</button>
+              </div>
+            </div>
+            <nav class="tabs public-skill-tabs" id="web-skill-tabs" aria-label="Группы навыков"></nav>
+            <div class="public-skill-grid" id="web-skill-grid"></div>
+          </div>
           <div class="form-grid">
             <div class="field">
               <label for="web-name">Имя</label>
               <input id="web-name" name="name" type="text" autocomplete="name" placeholder="ФИО / компания" required>
-            </div>
-            <div class="field">
-              <label for="web-skill">Навык</label>
-              <select id="web-skill" name="skill" required></select>
             </div>
           </div>
           <div class="form-grid web-dynamic-fields" id="web-dynamic-fields"></div>

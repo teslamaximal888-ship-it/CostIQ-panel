@@ -100,6 +100,7 @@ Version v14 adds web-intake queue reliability:
 Version v15 improves public and admin UX:
 
 - public intake shows skill-specific hints and file requirements before submit
+- public skill selection uses cards built from the same `skills` metadata as the admin panel, grouped by `function` or `department` and filtered by `publicSkillIds`
 - selected files are shown before upload, with a client-side 25 MB size check
 - result cards use user-facing statuses, timestamps, trace, file and clean waiting/error states
 - "Мои последние заявки" has filters for all / active / done / failed and clearer dates/statuses
