@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-12T20:10:01Z",
+  "generated_at": "2026-05-12T20:25:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "111 входящих",
-    "errors": "1"
+    "today": "116 входящих",
+    "errors": "2"
   },
   "tasks": {
     "total": 2,
@@ -35,23 +35,23 @@
     ]
   },
   "trace": {
-    "total_finishes": 19,
-    "finishes_24h": 12,
-    "finishes_7d": 19,
-    "errors_7d": 1,
-    "avg_latency_ms": 4494,
+    "total_finishes": 21,
+    "finishes_24h": 14,
+    "finishes_7d": 21,
+    "errors_7d": 2,
+    "avg_latency_ms": 4074,
     "top_intents": [
       [
         "bot_to_bot_outbound",
-        13
+        14
+      ],
+      [
+        "bot_to_bot_inbound_relay",
+        2
       ],
       [
         "reply_draft_response",
         2
-      ],
-      [
-        "bot_to_bot_inbound_relay",
-        1
       ],
       [
         "general",
@@ -65,7 +65,7 @@
     "top_statuses": [
       [
         "sent",
-        13
+        14
       ],
       [
         "success",
@@ -73,19 +73,19 @@
       ],
       [
         "relayed",
-        1
+        2
       ]
     ],
     "last": {
-      "ts": "2026-05-12T23:01:22+0300",
+      "ts": "2026-05-12T23:22:34+0300",
       "intent": "bot_to_bot_inbound_relay",
       "status": "relayed",
       "latency_ms": 0
     }
   },
   "bridge": {
-    "incoming_today": 111,
+    "incoming_today": 116,
     "webapp_today": 0,
-    "last_event": "2026-05-12 23:07:18,532 INFO Incoming update uid=8333914719 chat=-1003755444057 message_id=79 content_type=ContentType.TEXT media_group_id=None text_len=108 attachment_kind=None at"
+    "last_event": "2026-05-12 23:23:51,475 INFO Incoming update uid=5059630577 chat=5059630577 message_id=5510 content_type=ContentType.TEXT media_group_id=None text_len=33 attachment_kind=None attac"
   }
 }
