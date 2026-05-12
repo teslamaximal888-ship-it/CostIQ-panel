@@ -98,6 +98,11 @@ function contentDisposition(fileName) {
   return `attachment; filename="${fallback.replace(/"/g, "")}"`;
 }
 
+function downloadCorsOrigin(request) {
+  const origin = request.headers.get("Origin") || "";
+  return origin === "https://web.telegram.org" ? origin : "*";
+}
+
 async function readTask(env, traceId) {
   const raw = await env.WEB_INTAKE.get(`task:${traceId}`);
   if (!raw) {
@@ -149,6 +154,7 @@ export async function onRequestGet({ request, env, params }) {
   headers.set("Content-Type", headers.get("Content-Type") || file.type || "application/octet-stream");
   headers.set("Content-Disposition", headers.get("Content-Disposition") || contentDisposition(file.name));
   headers.set("Cache-Control", "private, max-age=0, no-store");
-  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Origin", downloadCorsOrigin(request));
+  headers.set("Vary", "Origin");
   return new Response(object.body, { headers });
 }

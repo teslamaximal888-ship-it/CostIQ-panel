@@ -878,6 +878,56 @@ function requestHomeShortcut() {
   }
 }
 
+function isNativeDownloadSupported() {
+  return Boolean(
+    tg &&
+      typeof tg.isVersionAtLeast === "function" &&
+      tg.isVersionAtLeast("8.0") &&
+      typeof tg.downloadFile === "function"
+  );
+}
+
+function absoluteDownloadUrl(url) {
+  if (!url) {
+    return "";
+  }
+  const fullUrl = new URL(url, window.location.origin);
+  return fullUrl.toString();
+}
+
+function downloadResultFile(url, fileName) {
+  const fallbackUrl = absoluteDownloadUrl(url);
+  if (!fallbackUrl) {
+    showToast("Файл результата пока недоступен");
+    return;
+  }
+
+  if (!isNativeDownloadSupported()) {
+    window.open(fallbackUrl, "_blank", "noopener");
+    return;
+  }
+
+  if (tg.HapticFeedback) {
+    tg.HapticFeedback.impactOccurred("light");
+  }
+
+  try {
+    tg.downloadFile(
+      {
+        url: fallbackUrl,
+        file_name: fileName || "CostIQ-result.zip",
+      },
+      (accepted) => {
+        if (!accepted) {
+          showToast("Скачивание отменено");
+        }
+      },
+    );
+  } catch (error) {
+    window.open(fallbackUrl, "_blank", "noopener");
+  }
+}
+
 function setText(id, value) {
   const node = document.getElementById(id);
   if (node) {
@@ -1930,19 +1980,20 @@ function renderWebTask(task) {
   const primaryDownload = archive || resultFiles[0] || null;
   const primaryDownloadLabel = archive ? "Скачать ZIP" : "Скачать файл";
   const primaryDownloadUrl = primaryDownload ? withTelegramInitData(primaryDownload.url || "") : "";
+  const primaryDownloadName = primaryDownload ? primaryDownload.name || primaryDownloadLabel : "";
   const downloads = resultFiles.length || archive
     ? `
       <div class="web-downloads">
         <strong>Файлы результата</strong>
         <div>
           ${resultFiles.map((file) => `
-            <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener">
+            <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(file.name || "CostIQ-result")}" data-download-url="${escapeHtml(withTelegramInitData(file.url || ""))}">
               <span>${escapeHtml(file.name || "Скачать файл")}</span>
               <small>${escapeHtml(formatFileSize(file.size))}</small>
             </a>
           `).join("")}
           ${archive ? `
-            <a class="web-download-button accent" href="${escapeHtml(withTelegramInitData(archive.url || ""))}" target="_blank" rel="noopener">
+            <a class="web-download-button accent" href="${escapeHtml(withTelegramInitData(archive.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(archive.name || "CostIQ-results.zip")}" data-download-url="${escapeHtml(withTelegramInitData(archive.url || ""))}">
               <span>${escapeHtml(archive.name || "Скачать архив ZIP")}</span>
               <small>${escapeHtml(formatFileSize(archive.size))}</small>
             </a>
@@ -1967,7 +2018,7 @@ function renderWebTask(task) {
         <small>${escapeHtml(traceId)}</small>
       </span>
       <span class="web-task-actions">
-        ${primaryDownloadUrl ? `<a class="web-download-button accent" href="${escapeHtml(primaryDownloadUrl)}" target="_blank" rel="noopener">${escapeHtml(primaryDownloadLabel)}</a>` : ""}
+        ${primaryDownloadUrl ? `<a class="web-download-button accent" href="${escapeHtml(primaryDownloadUrl)}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(primaryDownloadName || "CostIQ-result.zip")}" data-download-url="${escapeHtml(primaryDownloadUrl)}">${escapeHtml(primaryDownloadLabel)}</a>` : ""}
         ${taskUrl ? `<button type="button" class="ghost-button" id="copy-task-link">Копировать ссылку</button>` : ""}
       </span>
     </div>
@@ -2329,6 +2380,13 @@ async function submitWebIntake(event) {
 }
 
 document.addEventListener("click", (event) => {
+  const nativeDownload = event.target.closest("[data-native-download]");
+  if (nativeDownload) {
+    event.preventDefault();
+    downloadResultFile(nativeDownload.dataset.downloadUrl || nativeDownload.getAttribute("href"), nativeDownload.dataset.fileName || "");
+    return;
+  }
+
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     state.view = viewButton.dataset.view;

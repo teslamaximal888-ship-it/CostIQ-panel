@@ -135,6 +135,12 @@ Version v19 adds Telegram Home Screen Shortcut support:
 - the button uses `checkHomeScreenStatus()` and is hidden when the shortcut is already added or unsupported
 - clicking it calls `Telegram.WebApp.addToHomeScreen()`; browser users do not see the control
 
+Version v20 adds Telegram native downloads for Mini App results:
+
+- result ZIP/Excel links call `Telegram.WebApp.downloadFile()` in Telegram clients that support Bot API 8.0
+- ordinary HTTP download links remain the fallback for browsers, desktop clients and older Telegram versions
+- result endpoints keep `Content-Disposition: attachment` and return Telegram Web-compatible CORS headers
+
 Manual snapshot refresh:
 
 ```bash
