@@ -764,6 +764,7 @@ const state = {
   telegramInitData: "",
   telegramUser: null,
   telegramHistoryAvailable: false,
+  homeShortcutStatus: "",
   webSkillView: "function",
   webSkillGroup: "все",
   webSkillQuery: "",
@@ -787,6 +788,7 @@ function initTelegram() {
   if (!tg) {
     setText("tg-status", "В браузере");
     setText("user-label", "предпросмотр");
+    updateHomeShortcut("");
     return;
   }
 
@@ -805,6 +807,74 @@ function initTelegram() {
     if (webName && !webName.value) {
       webName.value = name;
     }
+  }
+
+  initHomeShortcut();
+}
+
+function isHomeShortcutSupported() {
+  return Boolean(
+    tg &&
+      typeof tg.isVersionAtLeast === "function" &&
+      tg.isVersionAtLeast("8.0") &&
+      typeof tg.addToHomeScreen === "function" &&
+      typeof tg.checkHomeScreenStatus === "function"
+  );
+}
+
+function updateHomeShortcut(status) {
+  state.homeShortcutStatus = status || "";
+  const button = document.getElementById("home-shortcut");
+  if (!button) {
+    return;
+  }
+
+  const canPrompt = isHomeShortcutSupported() && ["unknown", "missed"].includes(state.homeShortcutStatus);
+  button.hidden = !canPrompt;
+}
+
+function handleHomeScreenChecked(event) {
+  updateHomeShortcut(event && event.status ? event.status : "");
+}
+
+function handleHomeScreenAdded() {
+  updateHomeShortcut("added");
+  showToast("Ярлык добавлен");
+}
+
+function initHomeShortcut() {
+  if (!isHomeShortcutSupported()) {
+    updateHomeShortcut("unsupported");
+    return;
+  }
+
+  if (typeof tg.onEvent === "function") {
+    tg.onEvent("homeScreenChecked", handleHomeScreenChecked);
+    tg.onEvent("homeScreenAdded", handleHomeScreenAdded);
+  }
+
+  try {
+    tg.checkHomeScreenStatus((status) => updateHomeShortcut(status));
+  } catch (error) {
+    updateHomeShortcut("unknown");
+  }
+}
+
+function requestHomeShortcut() {
+  if (!isHomeShortcutSupported()) {
+    updateHomeShortcut("unsupported");
+    showToast("Ярлык недоступен на этом устройстве");
+    return;
+  }
+
+  if (tg.HapticFeedback) {
+    tg.HapticFeedback.impactOccurred("light");
+  }
+
+  try {
+    tg.addToHomeScreen();
+  } catch (error) {
+    showToast("Не удалось открыть добавление ярлыка");
   }
 }
 
@@ -2392,6 +2462,11 @@ if (webQueueTokenInput) {
 const webQueueRefresh = document.getElementById("web-queue-refresh");
 if (webQueueRefresh) {
   webQueueRefresh.addEventListener("click", refreshWebQueue);
+}
+
+const homeShortcutButton = document.getElementById("home-shortcut");
+if (homeShortcutButton) {
+  homeShortcutButton.addEventListener("click", requestHomeShortcut);
 }
 
 const searchInput = document.getElementById("search-input");

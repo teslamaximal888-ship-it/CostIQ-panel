@@ -61,6 +61,14 @@ button {
   padding: 10px 0 16px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--green);
@@ -98,6 +106,27 @@ h2 {
   border-radius: 999px;
   padding: 7px 10px;
   background: var(--surface);
+}
+
+.shortcut-button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(89, 209, 140, 0.5);
+  border-radius: 999px;
+  background: #18231e;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shortcut-button:hover {
+  border-color: rgba(110, 168, 255, 0.75);
+  background: var(--surface-2);
+}
+
+.shortcut-button[hidden] {
+  display: none;
 }
 
 .metrics {
@@ -1143,6 +1172,16 @@ h2 {
 
   h1 {
     font-size: 27px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .topbar-actions {
+    display: grid;
+    justify-items: end;
+    max-width: 46%;
   }
 
   .toolbar,

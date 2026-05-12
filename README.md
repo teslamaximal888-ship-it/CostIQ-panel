@@ -129,6 +129,12 @@ Version v18 adds downloadable task results:
 - public task status exposes only safe file metadata and download URLs, never R2 keys
 - the bridge uploads files created in `exports` after isolated web-task processing and creates a ZIP archive when several result files are generated
 
+Version v19 adds Telegram Home Screen Shortcut support:
+
+- public and admin Mini App screens show `Добавить на экран` only inside Telegram clients that support Bot API 8.0 home screen shortcuts
+- the button uses `checkHomeScreenStatus()` and is hidden when the shortcut is already added or unsupported
+- clicking it calls `Telegram.WebApp.addToHomeScreen()`; browser users do not see the control
+
 Manual snapshot refresh:
 
 ```bash
