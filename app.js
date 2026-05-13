@@ -788,6 +788,8 @@ const state = {
   webSkillQuery: "",
   webSelectedSkillId: "",
   webRecentFilter: "all",
+  webReviewDraft: null,
+  webCurrentTask: null,
 };
 
 function detectMode() {
@@ -1923,6 +1925,27 @@ function reviewVersion(task) {
   return Number.isFinite(version) && version > 0 ? version : 1;
 }
 
+function reviewActionTitle(action) {
+  if (action === "request_revision") {
+    return "Нужна доработка";
+  }
+  return "Задать вопрос";
+}
+
+function reviewActionLabel(action) {
+  if (action === "request_revision") {
+    return "Что нужно доработать";
+  }
+  return "Вопрос по результату";
+}
+
+function reviewActionPlaceholder(action) {
+  if (action === "request_revision") {
+    return "Например: проверь строку 15, пересчитай без ГТ, замени объект или добавь комментарий";
+  }
+  return "Например: почему такая сумма, что учтено в отклонении, где проверить исходные данные";
+}
+
 function renderReviewPanel(task) {
   const review = task && task.review && typeof task.review === "object" ? task.review : {};
   const events = Array.isArray(review.events) ? review.events : [];
@@ -1933,6 +1956,7 @@ function renderReviewPanel(task) {
   }
   const traceId = task.trace_id || "";
   const version = reviewVersion(task);
+  const draft = state.webReviewDraft && state.webReviewDraft.traceId === traceId ? state.webReviewDraft : null;
   const history = events.length
     ? `
       <div class="web-review-history">
@@ -1957,14 +1981,43 @@ function renderReviewPanel(task) {
       </div>
       ${canAct ? `
         <div class="web-review-actions">
-          <button type="button" class="ghost-button" data-web-review-action="ask_question" data-web-review-trace="${escapeHtml(traceId)}">Задать вопрос</button>
-          <button type="button" class="ghost-button" data-web-review-action="request_revision" data-web-review-trace="${escapeHtml(traceId)}">Нужна доработка</button>
+          <button type="button" class="ghost-button${draft && draft.action === "ask_question" ? " active" : ""}" data-web-review-action="ask_question" data-web-review-trace="${escapeHtml(traceId)}">Задать вопрос</button>
+          <button type="button" class="ghost-button${draft && draft.action === "request_revision" ? " active" : ""}" data-web-review-action="request_revision" data-web-review-trace="${escapeHtml(traceId)}">Нужна доработка</button>
           <button type="button" class="submit-button" data-web-review-action="accept_result" data-web-review-trace="${escapeHtml(traceId)}">Принять результат</button>
         </div>
+        ${draft ? `
+          <form class="web-review-form" data-web-review-form data-web-review-action="${escapeHtml(draft.action)}" data-web-review-trace="${escapeHtml(traceId)}">
+            <label for="web-review-comment">${escapeHtml(reviewActionLabel(draft.action))}</label>
+            <textarea id="web-review-comment" name="review_text" rows="4" placeholder="${escapeHtml(reviewActionPlaceholder(draft.action))}" required>${escapeHtml(draft.text || "")}</textarea>
+            <div>
+              <button type="submit" class="submit-button">${escapeHtml(reviewActionTitle(draft.action))}</button>
+              <button type="button" class="ghost-button" data-web-review-cancel="1">Отмена</button>
+            </div>
+          </form>
+        ` : ""}
       ` : ""}
       ${history}
     </div>
   `;
+}
+
+function openWebReviewDraft(traceId, action) {
+  state.webReviewDraft = { traceId, action, text: "" };
+  if (state.webCurrentTask && state.webCurrentTask.trace_id === traceId) {
+    renderWebTask(state.webCurrentTask);
+    const input = document.getElementById("web-review-comment");
+    if (input) {
+      input.focus();
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+}
+
+function closeWebReviewDraft() {
+  state.webReviewDraft = null;
+  if (state.webCurrentTask) {
+    renderWebTask(state.webCurrentTask);
+  }
 }
 
 function rememberWebTask(task) {
@@ -2105,6 +2158,7 @@ function renderWebTask(task) {
   if (!card || !task) {
     return;
   }
+  state.webCurrentTask = task;
 
   const traceId = task.trace_id || "";
   const status = webTaskStatusLabel(task.status);
@@ -2434,15 +2488,9 @@ async function fetchWebTask(traceId) {
   return data.task;
 }
 
-async function submitWebReviewAction(traceId, action) {
+async function submitWebReviewAction(traceId, action, text = "") {
   if (!traceId || !action) {
     return;
-  }
-  let text = "";
-  if (action === "ask_question") {
-    text = window.prompt("Вопрос по результату") || "";
-  } else if (action === "request_revision") {
-    text = window.prompt("Что нужно доработать?") || "";
   }
   if ((action === "ask_question" || action === "request_revision") && !text.trim()) {
     showToast("Комментарий обязателен");
@@ -2461,6 +2509,9 @@ async function submitWebReviewAction(traceId, action) {
   if (!response.ok || !data.ok) {
     showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
     return;
+  }
+  if (state.webReviewDraft && state.webReviewDraft.traceId === traceId && state.webReviewDraft.action === action) {
+    state.webReviewDraft = null;
   }
   renderWebTask(data.task);
   rememberWebTask(data.task);
@@ -2576,7 +2627,19 @@ document.addEventListener("click", (event) => {
 
   const reviewButton = event.target.closest("[data-web-review-action]");
   if (reviewButton) {
-    submitWebReviewAction(reviewButton.dataset.webReviewTrace, reviewButton.dataset.webReviewAction);
+    const action = reviewButton.dataset.webReviewAction;
+    const traceId = reviewButton.dataset.webReviewTrace;
+    if (action === "ask_question" || action === "request_revision") {
+      openWebReviewDraft(traceId, action);
+    } else {
+      submitWebReviewAction(traceId, action);
+    }
+    return;
+  }
+
+  const reviewCancel = event.target.closest("[data-web-review-cancel]");
+  if (reviewCancel) {
+    closeWebReviewDraft();
     return;
   }
 
@@ -2622,6 +2685,24 @@ document.addEventListener("click", (event) => {
   if (retryButton) {
     retryWebTask(retryButton.dataset.webRetry);
   }
+});
+
+document.addEventListener("input", (event) => {
+  const field = event.target;
+  if (!field || field.name !== "review_text" || !field.closest("[data-web-review-form]") || !state.webReviewDraft) {
+    return;
+  }
+  state.webReviewDraft.text = field.value;
+});
+
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-web-review-form]");
+  if (!form) {
+    return;
+  }
+  event.preventDefault();
+  const textField = form.querySelector("textarea[name='review_text']");
+  submitWebReviewAction(form.dataset.webReviewTrace, form.dataset.webReviewAction, textField ? textField.value : "");
 });
 
 const launcherClose = document.getElementById("launcher-close");
