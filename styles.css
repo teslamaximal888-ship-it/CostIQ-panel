@@ -893,6 +893,11 @@ h2 {
   background: var(--surface);
 }
 
+.web-review-history small {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;

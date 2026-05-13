@@ -1925,7 +1925,7 @@ function reviewVersion(task) {
 
 function renderReviewPanel(task) {
   const review = task && task.review && typeof task.review === "object" ? task.review : {};
-  const events = Array.isArray(review.events) ? review.events.slice(-4) : [];
+  const events = Array.isArray(review.events) ? review.events : [];
   const status = String((task && task.status) || "").toLowerCase();
   const canAct = isReviewOpen(task);
   if (!canAct && !events.length && !["accepted", "closed", "closed_by_timeout", "question_requested", "revision_requested", "reworking"].includes(status)) {
@@ -1940,7 +1940,7 @@ function renderReviewPanel(task) {
         ${events.map((event) => `
           <div>
             <span>${escapeHtml(webTaskStatusLabel(event.type || ""))} · v${escapeHtml(event.version || version)} · ${escapeHtml(formatShortDate(event.created_at) || "")}</span>
-            ${event.text ? `<small>${escapeHtml(compact(event.text, 180))}</small>` : ""}
+            ${event.text ? `<small>${escapeHtml(event.text)}</small>` : ""}
           </div>
         `).join("")}
       </div>
@@ -2126,12 +2126,13 @@ function renderWebTask(task) {
   const primaryDownloadLabel = archive ? "Скачать ZIP" : "Скачать файл";
   const primaryDownloadUrl = primaryDownload ? withTelegramInitData(primaryDownload.url || "") : "";
   const primaryDownloadName = primaryDownload ? primaryDownload.name || primaryDownloadLabel : "";
+  const visibleResultFiles = archive ? [] : resultFiles;
   const downloads = resultFiles.length || archive
     ? `
       <div class="web-downloads">
         <strong>Файлы результата</strong>
         <div>
-          ${resultFiles.map((file) => `
+          ${visibleResultFiles.map((file) => `
             <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(file.name || "CostIQ-result")}" data-download-url="${escapeHtml(withTelegramInitData(file.url || ""))}">
               <span>${escapeHtml(file.name || "Скачать файл")}</span>
               <small>${escapeHtml(formatFileSize(file.size))}</small>

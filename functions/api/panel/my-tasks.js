@@ -103,7 +103,9 @@ function publicTask(task) {
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }
-  if (Array.isArray(safeTask.result_files)) {
+  if (safeTask.result_archive && safeTask.result_archive.id) {
+    safeTask.result_files = [];
+  } else if (Array.isArray(safeTask.result_files)) {
     safeTask.result_files = safeTask.result_files.map((file) => ({
       id: file.id,
       name: file.name,

@@ -25,6 +25,8 @@ function cleanText(value, limit = 4000) {
     .slice(0, limit);
 }
 
+const RESULT_TEXT_LIMIT = 50000;
+
 function cleanInteger(value, fallback = 0, min = 0, max = 99) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed)) {
@@ -109,7 +111,7 @@ function normalizeReview(task, status, now, reviewEvent = null) {
       type: cleanText(reviewEvent.type, 40) || "review_event",
       version: cleanInteger(reviewEvent.version, version, 1, 99),
       author: cleanText(reviewEvent.author, 40) || "bridge",
-      text: cleanText(reviewEvent.text, 2000),
+      text: cleanText(reviewEvent.text, RESULT_TEXT_LIMIT),
       created_at: cleanText(reviewEvent.created_at, 80) || now,
     };
     if (event.text) {
@@ -180,7 +182,7 @@ export async function onRequestPost({ request, env, params }) {
     return jsonResponse({ ok: false, error: "invalid_status" }, 400);
   }
   const resultProvided = payload.result !== undefined;
-  const result = cleanText(payload.result, 4000);
+  const result = cleanText(payload.result, RESULT_TEXT_LIMIT);
   if (!result && !["created", "queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"].includes(status)) {
     return jsonResponse({ ok: false, error: "result_required" }, 400);
   }
@@ -196,7 +198,7 @@ export async function onRequestPost({ request, env, params }) {
     status,
     result: resultProvided ? result : task.result || "",
     summary: cleanText(payload.summary, 1000) || task.summary || "",
-    result_text: cleanText(payload.result_text, 4000) || task.result_text || "",
+    result_text: cleanText(payload.result_text, RESULT_TEXT_LIMIT) || task.result_text || "",
     warnings: payload.warnings === undefined ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(payload.warnings),
     review_hint: cleanText(payload.review_hint, 1000) || task.review_hint || "",
     result_version: resultVersion,

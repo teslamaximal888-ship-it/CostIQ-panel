@@ -31,6 +31,8 @@ function cleanText(value, limit = 500) {
     .slice(0, limit);
 }
 
+const RESULT_TEXT_LIMIT = 50000;
+
 function cleanInteger(value, fallback = 0, min = 0, max = 99) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed)) {
@@ -196,7 +198,7 @@ export async function onRequestPost({ request, env, params }) {
   if (!allowedStatuses.has(status)) {
     return jsonResponse({ ok: false, error: "invalid_status" }, 400);
   }
-  const result = cleanText(formData.get("result"), 4000);
+  const result = cleanText(formData.get("result"), RESULT_TEXT_LIMIT);
   const attempts = formData.get("attempts") === null ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(formData.get("attempts"), 0, 0, 99);
   const maxAttempts = formData.get("max_attempts") === null ? cleanInteger(task.max_attempts, 3, 1, 99) : cleanInteger(formData.get("max_attempts"), 3, 1, 99);
   const resultVersion = formData.get("result_version") === null ? cleanInteger(task.result_version, 1, 1, 99) : cleanInteger(formData.get("result_version"), 1, 1, 99);
@@ -206,7 +208,7 @@ export async function onRequestPost({ request, env, params }) {
     status,
     result: result || task.result || "",
     summary: cleanText(formData.get("summary"), 1000) || task.summary || "",
-    result_text: cleanText(formData.get("result_text"), 4000) || task.result_text || "",
+    result_text: cleanText(formData.get("result_text"), RESULT_TEXT_LIMIT) || task.result_text || "",
     warnings: formData.get("warnings") === null ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(formData.get("warnings")),
     review_hint: cleanText(formData.get("review_hint"), 1000) || task.review_hint || "",
     result_version: resultVersion,

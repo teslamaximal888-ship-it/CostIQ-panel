@@ -29,6 +29,8 @@ function cleanText(value, limit = 1000) {
     .slice(0, limit);
 }
 
+const REVIEW_TEXT_LIMIT = 50000;
+
 function cleanInteger(value, fallback = 1, min = 1, max = 99) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed)) {
@@ -118,7 +120,9 @@ function publicTask(task) {
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }
-  if (Array.isArray(safeTask.result_files)) {
+  if (safeTask.result_archive && safeTask.result_archive.id) {
+    safeTask.result_files = [];
+  } else if (Array.isArray(safeTask.result_files)) {
     safeTask.result_files = safeTask.result_files.map((file) => ({
       id: file.id,
       name: file.name,
@@ -195,7 +199,7 @@ export async function onRequestPost({ request, env, params }) {
   if (!["done", "ready_for_review", "question_requested", "revision_requested"].includes(currentStatus)) {
     return jsonResponse({ ok: false, error: "review_not_available" }, 409);
   }
-  const text = cleanText(payload.text, 2000);
+  const text = cleanText(payload.text, REVIEW_TEXT_LIMIT);
   if ((action === "ask_question" || action === "request_revision") && !text) {
     return jsonResponse({ ok: false, error: "comment_required" }, 400);
   }

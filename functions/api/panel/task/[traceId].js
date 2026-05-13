@@ -47,7 +47,9 @@ export async function onRequestGet({ env, params }) {
   if (attachment) {
     publicTask.attachment_status = task.attachment_status || "stored";
   }
-  if (Array.isArray(publicTask.result_files)) {
+  if (publicTask.result_archive && publicTask.result_archive.id) {
+    publicTask.result_files = [];
+  } else if (Array.isArray(publicTask.result_files)) {
     publicTask.result_files = publicTask.result_files.map((file) => ({
       id: file.id,
       name: file.name,
