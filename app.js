@@ -1739,6 +1739,12 @@ function webTaskStatusLabel(status) {
   if (normalized === "revision_requested") {
     return "нужна доработка";
   }
+  if (normalized === "question_answered") {
+    return "ответ готов";
+  }
+  if (normalized === "revision_completed") {
+    return "доработано";
+  }
   if (normalized === "reworking") {
     return "доработка";
   }

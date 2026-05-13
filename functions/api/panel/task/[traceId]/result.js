@@ -100,10 +100,22 @@ function cleanStringArray(value, limit = 8) {
   return text ? [text] : [];
 }
 
-function normalizeReview(task, status, now) {
+function normalizeReview(task, status, now, reviewEvent = null) {
   const current = task.review && typeof task.review === "object" && !Array.isArray(task.review) ? task.review : {};
   const version = cleanInteger(task.result_version || current.current_version, 1, 1, 99);
   const events = Array.isArray(current.events) ? current.events.slice(0, 50) : [];
+  if (reviewEvent && typeof reviewEvent === "object" && !Array.isArray(reviewEvent)) {
+    const event = {
+      type: cleanText(reviewEvent.type, 40) || "review_event",
+      version: cleanInteger(reviewEvent.version, version, 1, 99),
+      author: cleanText(reviewEvent.author, 40) || "bridge",
+      text: cleanText(reviewEvent.text, 2000),
+      created_at: cleanText(reviewEvent.created_at, 80) || now,
+    };
+    if (event.text) {
+      events.push(event);
+    }
+  }
   const review = {
     state: REVIEW_STATUSES.has(status) ? status : current.state || "",
     current_version: version,
@@ -188,7 +200,7 @@ export async function onRequestPost({ request, env, params }) {
     warnings: payload.warnings === undefined ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(payload.warnings),
     review_hint: cleanText(payload.review_hint, 1000) || task.review_hint || "",
     result_version: resultVersion,
-    review: normalizeReview({ ...task, result_version: resultVersion }, status, now),
+    review: normalizeReview({ ...task, result_version: resultVersion }, status, now, payload.review_event),
     attempts,
     max_attempts: maxAttempts,
     retry_after: retryAfter,
