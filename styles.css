@@ -757,6 +757,22 @@ h2 {
   white-space: pre-wrap;
 }
 
+.web-warnings {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.web-warnings span {
+  display: block;
+  padding: 9px 10px;
+  border: 1px solid rgba(241, 138, 69, 0.42);
+  border-radius: var(--radius);
+  background: #2a2119;
+  color: var(--text);
+  line-height: 1.35;
+}
+
 .web-downloads {
   margin-top: 10px;
   padding: 10px;
@@ -808,6 +824,73 @@ h2 {
 .web-download-button small {
   flex: 0 0 auto;
   color: var(--muted);
+}
+
+.web-review {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(89, 209, 140, 0.35);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.web-review-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.web-review-head strong,
+.web-review-head small,
+.web-review-history strong,
+.web-review-history span,
+.web-review-history small {
+  display: block;
+}
+
+.web-review-head small,
+.web-review-history span,
+.web-review-history small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.web-review-head em {
+  max-width: 48%;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.web-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.web-review-actions .ghost-button,
+.web-review-actions .submit-button {
+  min-height: 38px;
+}
+
+.web-review-history {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.web-review-history div {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .toolbar {
@@ -1197,6 +1280,14 @@ h2 {
   .form-grid,
   .ops {
     grid-template-columns: 1fr;
+  }
+
+  .web-review-head {
+    display: grid;
+  }
+
+  .web-review-head em {
+    max-width: none;
   }
 
   .form-actions {

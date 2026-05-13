@@ -147,6 +147,14 @@ Version v21 registers the CostIQ Panel Workflow standard:
 - public panel remains unchanged; the workflow standard is admin-only
 - the standard lives in `/srv/sauteam/skills/costiq-panel-workflow`
 
+Version v22 adds the first Review Loop implementation:
+
+- result writeback APIs accept `ready_for_review`, `question_requested`, `revision_requested`, `reworking`, `accepted`, `closed` and `closed_by_timeout`
+- result-file uploads default to `ready_for_review` and maintain `result_version` plus a `review` history object
+- public task cards show review actions: ask a question, request revision, accept result
+- `POST /api/panel/task/:trace_id/review` stores user review events without creating a separate task
+- legacy `done` tasks remain compatible and are shown as reviewable results
+
 Manual snapshot refresh:
 
 ```bash

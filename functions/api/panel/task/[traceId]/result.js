@@ -36,6 +36,8 @@ function cleanInteger(value, fallback = 0, min = 0, max = 99) {
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
+const REVIEW_STATUSES = new Set(["ready_for_review", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"]);
+const FINISHED_STATUSES = new Set(["done", "ready_for_review", "failed", "accepted", "closed", "closed_by_timeout"]);
 
 async function parsePayload(request) {
   const contentType = request.headers.get("content-type") || "";
@@ -86,6 +88,43 @@ async function upsertTaskIndex(env, task) {
   });
 }
 
+function cleanStatus(value, fallback = "done") {
+  return cleanText(value, 40).toLowerCase() || fallback;
+}
+
+function cleanStringArray(value, limit = 8) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanText(item, 500)).filter(Boolean).slice(0, limit);
+  }
+  const text = cleanText(value, 2000);
+  return text ? [text] : [];
+}
+
+function normalizeReview(task, status, now) {
+  const current = task.review && typeof task.review === "object" && !Array.isArray(task.review) ? task.review : {};
+  const version = cleanInteger(task.result_version || current.current_version, 1, 1, 99);
+  const events = Array.isArray(current.events) ? current.events.slice(0, 50) : [];
+  const review = {
+    state: REVIEW_STATUSES.has(status) ? status : current.state || "",
+    current_version: version,
+    accepted_at: cleanText(current.accepted_at, 80),
+    closed_at: cleanText(current.closed_at, 80),
+    events,
+  };
+  if (status === "ready_for_review") {
+    review.state = "ready_for_review";
+  }
+  if (status === "accepted") {
+    review.state = "accepted";
+    review.accepted_at = review.accepted_at || now;
+  }
+  if (status === "closed" || status === "closed_by_timeout") {
+    review.state = status;
+    review.closed_at = review.closed_at || now;
+  }
+  return review;
+}
+
 export async function onRequestOptions() {
   return jsonResponse({ ok: true });
 }
@@ -123,25 +162,33 @@ export async function onRequestPost({ request, env, params }) {
     return jsonResponse({ ok: false, error: "task_corrupted" }, 500);
   }
 
-  const status = cleanText(payload.status, 40) || "done";
-  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done"]);
+  const status = cleanStatus(payload.status, "done");
+  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done", ...REVIEW_STATUSES]);
   if (!allowedStatuses.has(status)) {
     return jsonResponse({ ok: false, error: "invalid_status" }, 400);
   }
+  const resultProvided = payload.result !== undefined;
   const result = cleanText(payload.result, 4000);
-  if (!result && !["created", "queued", "in_progress", "retry"].includes(status)) {
+  if (!result && !["created", "queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"].includes(status)) {
     return jsonResponse({ ok: false, error: "result_required" }, 400);
   }
   const errorText = cleanText(payload.error_text, 1400);
   const retryAfter = cleanText(payload.retry_after, 80);
   const attempts = payload.attempts === undefined ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(payload.attempts, 0, 0, 99);
   const maxAttempts = payload.max_attempts === undefined ? cleanInteger(task.max_attempts, 3, 1, 99) : cleanInteger(payload.max_attempts, 3, 1, 99);
+  const resultVersion = payload.result_version === undefined ? cleanInteger(task.result_version, 1, 1, 99) : cleanInteger(payload.result_version, 1, 1, 99);
   const now = new Date().toISOString();
 
   const updatedTask = {
     ...task,
     status,
-    result,
+    result: resultProvided ? result : task.result || "",
+    summary: cleanText(payload.summary, 1000) || task.summary || "",
+    result_text: cleanText(payload.result_text, 4000) || task.result_text || "",
+    warnings: payload.warnings === undefined ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(payload.warnings),
+    review_hint: cleanText(payload.review_hint, 1000) || task.review_hint || "",
+    result_version: resultVersion,
+    review: normalizeReview({ ...task, result_version: resultVersion }, status, now),
     attempts,
     max_attempts: maxAttempts,
     retry_after: retryAfter,
@@ -154,7 +201,7 @@ export async function onRequestPost({ request, env, params }) {
         : cleanText(payload.processing_started_at, 80),
     processing_finished_at:
       payload.processing_finished_at === undefined
-        ? ["done", "failed"].includes(status)
+        ? FINISHED_STATUSES.has(status)
           ? now
           : task.processing_finished_at || ""
         : cleanText(payload.processing_finished_at, 80),

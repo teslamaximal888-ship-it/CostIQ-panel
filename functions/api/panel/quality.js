@@ -132,7 +132,7 @@ function addToWindow(bucket, task) {
   const errorText = cleanText(task.error_text || task.result || "", 4000);
   const hasWarning = /\b(warn|warning|fail|failed|error|ошиб|сбой|предупреж)/i.test(errorText);
   bucket.total += 1;
-  if (status === "done") {
+  if (["done", "ready_for_review", "accepted", "closed"].includes(status)) {
     bucket.done += 1;
   }
   if (status === "failed" || status === "corrupted") {

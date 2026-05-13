@@ -1,6 +1,8 @@
 const RESULT_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
+const REVIEW_STATUSES = new Set(["ready_for_review", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"]);
+const FINISHED_STATUSES = new Set(["done", "ready_for_review", "failed", "accepted", "closed", "closed_by_timeout"]);
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -80,6 +82,30 @@ async function upsertTaskIndex(env, task) {
   await env.WEB_INTAKE.put(TASK_INDEX_KEY, JSON.stringify(nextIndex), {
     expirationTtl: RESULT_TTL_SECONDS,
   });
+}
+
+function cleanStringArray(value, limit = 8) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanText(item, 500)).filter(Boolean).slice(0, limit);
+  }
+  const text = cleanText(value, 2000);
+  return text ? [text] : [];
+}
+
+function normalizeReview(task, status, now) {
+  const current = task.review && typeof task.review === "object" && !Array.isArray(task.review) ? task.review : {};
+  const version = cleanInteger(task.result_version || current.current_version, 1, 1, 99);
+  const review = {
+    state: REVIEW_STATUSES.has(status) ? status : current.state || "",
+    current_version: version,
+    accepted_at: cleanText(current.accepted_at, 80),
+    closed_at: cleanText(current.closed_at, 80),
+    events: Array.isArray(current.events) ? current.events.slice(0, 50) : [],
+  };
+  if (status === "ready_for_review") {
+    review.state = "ready_for_review";
+  }
+  return review;
 }
 
 async function parsePayload(request) {
@@ -165,19 +191,30 @@ export async function onRequestPost({ request, env, params }) {
     created_at: now,
     expires_at: new Date(Date.now() + RESULT_TTL_SECONDS * 1000).toISOString(),
   };
-  const status = cleanText(formData.get("status"), 40) || "done";
+  const status = cleanText(formData.get("status"), 40).toLowerCase() || "ready_for_review";
+  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done", ...REVIEW_STATUSES]);
+  if (!allowedStatuses.has(status)) {
+    return jsonResponse({ ok: false, error: "invalid_status" }, 400);
+  }
   const result = cleanText(formData.get("result"), 4000);
   const attempts = formData.get("attempts") === null ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(formData.get("attempts"), 0, 0, 99);
   const maxAttempts = formData.get("max_attempts") === null ? cleanInteger(task.max_attempts, 3, 1, 99) : cleanInteger(formData.get("max_attempts"), 3, 1, 99);
+  const resultVersion = formData.get("result_version") === null ? cleanInteger(task.result_version, 1, 1, 99) : cleanInteger(formData.get("result_version"), 1, 1, 99);
 
   const updatedTask = {
     ...task,
     status,
     result: result || task.result || "",
+    summary: cleanText(formData.get("summary"), 1000) || task.summary || "",
+    result_text: cleanText(formData.get("result_text"), 4000) || task.result_text || "",
+    warnings: formData.get("warnings") === null ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(formData.get("warnings")),
+    review_hint: cleanText(formData.get("review_hint"), 1000) || task.review_hint || "",
+    result_version: resultVersion,
+    review: normalizeReview({ ...task, result_version: resultVersion }, status, now),
     attempts,
     max_attempts: maxAttempts,
     error_text: cleanText(formData.get("error_text"), 1400),
-    processing_finished_at: ["done", "failed"].includes(status) ? now : task.processing_finished_at || "",
+    processing_finished_at: FINISHED_STATUSES.has(status) ? now : task.processing_finished_at || "",
     updated_at: now,
   };
   if (isArchive) {

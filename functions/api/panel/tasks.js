@@ -84,8 +84,8 @@ function queueState(task, now, staleMs) {
   const status = String(task.status || "").toLowerCase();
   const updated = parseEpoch(task.updated_at || task.created_at);
   const retryAfter = parseEpoch(task.retry_after);
-  const stale = Boolean(updated && now - updated > staleMs && ["created", "queued", "in_progress", "retry"].includes(status));
-  const due = status === "retry" ? !retryAfter || retryAfter <= now : status === "created";
+  const stale = Boolean(updated && now - updated > staleMs && ["created", "queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking"].includes(status));
+  const due = status === "retry" ? !retryAfter || retryAfter <= now : ["created", "question_requested", "revision_requested"].includes(status);
   return { status, stale, due, retryAfter };
 }
 

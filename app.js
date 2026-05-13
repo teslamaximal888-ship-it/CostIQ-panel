@@ -5,7 +5,7 @@ const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
 const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
 const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
-const WEB_RECENT_FILTERS = ["all", "active", "done", "failed"];
+const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed"];
 
 const functions = [
   "проверка",
@@ -1038,6 +1038,9 @@ function safeErrorMessage(message) {
     storage_not_configured: "Хранилище файлов ещё настраивается. Текстовые заявки работают.",
     storage_failed: "Файл не удалось сохранить. Попробуйте ещё раз или уменьшите размер файла.",
     intake_not_configured: "Приём заявок ещё не настроен.",
+    comment_required: "Нужно написать вопрос или комментарий.",
+    review_not_available: "Для этой задачи проверка результата недоступна.",
+    telegram_auth_required: "Откройте задачу из своего Telegram-профиля.",
   };
   return map[normalized] || "Не удалось создать задачу. Проверьте поля и попробуйте ещё раз.";
 }
@@ -1727,6 +1730,27 @@ function webTaskStatusLabel(status) {
   if (normalized === "done") {
     return "готово";
   }
+  if (normalized === "ready_for_review") {
+    return "на проверке";
+  }
+  if (normalized === "question_requested") {
+    return "вопрос задан";
+  }
+  if (normalized === "revision_requested") {
+    return "нужна доработка";
+  }
+  if (normalized === "reworking") {
+    return "доработка";
+  }
+  if (normalized === "accepted") {
+    return "принято";
+  }
+  if (normalized === "closed") {
+    return "закрыто";
+  }
+  if (normalized === "closed_by_timeout") {
+    return "закрыто по сроку";
+  }
   if (normalized === "failed") {
     return "ошибка";
   }
@@ -1735,17 +1759,20 @@ function webTaskStatusLabel(status) {
 
 function webTaskStatusTone(status) {
   const normalized = String(status || "").toLowerCase();
-  if (normalized === "done") {
+  if (normalized === "done" || normalized === "ready_for_review" || normalized === "accepted" || normalized === "closed") {
     return "done";
   }
   if (normalized === "failed") {
     return "failed";
   }
-  if (normalized === "retry") {
+  if (normalized === "retry" || normalized === "revision_requested") {
     return "retry";
   }
-  if (normalized === "in_progress" || normalized === "queued" || normalized === "created") {
+  if (["in_progress", "queued", "created", "question_requested", "reworking"].includes(normalized)) {
     return "active";
+  }
+  if (normalized === "closed_by_timeout") {
+    return "neutral";
   }
   return "neutral";
 }
@@ -1753,7 +1780,28 @@ function webTaskStatusTone(status) {
 function webStatusMessage(task) {
   const normalized = String((task && task.status) || "").toLowerCase();
   if (normalized === "done") {
-    return "Результат готов.";
+    return "Результат готов. Проверьте его и примите задачу или отправьте комментарий.";
+  }
+  if (normalized === "ready_for_review") {
+    return "Результат готов к проверке. Можно скачать файл, задать вопрос, отправить на доработку или принять.";
+  }
+  if (normalized === "question_requested") {
+    return "Вопрос по результату сохранён. Ответ вернётся в эту карточку.";
+  }
+  if (normalized === "revision_requested") {
+    return "Комментарий на доработку сохранён. Задача ждёт повторной обработки.";
+  }
+  if (normalized === "reworking") {
+    return "Идёт доработка результата.";
+  }
+  if (normalized === "accepted") {
+    return "Результат принят пользователем.";
+  }
+  if (normalized === "closed") {
+    return "Задача закрыта.";
+  }
+  if (normalized === "closed_by_timeout") {
+    return "Задача закрыта по сроку без явного принятия.";
   }
   if (normalized === "failed") {
     return "Заявка остановлена с ошибкой. Можно создать новую заявку или дождаться ручной проверки.";
@@ -1774,8 +1822,11 @@ function recentFilterLabel(filter) {
   if (filter === "active") {
     return "В работе";
   }
+  if (filter === "review") {
+    return "Проверка";
+  }
   if (filter === "done") {
-    return "Готово";
+    return "Закрыто";
   }
   if (filter === "failed") {
     return "Ошибка";
@@ -1790,10 +1841,16 @@ function matchesRecentFilter(task) {
   }
   const status = String((task && task.status) || "").toLowerCase();
   if (filter === "active") {
-    return ["created", "queued", "in_progress", "retry"].includes(status);
+    return ["created", "queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking"].includes(status);
+  }
+  if (filter === "review") {
+    return ["done", "ready_for_review"].includes(status);
   }
   if (filter === "failed") {
     return status === "failed";
+  }
+  if (filter === "done") {
+    return ["accepted", "closed", "closed_by_timeout"].includes(status);
   }
   return status === filter;
 }
@@ -1843,6 +1900,65 @@ function mergeRecentWebTasks(primaryTasks, secondaryTasks) {
 
 function recentTaskSummary(task) {
   return task.query || task.object || task.project || task.topic || task.contract || task.owner || task.comment || "без описания";
+}
+
+function isReviewOpen(task) {
+  const status = String((task && task.status) || "").toLowerCase();
+  return ["done", "ready_for_review"].includes(status);
+}
+
+function taskResultText(task) {
+  return task.result_text || task.result || task.summary || "";
+}
+
+function reviewVersion(task) {
+  const review = task && task.review && typeof task.review === "object" ? task.review : {};
+  const version = Number(task.result_version || review.current_version || 1);
+  return Number.isFinite(version) && version > 0 ? version : 1;
+}
+
+function renderReviewPanel(task) {
+  const review = task && task.review && typeof task.review === "object" ? task.review : {};
+  const events = Array.isArray(review.events) ? review.events.slice(-4) : [];
+  const status = String((task && task.status) || "").toLowerCase();
+  const canAct = isReviewOpen(task);
+  if (!canAct && !events.length && !["accepted", "closed", "closed_by_timeout", "question_requested", "revision_requested", "reworking"].includes(status)) {
+    return "";
+  }
+  const traceId = task.trace_id || "";
+  const version = reviewVersion(task);
+  const history = events.length
+    ? `
+      <div class="web-review-history">
+        <strong>История проверки</strong>
+        ${events.map((event) => `
+          <div>
+            <span>${escapeHtml(webTaskStatusLabel(event.type || ""))} · v${escapeHtml(event.version || version)} · ${escapeHtml(formatShortDate(event.created_at) || "")}</span>
+            ${event.text ? `<small>${escapeHtml(compact(event.text, 180))}</small>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    `
+    : "";
+  return `
+    <div class="web-review">
+      <div class="web-review-head">
+        <span>
+          <strong>Проверка результата</strong>
+          <small>Актуальная версия: v${escapeHtml(version)}</small>
+        </span>
+        ${task.review_hint ? `<em>${escapeHtml(task.review_hint)}</em>` : ""}
+      </div>
+      ${canAct ? `
+        <div class="web-review-actions">
+          <button type="button" class="ghost-button" data-web-review-action="ask_question" data-web-review-trace="${escapeHtml(traceId)}">Задать вопрос</button>
+          <button type="button" class="ghost-button" data-web-review-action="request_revision" data-web-review-trace="${escapeHtml(traceId)}">Нужна доработка</button>
+          <button type="button" class="submit-button" data-web-review-action="accept_result" data-web-review-trace="${escapeHtml(traceId)}">Принять результат</button>
+        </div>
+      ` : ""}
+      ${history}
+    </div>
+  `;
 }
 
 function rememberWebTask(task) {
@@ -1988,11 +2104,16 @@ function renderWebTask(task) {
   const status = webTaskStatusLabel(task.status);
   const tone = webTaskStatusTone(task.status);
   const taskUrl = traceId ? `${window.location.origin}${window.location.pathname}?trace=${encodeURIComponent(traceId)}` : "";
-  const result = task.result
-    ? `<div class="web-result">${escapeHtml(task.result)}</div>`
+  const displayResult = taskResultText(task);
+  const result = displayResult
+    ? `<div class="web-result">${escapeHtml(displayResult)}</div>`
     : task.error_text
       ? `<div class="web-result danger">${escapeHtml(task.error_text)}</div>`
       : `<div class="web-result pending">${escapeHtml(webStatusMessage(task))}</div>`;
+  const warnings = Array.isArray(task.warnings) ? task.warnings.filter(Boolean).slice(0, 5) : [];
+  const warningsBlock = warnings.length
+    ? `<div class="web-warnings">${warnings.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`
+    : "";
   const resultFiles = Array.isArray(task.result_files) ? task.result_files : [];
   const archive = task.result_archive && task.result_archive.url ? task.result_archive : null;
   const primaryDownload = archive || resultFiles[0] || null;
@@ -2051,7 +2172,9 @@ function renderWebTask(task) {
       ${extraDetails}
     </dl>
     ${result}
+    ${warningsBlock}
     ${downloads}
+    ${renderReviewPanel(task)}
   `;
 
   const copyButton = document.getElementById("copy-task-link");
@@ -2254,7 +2377,7 @@ async function refreshWebQueue() {
   } catch (error) {
     return;
   }
-  const response = await fetch("/api/panel/tasks?limit=30&status=created,queued,in_progress,retry,failed&stale_minutes=15", {
+  const response = await fetch("/api/panel/tasks?limit=30&status=created,queued,in_progress,retry,failed,question_requested,revision_requested,reworking&stale_minutes=15", {
     cache: "no-store",
     headers: {
       "X-CostIQ-Admin": token,
@@ -2302,6 +2425,45 @@ async function fetchWebTask(traceId) {
   renderWebTask(data.task);
   rememberWebTask(data.task);
   return data.task;
+}
+
+async function submitWebReviewAction(traceId, action) {
+  if (!traceId || !action) {
+    return;
+  }
+  let text = "";
+  if (action === "ask_question") {
+    text = window.prompt("Вопрос по результату") || "";
+  } else if (action === "request_revision") {
+    text = window.prompt("Что нужно доработать?") || "";
+  }
+  if ((action === "ask_question" || action === "request_revision") && !text.trim()) {
+    showToast("Комментарий обязателен");
+    return;
+  }
+  const headers = { "Content-Type": "application/json" };
+  if (state.telegramInitData) {
+    headers["X-Telegram-Init-Data"] = state.telegramInitData;
+  }
+  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/review`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ action, text }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
+    return;
+  }
+  renderWebTask(data.task);
+  rememberWebTask(data.task);
+  if (action === "accept_result") {
+    showToast("Результат принят");
+  } else if (action === "ask_question") {
+    showToast("Вопрос сохранён");
+  } else {
+    showToast("Доработка сохранена");
+  }
 }
 
 function startWebTaskPolling(traceId) {
@@ -2402,6 +2564,12 @@ document.addEventListener("click", (event) => {
   if (nativeDownload) {
     event.preventDefault();
     downloadResultFile(nativeDownload.dataset.downloadUrl || nativeDownload.getAttribute("href"), nativeDownload.dataset.fileName || "");
+    return;
+  }
+
+  const reviewButton = event.target.closest("[data-web-review-action]");
+  if (reviewButton) {
+    submitWebReviewAction(reviewButton.dataset.webReviewTrace, reviewButton.dataset.webReviewAction);
     return;
   }
 
