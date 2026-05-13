@@ -141,6 +141,12 @@ Version v20 adds Telegram native downloads for Mini App results:
 - ordinary HTTP download links remain the fallback for browsers, desktop clients and older Telegram versions
 - result endpoints keep `Content-Disposition: attachment` and return Telegram Web-compatible CORS headers
 
+Version v21 registers the CostIQ Panel Workflow standard:
+
+- admin skill card `costiq_panel_workflow` documents panel lifecycle, result contracts, review loop, revisions and future tools
+- public panel remains unchanged; the workflow standard is admin-only
+- the standard lives in `/srv/sauteam/skills/costiq-panel-workflow`
+
 Manual snapshot refresh:
 
 ```bash

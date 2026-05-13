@@ -381,6 +381,24 @@ const skills = [
     tone: "gray",
     status: "админ",
   },
+  {
+    id: "costiq_panel_workflow",
+    title: "Работа с панелью CostIQ",
+    subtitle: "Заявки, файлы, результаты, приёмка, доработки и инструменты",
+    function: "администрирование",
+    department: "администрирование",
+    command: "/panel_workflow",
+    icon: "PW",
+    tone: "gray",
+    status: "админ",
+    public: false,
+    inputsRequired: "Сценарий панели, lifecycle, файлы, результат, review loop или новый инструмент",
+    outputResult: "Регламент, контракт данных, план внедрения или проверка панели",
+    exampleRequest: "Продумай review loop для заявок в панели CostIQ",
+    roles: ["admin"],
+    telegramMenu: false,
+    miniappCard: true,
+  },
 ];
 
 const utilityActions = {
