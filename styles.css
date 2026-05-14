@@ -724,6 +724,13 @@ h2 {
   gap: 8px;
 }
 
+.web-recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
 .web-recent-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -737,6 +744,22 @@ h2 {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.web-recent-toggle {
+  min-width: 74px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.web-recent-toggle:hover {
+  border-color: rgba(110, 168, 255, 0.75);
+  color: var(--text);
 }
 
 .web-recent-item:hover {
@@ -1492,6 +1515,14 @@ h2 {
   .form-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .web-recent-row {
+    grid-template-columns: 1fr;
+  }
+
+  .web-recent-toggle {
+    min-height: 34px;
   }
 
   .view-toggle {

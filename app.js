@@ -1,11 +1,12 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
+const WEB_HIDDEN_TASKS_STORAGE_KEY = "costiq_web_hidden_tasks";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
 const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
 const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
-const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed"];
+const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
 
 const functions = [
@@ -1961,6 +1962,9 @@ function webStatusMessage(task) {
 }
 
 function recentFilterLabel(filter) {
+  if (filter === "hidden") {
+    return "Скрытые";
+  }
   if (filter === "active") {
     return "В работе";
   }
@@ -1977,7 +1981,14 @@ function recentFilterLabel(filter) {
 }
 
 function matchesRecentFilter(task) {
+  const hidden = isWebTaskHidden(task && task.trace_id);
   const filter = state.webRecentFilter;
+  if (filter === "hidden") {
+    return hidden;
+  }
+  if (hidden) {
+    return false;
+  }
   if (filter === "all") {
     return true;
   }
@@ -2013,6 +2024,48 @@ function writeRecentWebTasks(tasks) {
   } catch (error) {
     return;
   }
+}
+
+function readHiddenWebTaskIds() {
+  try {
+    const raw = window.localStorage.getItem(WEB_HIDDEN_TASKS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter(Boolean).map(String).slice(0, 100) : []);
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function writeHiddenWebTaskIds(ids) {
+  try {
+    window.localStorage.setItem(WEB_HIDDEN_TASKS_STORAGE_KEY, JSON.stringify([...ids].slice(0, 100)));
+  } catch (error) {
+    return;
+  }
+}
+
+function isWebTaskHidden(traceId) {
+  return Boolean(traceId && readHiddenWebTaskIds().has(String(traceId)));
+}
+
+function hideRecentWebTask(traceId) {
+  if (!traceId) {
+    return;
+  }
+  const hidden = readHiddenWebTaskIds();
+  hidden.add(String(traceId));
+  writeHiddenWebTaskIds(hidden);
+  renderRecentWebTasks();
+}
+
+function restoreRecentWebTask(traceId) {
+  if (!traceId) {
+    return;
+  }
+  const hidden = readHiddenWebTaskIds();
+  hidden.delete(String(traceId));
+  writeHiddenWebTaskIds(hidden);
+  renderRecentWebTasks();
 }
 
 function compactWebTask(task) {
@@ -2165,11 +2218,13 @@ function rememberWebTask(task) {
 }
 
 function clearRecentWebTasks() {
-  try {
-    window.localStorage.removeItem(WEB_RECENT_STORAGE_KEY);
-  } catch (error) {
-    return;
-  }
+  const hidden = readHiddenWebTaskIds();
+  readRecentWebTasks().forEach((task) => {
+    if (task && task.trace_id && matchesRecentFilter(task)) {
+      hidden.add(String(task.trace_id));
+    }
+  });
+  writeHiddenWebTaskIds(hidden);
   renderRecentWebTasks();
 }
 
@@ -2186,13 +2241,14 @@ function renderRecentWebTasks() {
   }
   container.hidden = false;
   const filteredTasks = tasks.filter(matchesRecentFilter);
+  const isHiddenFilter = state.webRecentFilter === "hidden";
   container.innerHTML = `
     <div class="section-head">
       <div>
         <h2>Мои последние заявки</h2>
-        <p>${state.telegramHistoryAvailable ? "Привязаны к Telegram, локальные заявки тоже сохранены" : "Сохраняются только в этом браузере"}</p>
+        <p>${isHiddenFilter ? "Скрыты с рабочего экрана, но доступны из истории" : state.telegramHistoryAvailable ? "Привязаны к Telegram, локальные заявки тоже сохранены" : "Сохраняются только в этом браузере"}</p>
       </div>
-      <button type="button" class="ghost-button" id="clear-web-recent">Очистить</button>
+      <button type="button" class="ghost-button" id="clear-web-recent">${isHiddenFilter ? "Вернуть все" : "Очистить экран"}</button>
     </div>
     <div class="web-recent-filters" role="group" aria-label="Фильтр заявок">
       ${WEB_RECENT_FILTERS.map((filter) => `
@@ -2206,14 +2262,17 @@ function renderRecentWebTasks() {
         ? filteredTasks
         .map(
           (task) => `
-            <button type="button" class="web-recent-item" data-web-trace="${escapeHtml(task.trace_id)}">
-              <span>
-                <strong>${escapeHtml(compact(task.skill_title || "задача", 70))}</strong>
-                <small>${escapeHtml(compact(task.summary || task.trace_id, 120))}</small>
-                <small>${escapeHtml(formatShortDate(task.updated_at || task.created_at))} · ${escapeHtml(task.trace_id)}</small>
-              </span>
-              <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
-            </button>
+            <div class="web-recent-row">
+              <button type="button" class="web-recent-item" data-web-trace="${escapeHtml(task.trace_id)}">
+                <span>
+                  <strong>${escapeHtml(compact(task.skill_title || "задача", 70))}</strong>
+                  <small>${escapeHtml(compact(task.summary || task.trace_id, 120))}</small>
+                  <small>${escapeHtml(formatShortDate(task.updated_at || task.created_at))} · ${escapeHtml(task.trace_id)}</small>
+                </span>
+                <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
+              </button>
+              <button type="button" class="web-recent-toggle" data-web-${isHiddenFilter ? "restore" : "hide"}="${escapeHtml(task.trace_id)}">${isHiddenFilter ? "Вернуть" : "Скрыть"}</button>
+            </div>
           `,
         )
         .join("")
@@ -2223,8 +2282,27 @@ function renderRecentWebTasks() {
 
   const clearButton = document.getElementById("clear-web-recent");
   if (clearButton) {
-    clearButton.addEventListener("click", clearRecentWebTasks);
+    clearButton.addEventListener("click", () => {
+      if (state.webRecentFilter === "hidden") {
+        writeHiddenWebTaskIds(new Set());
+        renderRecentWebTasks();
+        return;
+      }
+      clearRecentWebTasks();
+    });
   }
+  container.querySelectorAll("[data-web-hide]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      hideRecentWebTask(button.dataset.webHide);
+    });
+  });
+  container.querySelectorAll("[data-web-restore]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      restoreRecentWebTask(button.dataset.webRestore);
+    });
+  });
   container.querySelectorAll("[data-web-recent-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.webRecentFilter = button.dataset.webRecentFilter || "all";
