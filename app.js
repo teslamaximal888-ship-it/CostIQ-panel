@@ -1235,6 +1235,20 @@ async function loadHomeFeed() {
 
 async function voteInPoll(itemId, optionId) {
   if (!state.telegramInitData && !state.panelAuth) {
+    if (tg && typeof tg.sendData === "function") {
+      try {
+        tg.sendData(JSON.stringify({
+          source: "costiq_panel",
+          action: "panel_vote",
+          item_id: itemId,
+          option_id: optionId,
+        }));
+        showToast("Отправил голос через Telegram. Обновите панель через несколько секунд.");
+      } catch (error) {
+        showToast("Telegram не передал профиль. Откройте панель через кнопку Mini App в боте.");
+      }
+      return;
+    }
     showToast(tg ? "Панель открыта в Telegram, но профиль не передан. Откройте её через кнопку Mini App в боте." : "Голосование доступно при открытии панели из Telegram");
     return;
   }
