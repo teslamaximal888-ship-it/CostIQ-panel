@@ -169,6 +169,13 @@ Version v29 refines the panel sections:
 - news can include an image or static chart URL plus caption
 - Telegram identity detection also reads `tgWebAppData` from the Mini App hash, `tg_init_data` from query/hash, and session cache before showing voting as unavailable
 
+Version v31 adds visual home content:
+
+- public `/` and `/admin/` home screens start with a designed welcome block
+- project assets live under `/assets/`: `costiq-welcome-visual.svg` and `fgis-salary-chart.svg`
+- the ФГИС ЦС salary news uses a static chart image; `news-fgis-salary-2025-2026-05-14` has `/assets/fgis-salary-chart.svg` saved in KV
+- the legacy `welcome-panel-v1` feed item is hidden from the rendered feed to avoid duplicating the new welcome block
+
 Manual snapshot refresh:
 
 ```bash
