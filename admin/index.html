@@ -22,6 +22,17 @@
         </div>
       </header>
 
+      <section class="home-feed" id="home-feed">
+        <div class="section-head">
+          <div>
+            <h2>Новости и голосования</h2>
+            <p>Стартовая витрина панели для команды</p>
+          </div>
+          <span id="home-feed-status">загрузка</span>
+        </div>
+        <div class="home-feed-grid" id="home-feed-grid"></div>
+      </section>
+
       <section class="metrics admin-only" aria-label="Состояние">
         <div class="metric">
           <span>Бот</span>
@@ -216,6 +227,59 @@
             <div class="activity-list compact" id="web-quality-problems"></div>
           </div>
         </div>
+      </section>
+
+      <section class="content-admin admin-only">
+        <div class="section-head">
+          <div>
+            <h2>Контент главной</h2>
+            <p>Создание новостей и голосований</p>
+          </div>
+          <span id="content-admin-status">admin token</span>
+        </div>
+        <form id="content-admin-form">
+          <div class="form-grid">
+            <div class="field wide">
+              <label for="content-admin-token">Админ-токен</label>
+              <input id="content-admin-token" type="password" autocomplete="off" placeholder="Можно использовать тот же токен, что для web-очереди">
+            </div>
+            <div class="field">
+              <label for="content-type">Тип</label>
+              <select id="content-type" name="type">
+                <option value="news">Новость</option>
+                <option value="poll">Голосование</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="content-title">Заголовок</label>
+              <input id="content-title" name="title" type="text" autocomplete="off" required>
+            </div>
+            <div class="field wide">
+              <label for="content-body">Текст</label>
+              <textarea id="content-body" name="body" required></textarea>
+            </div>
+            <div class="field wide">
+              <label for="content-options">Варианты голосования</label>
+              <textarea id="content-options" name="options" placeholder="Один вариант на строку. Для новости оставить пустым."></textarea>
+            </div>
+            <div class="field">
+              <label for="content-status">Статус</label>
+              <select id="content-status" name="status">
+                <option value="published">Опубликовано</option>
+                <option value="draft">Черновик</option>
+                <option value="hidden">Скрыто</option>
+              </select>
+            </div>
+            <label class="check-field">
+              <input id="content-pinned" name="pinned" type="checkbox">
+              <span>Закрепить наверху</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="ghost-button" type="reset">Очистить</button>
+            <button class="submit-button" type="submit">Опубликовать</button>
+          </div>
+        </form>
       </section>
     </main>
 

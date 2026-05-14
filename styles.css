@@ -315,19 +315,162 @@ h2 {
 .workspace,
 .control,
 .activity,
-.web-intake {
+.web-intake,
+.home-feed,
+.content-admin {
   padding: 16px 0 4px;
   border-top: 1px solid var(--line);
 }
 
 .launcher,
-.web-intake {
+.web-intake,
+.home-feed {
   margin-bottom: 8px;
+}
+
+.home-feed {
+  border-top: 0;
+  padding-top: 4px;
 }
 
 .mode-public .web-intake {
   padding-top: 18px;
-  border-top: 0;
+}
+
+.home-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.home-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.home-card.pinned {
+  border-color: rgba(89, 209, 140, 0.45);
+  background: #17231e;
+}
+
+.home-card-head,
+.home-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-card-head span,
+.home-card-head em,
+.home-card-foot span {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.home-card-head em {
+  color: var(--green);
+}
+
+.home-card h3 {
+  margin: 9px 0 0;
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.home-card p {
+  margin-top: 8px;
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.home-card-foot {
+  margin-top: 12px;
+}
+
+.poll-options {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.poll-options button {
+  position: relative;
+  min-height: 54px;
+  overflow: hidden;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.poll-options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.poll-options button.selected {
+  border-color: rgba(89, 209, 140, 0.7);
+}
+
+.poll-options button span {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.poll-options strong,
+.poll-options small {
+  display: block;
+}
+
+.poll-options strong {
+  font-size: 14px;
+}
+
+.poll-options small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.poll-options i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  background: rgba(110, 168, 255, 0.13);
+  pointer-events: none;
+}
+
+.poll-options button.selected i {
+  background: rgba(89, 209, 140, 0.16);
+}
+
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding-top: 19px;
+  color: var(--text);
+}
+
+.check-field input {
+  width: 18px;
+  height: 18px;
 }
 
 .public-skill-picker {
@@ -1288,6 +1431,7 @@ h2 {
 @media (max-width: 980px) {
   .quick,
   .metrics,
+  .home-feed-grid,
   .insights,
   .ops,
   .trace-summary,
@@ -1327,6 +1471,7 @@ h2 {
   .metrics,
   .insights,
   .grid,
+  .home-feed-grid,
   .public-skill-grid,
   .activity-grid,
   .trace-summary,

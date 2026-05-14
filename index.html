@@ -13,13 +13,24 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">CostIQ</p>
-          <h1>Создать задачу</h1>
+          <h1>Главная</h1>
         </div>
         <div class="topbar-actions">
           <button class="shortcut-button" type="button" id="home-shortcut" hidden>Добавить на экран</button>
           <div class="status" id="tg-status">Telegram</div>
         </div>
       </header>
+
+      <section class="home-feed" id="home-feed">
+        <div class="section-head">
+          <div>
+            <h2>Новости и голосования</h2>
+            <p>Объявления, решения команды и быстрые опросы</p>
+          </div>
+          <span id="home-feed-status">загрузка</span>
+        </div>
+        <div class="home-feed-grid" id="home-feed-grid"></div>
+      </section>
 
       <section class="metrics admin-only" aria-label="Состояние">
         <div class="metric">

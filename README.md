@@ -155,6 +155,14 @@ Version v22 adds the first Review Loop implementation:
 - `POST /api/panel/task/:trace_id/review` stores user review events without creating a separate task
 - legacy `done` tasks remain compatible and are shown as reviewable results
 
+Version v26 adds the public home feed:
+
+- `/` and `/admin/` start with `Новости и голосования`
+- `GET /api/panel/content` returns published news and active polls from KV `WEB_INTAKE`
+- `POST /api/panel/content` lets admins publish news and polls with `COSTIQ_PANEL_ADMIN_TOKEN`
+- poll votes require signed Telegram Mini App identity and store one vote per Telegram user
+- starter content is auto-seeded in KV on first read, so the page works before manual admin content is created
+
 Manual snapshot refresh:
 
 ```bash

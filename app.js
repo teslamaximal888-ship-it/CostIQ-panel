@@ -6,6 +6,7 @@ const WEB_RECENT_REFRESH_MS = 60000;
 const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
 const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed"];
+const HOME_FEED_REFRESH_MS = 120000;
 
 const functions = [
   "проверка",
@@ -790,6 +791,8 @@ const state = {
   webRecentFilter: "all",
   webReviewDraft: null,
   webCurrentTask: null,
+  homeFeedTimer: null,
+  homeFeedItems: [],
 };
 
 function detectMode() {
@@ -1043,8 +1046,139 @@ function safeErrorMessage(message) {
     comment_required: "Нужно написать вопрос или комментарий.",
     review_not_available: "Для этой задачи проверка результата недоступна.",
     telegram_auth_required: "Откройте задачу из своего Telegram-профиля.",
+    title_body_required: "Заполните заголовок и текст.",
+    poll_not_found: "Голосование уже закрыто или не найдено.",
+    option_not_found: "Вариант голосования не найден.",
   };
   return map[normalized] || "Не удалось создать задачу. Проверьте поля и попробуйте ещё раз.";
+}
+
+function contentTypeLabel(type) {
+  return type === "poll" ? "Голосование" : "Новость";
+}
+
+function pollPercent(option, item) {
+  const total = Number(item.total_votes || 0);
+  if (!total) {
+    return 0;
+  }
+  return Math.round((Number(option.count || 0) / total) * 100);
+}
+
+function renderHomeFeedItem(item) {
+  if (!item || item.type === "poll") {
+    const options = Array.isArray(item && item.options) ? item.options : [];
+    const canVote = Boolean(state.telegramInitData);
+    return `
+      <article class="home-card poll-card${item && item.pinned ? " pinned" : ""}">
+        <div class="home-card-head">
+          <span>${escapeHtml(contentTypeLabel("poll"))}</span>
+          ${item && item.pinned ? "<em>закреплено</em>" : ""}
+        </div>
+        <h3>${escapeHtml(item && item.title ? item.title : "Голосование")}</h3>
+        <p>${escapeHtml(item && item.body ? item.body : "")}</p>
+        <div class="poll-options">
+          ${options.map((option) => {
+            const percent = pollPercent(option, item || {});
+            const selected = item && item.user_vote === option.id;
+            return `
+              <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote ? "" : "disabled"}>
+                <span>
+                  <strong>${escapeHtml(option.title)}</strong>
+                  <small>${escapeHtml(option.count || 0)} голосов · ${percent}%</small>
+                </span>
+                <i style="width: ${percent}%"></i>
+              </button>
+            `;
+          }).join("")}
+        </div>
+        <div class="home-card-foot">
+          <span>${escapeHtml(item && item.user_vote ? "Ваш голос учтён" : canVote ? "Можно выбрать один вариант" : "Голосование доступно из Telegram")}</span>
+          <span>${escapeHtml(formatShortDate(item && item.updated_at))}</span>
+        </div>
+      </article>
+    `;
+  }
+
+  return `
+    <article class="home-card news-card${item.pinned ? " pinned" : ""}">
+      <div class="home-card-head">
+        <span>${escapeHtml(contentTypeLabel(item.type))}</span>
+        ${item.pinned ? "<em>закреплено</em>" : ""}
+      </div>
+      <h3>${escapeHtml(item.title)}</h3>
+      <p>${escapeHtml(item.body)}</p>
+      <div class="home-card-foot">
+        <span>${escapeHtml(formatShortDate(item.created_at))}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderHomeFeed(items) {
+  const grid = document.getElementById("home-feed-grid");
+  if (!grid) {
+    return;
+  }
+  const visible = Array.isArray(items) ? items : [];
+  state.homeFeedItems = visible;
+  setText("home-feed-status", visible.length ? `${visible.length} записей` : "нет записей");
+  grid.innerHTML = visible.length
+    ? visible.map(renderHomeFeedItem).join("")
+    : `<div class="empty">Пока нет новостей и активных голосований</div>`;
+}
+
+async function loadHomeFeed() {
+  const grid = document.getElementById("home-feed-grid");
+  if (!grid) {
+    return;
+  }
+  try {
+    const headers = {};
+    if (state.telegramInitData) {
+      headers["X-Telegram-Init-Data"] = state.telegramInitData;
+    }
+    const response = await fetch(`/api/panel/content?ts=${Date.now()}`, {
+      cache: "no-store",
+      headers,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    renderHomeFeed(data.items || []);
+  } catch (error) {
+    setText("home-feed-status", "недоступно");
+    grid.innerHTML = `<div class="empty">Новости и голосования пока недоступны</div>`;
+  }
+}
+
+async function voteInPoll(itemId, optionId) {
+  if (!state.telegramInitData) {
+    showToast("Откройте панель из Telegram для голосования");
+    return;
+  }
+  const response = await fetch("/api/panel/content", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Telegram-Init-Data": state.telegramInitData,
+    },
+    body: JSON.stringify({ action: "vote", item_id: itemId, option_id: optionId }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
+    return;
+  }
+  state.homeFeedItems = state.homeFeedItems.map((item) => (item.id === itemId ? data.item : item));
+  renderHomeFeed(state.homeFeedItems);
+  showToast("Голос учтён");
+}
+
+function startHomeFeedRefresh() {
+  loadHomeFeed();
+  state.homeFeedTimer = window.setInterval(loadHomeFeed, HOME_FEED_REFRESH_MS);
 }
 
 function currentGroups() {
@@ -2618,6 +2752,12 @@ async function submitWebIntake(event) {
 }
 
 document.addEventListener("click", (event) => {
+  const pollButton = event.target.closest("[data-poll-id][data-option-id]");
+  if (pollButton) {
+    voteInPoll(pollButton.dataset.pollId, pollButton.dataset.optionId);
+    return;
+  }
+
   const nativeDownload = event.target.closest("[data-native-download]");
   if (nativeDownload) {
     event.preventDefault();
@@ -2801,6 +2941,55 @@ if (homeShortcutButton) {
   homeShortcutButton.addEventListener("click", requestHomeShortcut);
 }
 
+const contentAdminForm = document.getElementById("content-admin-form");
+if (contentAdminForm) {
+  contentAdminForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const contentTokenInput = document.getElementById("content-admin-token");
+    const token = String((contentTokenInput && contentTokenInput.value) || webQueueToken()).trim();
+    if (!token) {
+      showToast("Нужен админ-токен");
+      setText("content-admin-status", "нужен токен");
+      return;
+    }
+    const formData = new FormData(contentAdminForm);
+    const options = String(formData.get("options") || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((title) => ({ title }));
+    const payload = {
+      type: String(formData.get("type") || "news"),
+      title: String(formData.get("title") || "").trim(),
+      body: String(formData.get("body") || "").trim(),
+      status: String(formData.get("status") || "published"),
+      pinned: formData.get("pinned") === "on",
+      options,
+    };
+    try {
+      const response = await fetch("/api/panel/content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CostIQ-Admin": token,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      setText("content-admin-status", "сохранено");
+      contentAdminForm.reset();
+      showToast("Опубликовано на главной");
+      loadHomeFeed();
+    } catch (error) {
+      setText("content-admin-status", "ошибка");
+      showToast(safeErrorMessage(error && error.message));
+    }
+  });
+}
+
 const searchInput = document.getElementById("search-input");
 if (searchInput) {
   searchInput.addEventListener("input", (event) => {
@@ -2811,6 +3000,7 @@ if (searchInput) {
 
 renderView();
 initTelegram();
+startHomeFeedRefresh();
 startPanelDataRefresh();
 renderRecentWebTasks();
 refreshRecentWebTasks();
