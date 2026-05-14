@@ -42,10 +42,5 @@
       <text x="0" y="26">ЮФО</text><rect x="86" y="0" width="435" height="34" rx="10" fill="url(#bar)" opacity="0.7"/><text x="547" y="26" font-weight="700">+8,7%</text>
     </g>
   </g>
-  <g transform="translate(838 202)">
-    <rect width="250" height="118" rx="18" fill="#151a20" stroke="#343b46"/>
-    <text x="24" y="44" fill="#aeb6c2" font-family="Arial, sans-serif" font-size="18">Применение</text>
-    <text x="24" y="82" fill="#f2f5f7" font-family="Arial, sans-serif" font-size="28" font-weight="700">с 25 мая</text>
-  </g>
   <text x="86" y="682" fill="#858e9b" font-family="Arial, sans-serif" font-size="18">Источник: ФГИС ЦС / t.me/smety. В новости также указан перечень регионов, где данных пока нет.</text>
 </svg>
