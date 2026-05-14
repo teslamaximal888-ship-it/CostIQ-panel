@@ -129,6 +129,34 @@ h2 {
   display: none;
 }
 
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 8px 0 12px;
+  background: var(--bg);
+}
+
+.app-nav button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.app-nav button.active {
+  border-color: rgba(89, 209, 140, 0.65);
+  background: #18231e;
+  color: var(--text);
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -317,14 +345,20 @@ h2 {
 .activity,
 .web-intake,
 .home-feed,
-.content-admin {
+.content-admin,
+.calculator-section,
+.tools-section,
+.tasks-section {
   padding: 16px 0 4px;
   border-top: 1px solid var(--line);
 }
 
 .launcher,
 .web-intake,
-.home-feed {
+.home-feed,
+.calculator-section,
+.tools-section,
+.tasks-section {
   margin-bottom: 8px;
 }
 
@@ -342,6 +376,43 @@ h2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
+}
+
+.home-actions,
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 8px;
+}
+
+.home-actions button,
+.tool-grid article {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.home-actions button {
+  cursor: pointer;
+}
+
+.home-actions strong,
+.home-actions small,
+.tool-grid strong,
+.tool-grid small {
+  display: block;
+}
+
+.home-actions small,
+.tool-grid small {
+  margin-top: 7px;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .home-card {
@@ -414,9 +485,9 @@ h2 {
   cursor: pointer;
 }
 
-.poll-options button:disabled {
-  cursor: not-allowed;
-  opacity: 0.78;
+.poll-options button[data-needs-telegram="1"] {
+  border-style: dashed;
+  opacity: 0.86;
 }
 
 .poll-options button.selected {
@@ -471,6 +542,108 @@ h2 {
 .check-field input {
   width: 18px;
   height: 18px;
+}
+
+.office-calculator {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.calculator-inputs,
+.calculator-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calculator-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.calc-metric {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.calc-metric.accent {
+  border-color: rgba(89, 209, 140, 0.62);
+  background: #17231e;
+}
+
+.calc-metric span,
+.calc-metric small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.calc-metric strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.calc-metric small {
+  margin-top: 7px;
+  line-height: 1.3;
+}
+
+.calculator-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calculator-option-group {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.calculator-option-group h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.calculator-option {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 70px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.calculator-option input {
+  min-width: 0;
+}
+
+.calculator-option strong,
+.calculator-option small,
+.calculator-option em {
+  display: block;
+}
+
+.calculator-option small,
+.calculator-option em {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.calculator-option b {
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .public-skill-picker {
@@ -1455,6 +1628,10 @@ h2 {
   .quick,
   .metrics,
   .home-feed-grid,
+  .home-actions,
+  .tool-grid,
+  .calculator-summary,
+  .calculator-options,
   .insights,
   .ops,
   .trace-summary,
@@ -1495,6 +1672,11 @@ h2 {
   .insights,
   .grid,
   .home-feed-grid,
+  .home-actions,
+  .tool-grid,
+  .calculator-inputs,
+  .calculator-summary,
+  .calculator-options,
   .public-skill-grid,
   .activity-grid,
   .trace-summary,
@@ -1523,6 +1705,14 @@ h2 {
 
   .web-recent-toggle {
     min-height: 34px;
+  }
+
+  .calculator-option {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .calculator-option b {
+    grid-column: 2;
   }
 
   .view-toggle {

@@ -8,6 +8,14 @@ const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
 const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
+const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
+const APP_VIEW_TITLES = {
+  home: "Главная",
+  skills: "Навыки",
+  calculators: "Калькуляторы",
+  tools: "Инструменты",
+  tasks: "Мои заявки",
+};
 
 const functions = [
   "проверка",
@@ -772,6 +780,7 @@ const webIntakeConfigs = {
 
 const state = {
   mode: detectMode(),
+  appView: "home",
   view: "function",
   selected: "все",
   query: "",
@@ -794,6 +803,8 @@ const state = {
   webCurrentTask: null,
   homeFeedTimer: null,
   homeFeedItems: [],
+  officeCalculatorData: null,
+  officeCalculatorState: { quantities: {} },
 };
 
 function detectMode() {
@@ -806,6 +817,26 @@ function detectMode() {
 
 function isAdminMode() {
   return state.mode === "admin";
+}
+
+function setAppView(view) {
+  const nextView = APP_VIEW_TITLES[view] ? view : "home";
+  state.appView = nextView;
+  document.querySelectorAll("[data-app-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.appView === nextView);
+  });
+  document.querySelectorAll("[data-app-section]").forEach((section) => {
+    const belongsToView = section.dataset.appSection === nextView;
+    section.hidden = !belongsToView || (section.id === "launcher" && !state.pendingAction);
+  });
+  const title = APP_VIEW_TITLES[nextView] || "Главная";
+  const heading = document.querySelector(".topbar h1");
+  if (heading && state.mode === "public") {
+    heading.textContent = title;
+  }
+  if (nextView === "calculators" && !state.officeCalculatorData) {
+    loadOfficeCalculatorData();
+  }
 }
 
 function initTelegram() {
@@ -1083,7 +1114,7 @@ function renderHomeFeedItem(item) {
             const percent = pollPercent(option, item || {});
             const selected = item && item.user_vote === option.id;
             return `
-              <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote ? "" : "disabled"}>
+              <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote ? "" : 'data-needs-telegram="1"'}>
                 <span>
                   <strong>${escapeHtml(option.title)}</strong>
                   <small>${escapeHtml(option.count || 0)} голосов · ${percent}%</small>
@@ -1180,6 +1211,148 @@ async function voteInPoll(itemId, optionId) {
 function startHomeFeedRefresh() {
   loadHomeFeed();
   state.homeFeedTimer = window.setInterval(loadHomeFeed, HOME_FEED_REFRESH_MS);
+}
+
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("ru-RU", {
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatRate(value) {
+  return `${formatMoney(value)} руб./м²`;
+}
+
+function findOfficeMatrixRow(data, officeClass, area) {
+  const rows = Array.isArray(data && data.matrix) ? data.matrix : [];
+  const matchingClass = rows.filter((row) => row.class === officeClass);
+  return (
+    matchingClass.find((row) => area >= Number(row.minArea || 0) && area <= Number(row.maxArea || 0)) ||
+    matchingClass.find((row) => area < Number(row.minArea || 0)) ||
+    matchingClass[matchingClass.length - 1] ||
+    rows[0] ||
+    null
+  );
+}
+
+function selectedOfficeOptions(data) {
+  const options = Array.isArray(data && data.options) ? data.options : [];
+  return options
+    .map((option) => {
+      const qty = Number(state.officeCalculatorState.quantities[option.id] || 0);
+      return { ...option, qty, cost: qty * Number(option.rate || 0) };
+    })
+    .filter((option) => option.qty > 0);
+}
+
+function officeOptionsTotal(data) {
+  return selectedOfficeOptions(data).reduce((sum, option) => sum + option.cost, 0);
+}
+
+function renderOfficeCalculator() {
+  const data = state.officeCalculatorData;
+  const summary = document.getElementById("office-calc-summary");
+  const optionsContainer = document.getElementById("office-calc-options");
+  if (!summary || !optionsContainer) {
+    return;
+  }
+  if (!data) {
+    summary.innerHTML = `<div class="empty">Данные калькулятора загружаются</div>`;
+    optionsContainer.innerHTML = "";
+    return;
+  }
+
+  const classInput = document.getElementById("office-class");
+  const areaInput = document.getElementById("office-area");
+  const referenceInput = document.getElementById("office-reference");
+  const officeClass = classInput ? classInput.value : "A";
+  const area = Math.max(1, Number(areaInput && areaInput.value ? areaInput.value : 70000));
+  const reference = referenceInput ? referenceInput.value : "mixed";
+  const row = findOfficeMatrixRow(data, officeClass, area);
+  const baseRate = Number(row && row.rate ? row.rate : 0);
+  const optionsTotal = officeOptionsTotal(data);
+  const optionRate = optionsTotal / area;
+  const totalRate = baseRate + optionRate;
+  const totalCost = totalRate * area;
+  const selected = selectedOfficeOptions(data);
+  const ref = data.references || {};
+  const compareRate = reference === "dream"
+    ? Number(ref.dreamOffice && ref.dreamOffice.baseRate)
+    : reference === "louvre"
+      ? Number(ref.louvre && ref.louvre.baseRate)
+      : baseRate;
+  const deltaRate = totalRate - compareRate;
+
+  summary.innerHTML = `
+    <div class="calc-metric">
+      <span>Базовая строка</span>
+      <strong>${escapeHtml(row ? `${row.class} · ${row.range}` : "не найдена")}</strong>
+      <small>${escapeHtml(row && row.confidence ? `уверенность: ${row.confidence}` : "")}</small>
+    </div>
+    <div class="calc-metric">
+      <span>Базовая ставка</span>
+      <strong>${formatRate(baseRate)}</strong>
+      <small>${escapeHtml(row && row.card ? row.card : "")}</small>
+    </div>
+    <div class="calc-metric">
+      <span>Опции</span>
+      <strong>${formatRate(optionRate)}</strong>
+      <small>${selected.length ? `${selected.length} выбрано · ${formatMoney(optionsTotal)} руб.` : "без дополнительных опций"}</small>
+    </div>
+    <div class="calc-metric accent">
+      <span>Итог</span>
+      <strong>${formatRate(totalRate)}</strong>
+      <small>${formatMoney(totalCost)} руб. · дельта ${deltaRate >= 0 ? "+" : ""}${formatRate(deltaRate)}</small>
+    </div>
+  `;
+
+  const groups = [...new Set(data.options.map((option) => option.block))];
+  optionsContainer.innerHTML = groups.map((group) => {
+    const items = data.options.filter((option) => option.block === group);
+    return `
+      <section class="calculator-option-group">
+        <h3>${escapeHtml(group)}</h3>
+        ${items.map((option) => {
+          const qty = Number(state.officeCalculatorState.quantities[option.id] || 0);
+          const lineCost = qty * Number(option.rate || 0);
+          return `
+            <label class="calculator-option">
+              <input type="number" min="0" step="1" value="${escapeHtml(qty)}" data-office-option="${escapeHtml(option.id)}">
+              <span>
+                <strong>${escapeHtml(option.title)}</strong>
+                <small>${escapeHtml(option.parameter)} · ${escapeHtml(option.unit)} · ${formatMoney(option.rate)} руб./ед.</small>
+                <em>${escapeHtml(option.source)} · ${escapeHtml(option.status)}</em>
+              </span>
+              <b>${formatMoney(lineCost)} руб.</b>
+            </label>
+          `;
+        }).join("")}
+      </section>
+    `;
+  }).join("");
+}
+
+async function loadOfficeCalculatorData() {
+  const summary = document.getElementById("office-calc-summary");
+  if (summary) {
+    summary.innerHTML = `<div class="empty">Загружаю данные v4.2</div>`;
+  }
+  try {
+    const response = await fetch(`${OFFICE_CALCULATOR_DATA_URL}?ts=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(data.matrix) || !Array.isArray(data.options)) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    state.officeCalculatorData = data;
+    setText("office-calc-status", data.version || "v4.2");
+    renderOfficeCalculator();
+  } catch (error) {
+    setText("office-calc-status", "ошибка");
+    if (summary) {
+      summary.innerHTML = `<div class="empty">Не удалось загрузить данные офисного калькулятора</div>`;
+    }
+  }
 }
 
 function currentGroups() {
@@ -1541,6 +1714,7 @@ function openLauncher(actionKey) {
   }
 
   state.pendingAction = actionKey;
+  setAppView("skills");
   setText("launcher-title", config.title);
   setText("launcher-subtitle", config.subtitle);
 
@@ -2830,6 +3004,12 @@ async function submitWebIntake(event) {
 }
 
 document.addEventListener("click", (event) => {
+  const appViewButton = event.target.closest("[data-app-view], [data-open-view]");
+  if (appViewButton) {
+    setAppView(appViewButton.dataset.appView || appViewButton.dataset.openView);
+    return;
+  }
+
   const pollButton = event.target.closest("[data-poll-id][data-option-id]");
   if (pollButton) {
     voteInPoll(pollButton.dataset.pollId, pollButton.dataset.optionId);
@@ -2907,10 +3087,26 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("input", (event) => {
   const field = event.target;
+  if (field && ["office-class", "office-area", "office-reference"].includes(field.id)) {
+    renderOfficeCalculator();
+    return;
+  }
   if (!field || field.name !== "review_text" || !field.closest("[data-web-review-form]") || !state.webReviewDraft) {
     return;
   }
   state.webReviewDraft.text = field.value;
+});
+
+document.addEventListener("change", (event) => {
+  const field = event.target;
+  if (field && field.dataset && field.dataset.officeOption) {
+    state.officeCalculatorState.quantities[field.dataset.officeOption] = Math.max(0, Number(field.value || 0));
+    renderOfficeCalculator();
+    return;
+  }
+  if (field && ["office-class", "office-area", "office-reference"].includes(field.id)) {
+    renderOfficeCalculator();
+  }
 });
 
 document.addEventListener("submit", (event) => {
@@ -3077,6 +3273,7 @@ if (searchInput) {
 }
 
 renderView();
+setAppView("home");
 initTelegram();
 startHomeFeedRefresh();
 startPanelDataRefresh();

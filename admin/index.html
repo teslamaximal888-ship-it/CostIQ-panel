@@ -22,7 +22,15 @@
         </div>
       </header>
 
-      <section class="home-feed" id="home-feed">
+      <nav class="app-nav" aria-label="Разделы панели">
+        <button type="button" class="active" data-app-view="home">Главная</button>
+        <button type="button" data-app-view="skills">Навыки</button>
+        <button type="button" data-app-view="calculators">Калькуляторы</button>
+        <button type="button" data-app-view="tools">Инструменты</button>
+        <button type="button" data-app-view="tasks">Мои заявки</button>
+      </nav>
+
+      <section class="home-feed" id="home-feed" data-app-section="home">
         <div class="section-head">
           <div>
             <h2>Новости и голосования</h2>
@@ -33,7 +41,22 @@
         <div class="home-feed-grid" id="home-feed-grid"></div>
       </section>
 
-      <section class="metrics admin-only" aria-label="Состояние">
+      <section class="home-actions" data-app-section="home">
+        <button type="button" data-open-view="skills">
+          <strong>Создать заявку</strong>
+          <small>КП, ПС, ОТ, претензии и документы через навыки</small>
+        </button>
+        <button type="button" data-open-view="calculators">
+          <strong>Офисный калькулятор</strong>
+          <small>Мгновенный расчёт по матрице ФСК и опциям v4.2</small>
+        </button>
+        <button type="button" data-open-view="tasks">
+          <strong>Мои заявки</strong>
+          <small>Готовые результаты, вопросы и доработки</small>
+        </button>
+      </section>
+
+      <section class="metrics admin-only" aria-label="Состояние" data-app-section="home">
         <div class="metric">
           <span>Бот</span>
           <strong id="metric-bot">активен</strong>
@@ -52,7 +75,7 @@
         </div>
       </section>
 
-      <section class="quick admin-only">
+      <section class="quick admin-only" data-app-section="home">
         <button class="primary-action" type="button" data-action="check_kp">
           <span class="action-icon">КП</span>
           <span>
@@ -83,7 +106,7 @@
         </button>
       </section>
 
-      <section class="launcher admin-only" id="launcher" hidden>
+      <section class="launcher admin-only" id="launcher" hidden data-app-section="skills">
         <form id="launcher-form">
           <div class="section-head">
             <div>
@@ -100,11 +123,11 @@
         </form>
       </section>
 
-      <section class="web-intake" id="web-intake">
+      <section class="web-intake" id="web-intake" data-app-section="skills">
         <div class="section-head">
           <div>
-            <h2>Создать задачу</h2>
-            <p>Отправка заявки и отслеживание результата</p>
+            <h2>Навыки</h2>
+            <p>Создание заявки через рабочие сценарии CostIQ</p>
           </div>
           <span id="web-intake-mode">web intake</span>
         </div>
@@ -126,10 +149,67 @@
           </div>
         </form>
         <div class="web-task-card" id="web-task-card" hidden></div>
+      </section>
+
+      <section class="calculator-section" data-app-section="calculators">
+        <div class="section-head">
+          <div>
+            <h2>Офисный калькулятор</h2>
+            <p>Первый расчёт по рабочему Excel v4.2: база класса, площадь и реальные опции</p>
+          </div>
+          <span id="office-calc-status">v4.2</span>
+        </div>
+        <div class="office-calculator" id="office-calculator">
+          <div class="calculator-inputs">
+            <div class="field">
+              <label for="office-class">Класс</label>
+              <select id="office-class">
+                <option value="A">A</option>
+                <option value="Prime">Prime</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="office-area">Площадь, м²</label>
+              <input id="office-area" type="number" min="1000" step="1000" value="70000">
+            </div>
+            <div class="field">
+              <label for="office-reference">Эталон сравнения</label>
+              <select id="office-reference">
+                <option value="mixed">Смешанная база ФСК</option>
+                <option value="dream">Офис мечты</option>
+                <option value="louvre">БЦ Лувр</option>
+              </select>
+            </div>
+          </div>
+          <div class="calculator-summary" id="office-calc-summary"></div>
+          <div class="calculator-options" id="office-calc-options"></div>
+        </div>
+      </section>
+
+      <section class="tools-section" data-app-section="tools">
+        <div class="section-head">
+          <div>
+            <h2>Инструменты</h2>
+            <p>Отдельные рабочие экраны, которые не являются обычной заявкой</p>
+          </div>
+          <span>roadmap</span>
+        </div>
+        <div class="tool-grid">
+          <article><strong>ТЭП-калькулятор</strong><small>Готовится как отдельный экран панели</small></article>
+          <article><strong>НЦС / УПСС</strong><small>Справочные расчёты по нормативам</small></article>
+          <article><strong>Сметный справочник</strong><small>Расценки, ГЭСН, материалы и механизмы</small></article>
+          <article><strong>Agent Factory</strong><small>Паспорта и запуск новых агентов</small></article>
+        </div>
+      </section>
+
+      <section class="tasks-section" data-app-section="tasks">
         <div class="web-recent" id="web-recent" hidden></div>
       </section>
 
-      <section class="workspace admin-only">
+      <section class="workspace admin-only" data-app-section="skills">
         <div class="toolbar">
           <div class="search">
             <span>⌕</span>
@@ -154,7 +234,7 @@
         <div class="grid" id="skill-grid"></div>
       </section>
 
-      <section class="control admin-only">
+      <section class="control admin-only" data-app-section="tools">
         <div class="section-head">
           <div>
             <h2>Контроль</h2>
@@ -171,7 +251,7 @@
         </div>
       </section>
 
-      <section class="activity admin-only">
+      <section class="activity admin-only" data-app-section="tasks">
         <div class="section-head">
           <div>
             <h2>Журнал</h2>
@@ -192,7 +272,7 @@
         </div>
       </section>
 
-      <section class="web-queue admin-only">
+      <section class="web-queue admin-only" data-app-section="tasks">
         <div class="section-head">
           <div>
             <h2>Web-очередь</h2>
@@ -208,7 +288,7 @@
         <div class="activity-list" id="web-queue-list"></div>
       </section>
 
-      <section class="web-quality admin-only">
+      <section class="web-quality admin-only" data-app-section="tasks">
         <div class="section-head">
           <div>
             <h2>Качество</h2>
@@ -229,7 +309,7 @@
         </div>
       </section>
 
-      <section class="content-admin admin-only">
+      <section class="content-admin admin-only" data-app-section="home">
         <div class="section-head">
           <div>
             <h2>Контент главной</h2>
