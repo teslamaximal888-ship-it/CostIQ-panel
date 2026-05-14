@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">CostIQ рабочая панель</title>
+  <desc id="desc">Абстрактный интерфейс CostIQ с карточками заявок, графиками и контуром строительного объекта.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#13231c"/>
+      <stop offset="0.42" stop-color="#111418"/>
+      <stop offset="1" stop-color="#1c1f27"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#59d18c"/>
+      <stop offset="0.55" stop-color="#56a7ff"/>
+      <stop offset="1" stop-color="#ff8a1e"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <path d="M0 560 C170 488 281 642 442 576 C577 521 637 348 802 318 C943 292 1051 390 1200 326 L1200 760 L0 760 Z" fill="#182921" opacity="0.9"/>
+  <path d="M0 620 C183 532 339 706 505 604 C665 506 723 265 894 259 C1014 255 1099 324 1200 277" fill="none" stroke="url(#accent)" stroke-width="3" opacity="0.65"/>
+  <g filter="url(#shadow)">
+    <rect x="92" y="84" width="468" height="330" rx="18" fill="#20242b" stroke="#343b46"/>
+    <rect x="122" y="120" width="178" height="22" rx="11" fill="#59d18c" opacity="0.95"/>
+    <rect x="122" y="162" width="358" height="14" rx="7" fill="#dfe7ee" opacity="0.72"/>
+    <rect x="122" y="190" width="286" height="12" rx="6" fill="#9aa4b2" opacity="0.55"/>
+    <g transform="translate(122 240)">
+      <rect width="88" height="104" rx="12" fill="#17231e" stroke="#376f50"/>
+      <rect x="112" width="88" height="104" rx="12" fill="#1e2936" stroke="#365f8a"/>
+      <rect x="224" width="88" height="104" rx="12" fill="#2a241e" stroke="#8a5d31"/>
+      <rect x="336" width="88" height="104" rx="12" fill="#22262d" stroke="#444b57"/>
+      <rect x="22" y="66" width="44" height="12" rx="6" fill="#59d18c"/>
+      <rect x="134" y="50" width="44" height="28" rx="7" fill="#56a7ff"/>
+      <rect x="246" y="34" width="44" height="44" rx="7" fill="#ff8a1e"/>
+      <rect x="358" y="24" width="44" height="54" rx="7" fill="#dfe7ee" opacity="0.82"/>
+    </g>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="650" y="108" width="390" height="238" rx="18" fill="#151a20" stroke="#303743"/>
+    <path d="M714 276 L768 232 L820 248 L879 178 L938 200 L996 146" fill="none" stroke="#59d18c" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M714 300 L996 300" stroke="#3a414d" stroke-width="2"/>
+    <path d="M714 136 L714 300" stroke="#3a414d" stroke-width="2"/>
+    <circle cx="879" cy="178" r="10" fill="#ff8a1e"/>
+    <circle cx="996" cy="146" r="10" fill="#56a7ff"/>
+  </g>
+  <g opacity="0.82">
+    <path d="M748 500 L748 430 L826 384 L904 430 L904 500" fill="none" stroke="#dfe7ee" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M826 384 L826 500" stroke="#dfe7ee" stroke-width="4"/>
+    <path d="M748 430 L826 474 L904 430" fill="none" stroke="#dfe7ee" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M698 530 L950 530" stroke="#59d18c" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g opacity="0.28">
+    <circle cx="1048" cy="572" r="78" fill="#56a7ff"/>
+    <circle cx="102" cy="638" r="56" fill="#ff8a1e"/>
+    <circle cx="560" cy="650" r="92" fill="#59d18c"/>
+  </g>
+</svg>

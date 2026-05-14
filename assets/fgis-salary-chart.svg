@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Рост нормируемой ОТ по федеральным округам</title>
+  <desc id="desc">Статичная диаграмма по новости ФГИС ЦС: средний рост нормируемой оплаты труда к 2024 году по федеральным округам.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111418"/>
+      <stop offset="1" stop-color="#18231f"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#59d18c"/>
+      <stop offset="0.62" stop-color="#56a7ff"/>
+      <stop offset="1" stop-color="#ff8a1e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="720" rx="0" fill="url(#bg)"/>
+  <rect x="52" y="48" width="1096" height="624" rx="24" fill="#20242b" stroke="#343b46"/>
+  <text x="86" y="112" fill="#f2f5f7" font-family="Arial, sans-serif" font-size="38" font-weight="700">ФГИС ЦС: нормируемая ОТ 2025</text>
+  <text x="86" y="152" fill="#aeb6c2" font-family="Arial, sans-serif" font-size="22">Средний рост к 2024 году по федеральным округам, опубликовано в приложении к новости</text>
+  <g font-family="Arial, sans-serif" font-size="22" fill="#dfe7ee">
+    <g transform="translate(96 216)">
+      <text x="0" y="26">ДФО</text><rect x="86" y="0" width="560" height="34" rx="10" fill="url(#bar)" opacity="0.82"/><text x="672" y="26" font-weight="700">+11,2%</text>
+    </g>
+    <g transform="translate(96 272)">
+      <text x="0" y="26">ПФО</text><rect x="86" y="0" width="590" height="34" rx="10" fill="url(#bar)" opacity="0.9"/><text x="702" y="26" font-weight="700">+11,8%</text>
+    </g>
+    <g transform="translate(96 328)">
+      <text x="0" y="26">СЗФО</text><rect x="86" y="0" width="505" height="34" rx="10" fill="url(#bar)" opacity="0.78"/><text x="617" y="26" font-weight="700">+10,1%</text>
+    </g>
+    <g transform="translate(96 384)">
+      <text x="0" y="26">СКФО</text><rect x="86" y="0" width="395" height="34" rx="10" fill="url(#bar)" opacity="0.66"/><text x="507" y="26" font-weight="700">+7,9%</text>
+    </g>
+    <g transform="translate(96 440)">
+      <text x="0" y="26">СФО</text><rect x="86" y="0" width="705" height="34" rx="10" fill="url(#bar)" opacity="1"/><text x="817" y="26" font-weight="700">+14,1%</text>
+    </g>
+    <g transform="translate(96 496)">
+      <text x="0" y="26">УФО</text><rect x="86" y="0" width="490" height="34" rx="10" fill="url(#bar)" opacity="0.76"/><text x="602" y="26" font-weight="700">+9,8%</text>
+    </g>
+    <g transform="translate(96 552)">
+      <text x="0" y="26">ЦФО</text><rect x="86" y="0" width="530" height="34" rx="10" fill="url(#bar)" opacity="0.8"/><text x="642" y="26" font-weight="700">+10,6%</text>
+    </g>
+    <g transform="translate(96 608)">
+      <text x="0" y="26">ЮФО</text><rect x="86" y="0" width="435" height="34" rx="10" fill="url(#bar)" opacity="0.7"/><text x="547" y="26" font-weight="700">+8,7%</text>
+    </g>
+  </g>
+  <g transform="translate(838 202)">
+    <rect width="250" height="118" rx="18" fill="#151a20" stroke="#343b46"/>
+    <text x="24" y="44" fill="#aeb6c2" font-family="Arial, sans-serif" font-size="18">Применение</text>
+    <text x="24" y="82" fill="#f2f5f7" font-family="Arial, sans-serif" font-size="28" font-weight="700">с 25 мая</text>
+  </g>
+  <text x="86" y="682" fill="#858e9b" font-family="Arial, sans-serif" font-size="18">Источник: ФГИС ЦС / t.me/smety. В новости также указан перечень регионов, где данных пока нет.</text>
+</svg>

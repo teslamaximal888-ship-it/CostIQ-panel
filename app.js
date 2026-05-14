@@ -1122,6 +1122,23 @@ function contentTypeLabel(type) {
   return type === "poll" ? "Голосование" : "Новость";
 }
 
+function homeNewsFallbackMedia(item) {
+  const id = String((item && item.id) || "");
+  if (id === "news-fgis-salary-2025-2026-05-14") {
+    return {
+      image_url: "/assets/fgis-salary-chart.svg",
+      image_caption: "Диаграмма по приложению к новости: средний рост нормируемой ОТ к 2024 году по федеральным округам.",
+    };
+  }
+  if (id === "welcome-panel-v1") {
+    return {
+      image_url: "/assets/costiq-welcome-visual.svg",
+      image_caption: "CostIQ: единый экран новостей, голосований, заявок и инструментов.",
+    };
+  }
+  return { image_url: "", image_caption: "" };
+}
+
 function pollPercent(option, item) {
   const total = Number(item.total_votes || 0);
   if (!total) {
@@ -1165,10 +1182,12 @@ function renderHomeFeedItem(item) {
     `;
   }
 
-  const imageUrl = item.image_url ? String(item.image_url) : "";
-  const imageCaption = item.image_caption ? String(item.image_caption) : "";
+  const fallbackMedia = homeNewsFallbackMedia(item);
+  const imageUrl = item.image_url ? String(item.image_url) : fallbackMedia.image_url;
+  const imageCaption = item.image_caption ? String(item.image_caption) : fallbackMedia.image_caption;
+  const isFeaturedNews = String(item.id || "") === "news-fgis-salary-2025-2026-05-14";
   return `
-    <article class="home-card news-card${item.pinned ? " pinned" : ""}">
+    <article class="home-card news-card${item.pinned ? " pinned" : ""}${isFeaturedNews ? " featured-news" : ""}">
       <div class="home-card-head">
         <span>${escapeHtml(contentTypeLabel(item.type))}</span>
         ${item.pinned ? "<em>закреплено</em>" : ""}
@@ -1193,7 +1212,7 @@ function renderHomeFeed(items) {
   if (!grid) {
     return;
   }
-  const visible = Array.isArray(items) ? items : [];
+  const visible = (Array.isArray(items) ? items : []).filter((item) => item && item.id !== "welcome-panel-v1");
   state.homeFeedItems = visible;
   setText("home-feed-status", visible.length ? `${visible.length} записей` : "нет записей");
   grid.innerHTML = visible.length
