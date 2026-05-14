@@ -41,21 +41,6 @@
         <div class="home-feed-grid" id="home-feed-grid"></div>
       </section>
 
-      <section class="home-actions" data-app-section="home">
-        <button type="button" data-open-view="skills">
-          <strong>Создать заявку</strong>
-          <small>КП, ПС, ОТ, претензии и документы через навыки</small>
-        </button>
-        <button type="button" data-open-view="calculators">
-          <strong>Офисный калькулятор</strong>
-          <small>Мгновенный расчёт по матрице ФСК и опциям v4.2</small>
-        </button>
-        <button type="button" data-open-view="tasks">
-          <strong>Мои заявки</strong>
-          <small>Готовые результаты, вопросы и доработки</small>
-        </button>
-      </section>
-
       <section class="metrics admin-only" aria-label="Состояние" data-app-section="home">
         <div class="metric">
           <span>Бот</span>
@@ -337,6 +322,14 @@
             <div class="field wide">
               <label for="content-body">Текст</label>
               <textarea id="content-body" name="body" required></textarea>
+            </div>
+            <div class="field">
+              <label for="content-image-url">Изображение / диаграмма</label>
+              <input id="content-image-url" name="image_url" type="url" autocomplete="off" placeholder="https://... или /assets/...">
+            </div>
+            <div class="field">
+              <label for="content-image-caption">Подпись</label>
+              <input id="content-image-caption" name="image_caption" type="text" autocomplete="off" placeholder="Краткое описание изображения">
             </div>
             <div class="field wide">
               <label for="content-options">Варианты голосования</label>

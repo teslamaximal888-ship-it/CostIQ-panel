@@ -29,6 +29,22 @@ function cleanId(value, fallbackPrefix = "content") {
   return cleaned || `${fallbackPrefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
+function cleanUrl(value) {
+  const raw = cleanText(value, 1000);
+  if (!raw) {
+    return "";
+  }
+  if (raw.startsWith("/") && !raw.startsWith("//")) {
+    return raw;
+  }
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : "";
+  } catch (error) {
+    return "";
+  }
+}
+
 async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -107,6 +123,8 @@ function defaultItems() {
       type: "news",
       title: "Панель CostIQ",
       body: "Стартовый экран соберёт новости, голосования, заявки и инструменты в одном месте.",
+      image_url: "",
+      image_caption: "",
       status: "published",
       pinned: true,
       created_at: created,
@@ -212,6 +230,8 @@ function publicItem(item, userId = "") {
     type: item.type,
     title: item.title,
     body: item.body,
+    image_url: cleanUrl(item.image_url),
+    image_caption: cleanText(item.image_caption, 240),
     status: item.status,
     pinned: Boolean(item.pinned),
     created_at: item.created_at,
@@ -260,6 +280,8 @@ function itemFromBody(body, existing = null) {
     type,
     title: cleanText(body.title || (existing && existing.title), 160),
     body: cleanText(body.body || (existing && existing.body), 2000),
+    image_url: cleanUrl(body.image_url || (existing && existing.image_url) || ""),
+    image_caption: cleanText(body.image_caption || (existing && existing.image_caption) || "", 240),
     status: cleanText(body.status || (existing && existing.status) || "published", 40),
     pinned: Boolean(body.pinned),
     closes_at: cleanText(body.closes_at || (existing && existing.closes_at) || "", 80),

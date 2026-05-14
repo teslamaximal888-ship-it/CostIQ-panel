@@ -840,9 +840,11 @@ function setAppView(view) {
 }
 
 function initTelegram() {
+  const initData = readTelegramInitData();
   if (!tg) {
     setText("tg-status", "В браузере");
     setText("user-label", "предпросмотр");
+    state.telegramInitData = initData;
     updateHomeShortcut("");
     return;
   }
@@ -853,9 +855,9 @@ function initTelegram() {
 
   const user = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
   const name = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
-  state.telegramInitData = tg.initData || "";
+  state.telegramInitData = initData;
   state.telegramUser = user || null;
-  setText("tg-status", "Telegram WebApp");
+  setText("tg-status", state.telegramInitData ? "Telegram профиль" : "Telegram без профиля");
   if (name) {
     setText("user-label", name);
     const webName = document.getElementById("web-name");
@@ -865,6 +867,20 @@ function initTelegram() {
   }
 
   initHomeShortcut();
+}
+
+function readTelegramInitData() {
+  const fromSdk = tg && tg.initData ? String(tg.initData) : "";
+  const fromSearch = new URLSearchParams(window.location.search).get("tg_init_data") || "";
+  const hash = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
+  const hashParams = new URLSearchParams(hash);
+  const fromHash = hashParams.get("tgWebAppData") || hashParams.get("tg_init_data") || "";
+  const fromStorage = window.sessionStorage ? window.sessionStorage.getItem("costiq_tg_init_data") || "" : "";
+  const value = fromSdk || fromSearch || fromHash || fromStorage;
+  if (value && window.sessionStorage) {
+    window.sessionStorage.setItem("costiq_tg_init_data", value);
+  }
+  return value;
 }
 
 function isHomeShortcutSupported() {
@@ -1132,6 +1148,8 @@ function renderHomeFeedItem(item) {
     `;
   }
 
+  const imageUrl = item.image_url ? String(item.image_url) : "";
+  const imageCaption = item.image_caption ? String(item.image_caption) : "";
   return `
     <article class="home-card news-card${item.pinned ? " pinned" : ""}">
       <div class="home-card-head">
@@ -1139,6 +1157,12 @@ function renderHomeFeedItem(item) {
         ${item.pinned ? "<em>закреплено</em>" : ""}
       </div>
       <h3>${escapeHtml(item.title)}</h3>
+      ${imageUrl ? `
+        <figure class="home-card-media">
+          <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageCaption || item.title)}" loading="lazy">
+          ${imageCaption ? `<figcaption>${escapeHtml(imageCaption)}</figcaption>` : ""}
+        </figure>
+      ` : ""}
       <p>${escapeHtml(item.body)}</p>
       <div class="home-card-foot">
         <span>${escapeHtml(formatShortDate(item.created_at))}</span>
@@ -1178,6 +1202,10 @@ async function loadHomeFeed() {
     if (!response.ok || !data.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);
     }
+    if (data.auth && data.auth.telegram_user && !state.telegramUser) {
+      state.telegramUser = data.auth.telegram_user;
+      setText("tg-status", "Telegram профиль");
+    }
     renderHomeFeed(data.items || []);
   } catch (error) {
     setText("home-feed-status", "недоступно");
@@ -1187,7 +1215,7 @@ async function loadHomeFeed() {
 
 async function voteInPoll(itemId, optionId) {
   if (!state.telegramInitData) {
-    showToast("Откройте панель из Telegram для голосования");
+    showToast(tg ? "Панель открыта в Telegram, но профиль не передан. Откройте её через кнопку Mini App в боте." : "Голосование доступно при открытии панели из Telegram");
     return;
   }
   const response = await fetch("/api/panel/content", {
@@ -3236,6 +3264,8 @@ if (contentAdminForm) {
       type: String(formData.get("type") || "news"),
       title: String(formData.get("title") || "").trim(),
       body: String(formData.get("body") || "").trim(),
+      image_url: String(formData.get("image_url") || "").trim(),
+      image_caption: String(formData.get("image_caption") || "").trim(),
       status: String(formData.get("status") || "published"),
       pinned: formData.get("pinned") === "on",
       options,

@@ -378,7 +378,6 @@ h2 {
   margin-top: 12px;
 }
 
-.home-actions,
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -386,7 +385,6 @@ h2 {
   margin: 12px 0 8px;
 }
 
-.home-actions button,
 .tool-grid article {
   min-height: 92px;
   padding: 14px;
@@ -397,18 +395,11 @@ h2 {
   text-align: left;
 }
 
-.home-actions button {
-  cursor: pointer;
-}
-
-.home-actions strong,
-.home-actions small,
 .tool-grid strong,
 .tool-grid small {
   display: block;
 }
 
-.home-actions small,
 .tool-grid small {
   margin-top: 7px;
   color: var(--muted);
@@ -460,6 +451,27 @@ h2 {
   color: var(--text);
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.home-card-media {
+  margin: 12px 0 0;
+}
+
+.home-card-media img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.home-card-media figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .home-card-foot {
@@ -1628,7 +1640,6 @@ h2 {
   .quick,
   .metrics,
   .home-feed-grid,
-  .home-actions,
   .tool-grid,
   .calculator-summary,
   .calculator-options,
@@ -1672,7 +1683,6 @@ h2 {
   .insights,
   .grid,
   .home-feed-grid,
-  .home-actions,
   .tool-grid,
   .calculator-inputs,
   .calculator-summary,

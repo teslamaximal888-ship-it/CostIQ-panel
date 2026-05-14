@@ -163,6 +163,12 @@ Version v26 adds the public home feed:
 - poll votes require signed Telegram Mini App identity and store one vote per Telegram user
 - starter content is auto-seeded in KV on first read, so the page works before manual admin content is created
 
+Version v29 refines the panel sections:
+
+- removes duplicated quick links from the home page; requests, calculators and task history stay in their own top-menu sections
+- news can include an image or static chart URL plus caption
+- Telegram identity detection also reads `tgWebAppData` from the Mini App hash, `tg_init_data` from query/hash, and session cache before showing voting as unavailable
+
 Manual snapshot refresh:
 
 ```bash
