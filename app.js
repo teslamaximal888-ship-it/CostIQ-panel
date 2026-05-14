@@ -791,6 +791,7 @@ const state = {
   webRecentTimer: null,
   webQueueTimer: null,
   telegramInitData: "",
+  panelAuth: "",
   telegramUser: null,
   telegramHistoryAvailable: false,
   homeShortcutStatus: "",
@@ -841,10 +842,12 @@ function setAppView(view) {
 
 function initTelegram() {
   const initData = readTelegramInitData();
+  const panelAuth = readPanelAuth();
   if (!tg) {
     setText("tg-status", "В браузере");
     setText("user-label", "предпросмотр");
     state.telegramInitData = initData;
+    state.panelAuth = panelAuth;
     updateHomeShortcut("");
     return;
   }
@@ -856,8 +859,9 @@ function initTelegram() {
   const user = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
   const name = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
   state.telegramInitData = initData;
+  state.panelAuth = panelAuth;
   state.telegramUser = user || null;
-  setText("tg-status", state.telegramInitData ? "Telegram профиль" : "Telegram без профиля");
+  setText("tg-status", state.telegramInitData || state.panelAuth ? "Telegram профиль" : "Telegram без профиля");
   if (name) {
     setText("user-label", name);
     const webName = document.getElementById("web-name");
@@ -879,6 +883,19 @@ function readTelegramInitData() {
   const value = fromSdk || fromSearch || fromHash || fromStorage;
   if (value && window.sessionStorage) {
     window.sessionStorage.setItem("costiq_tg_init_data", value);
+  }
+  return value;
+}
+
+function readPanelAuth() {
+  const fromSearch = new URLSearchParams(window.location.search).get("panel_auth") || "";
+  const hash = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
+  const hashParams = new URLSearchParams(hash);
+  const fromHash = hashParams.get("panel_auth") || "";
+  const fromStorage = window.sessionStorage ? window.sessionStorage.getItem("costiq_panel_auth") || "" : "";
+  const value = fromSearch || fromHash || fromStorage;
+  if (value && window.sessionStorage) {
+    window.sessionStorage.setItem("costiq_panel_auth", value);
   }
   return value;
 }
@@ -1116,7 +1133,7 @@ function pollPercent(option, item) {
 function renderHomeFeedItem(item) {
   if (!item || item.type === "poll") {
     const options = Array.isArray(item && item.options) ? item.options : [];
-    const canVote = Boolean(state.telegramInitData);
+    const canVote = Boolean(state.telegramInitData || state.panelAuth);
     return `
       <article class="home-card poll-card${item && item.pinned ? " pinned" : ""}">
         <div class="home-card-head">
@@ -1194,6 +1211,9 @@ async function loadHomeFeed() {
     if (state.telegramInitData) {
       headers["X-Telegram-Init-Data"] = state.telegramInitData;
     }
+    if (state.panelAuth) {
+      headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
+    }
     const response = await fetch(`/api/panel/content?ts=${Date.now()}`, {
       cache: "no-store",
       headers,
@@ -1214,7 +1234,7 @@ async function loadHomeFeed() {
 }
 
 async function voteInPoll(itemId, optionId) {
-  if (!state.telegramInitData) {
+  if (!state.telegramInitData && !state.panelAuth) {
     showToast(tg ? "Панель открыта в Telegram, но профиль не передан. Откройте её через кнопку Mini App в боте." : "Голосование доступно при открытии панели из Telegram");
     return;
   }
@@ -1223,6 +1243,7 @@ async function voteInPoll(itemId, optionId) {
     headers: {
       "Content-Type": "application/json",
       "X-Telegram-Init-Data": state.telegramInitData,
+      "X-CostIQ-Panel-Auth": state.panelAuth,
     },
     body: JSON.stringify({ action: "vote", item_id: itemId, option_id: optionId }),
   });

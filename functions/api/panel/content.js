@@ -11,7 +11,7 @@ function jsonResponse(payload, status = 200) {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, X-CostIQ-Admin, X-Telegram-Init-Data",
+      "Access-Control-Allow-Headers": "Content-Type, X-CostIQ-Admin, X-Telegram-Init-Data, X-CostIQ-Panel-Auth",
     },
   });
 }
@@ -69,6 +69,26 @@ function hex(bytes) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function base64UrlToBytes(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function timingSafeEqualHex(a, b) {
+  const left = String(a || "").toLowerCase();
+  const right = String(b || "").toLowerCase();
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return diff === 0;
+}
+
 async function verifyTelegramInitData(initData, env) {
   const token = env.TELEGRAM_BOT_TOKEN || env.COSTIQ_TELEGRAM_BOT_TOKEN || "";
   const raw = cleanText(initData, 5000);
@@ -109,6 +129,62 @@ async function verifyTelegramInitData(initData, env) {
     user = null;
   }
   return user ? { ok: true, user } : { ok: false, error: "user_missing" };
+}
+
+async function verifyPanelAuth(panelAuth, env) {
+  const raw = cleanText(panelAuth, 5000);
+  if (!raw) {
+    return { ok: false, skipped: "empty" };
+  }
+  const [payload64, providedSig] = raw.split(".");
+  if (!payload64 || !providedSig) {
+    return { ok: false, error: "panel_auth_malformed" };
+  }
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  const secretHex = adminSecret ? await sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+  const expectedSig = hex(await hmacSha256(new TextEncoder().encode(secretHex), payload64));
+  if (!timingSafeEqualHex(expectedSig, providedSig)) {
+    return { ok: false, error: "panel_auth_mismatch" };
+  }
+  let payload = null;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payload64)));
+  } catch (error) {
+    return { ok: false, error: "panel_auth_payload_invalid" };
+  }
+  const exp = Number(payload.exp || 0);
+  if (!Number.isFinite(exp) || exp * 1000 < Date.now()) {
+    return { ok: false, error: "panel_auth_expired" };
+  }
+  const id = Number(payload.uid || payload.id);
+  if (!Number.isFinite(id)) {
+    return { ok: false, error: "panel_auth_user_missing" };
+  }
+  return {
+    ok: true,
+    user: {
+      id,
+      first_name: cleanText(payload.first_name, 120),
+      last_name: cleanText(payload.last_name, 120),
+      username: cleanText(payload.username, 120),
+    },
+    source: "bridge",
+  };
+}
+
+async function verifyRequestUser(request, env, body = null) {
+  const url = new URL(request.url);
+  const telegramAuth = await verifyTelegramInitData(
+    request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || (body && body.telegram_init_data) || "",
+    env
+  );
+  if (telegramAuth.ok) {
+    return { ...telegramAuth, source: "telegram" };
+  }
+  return verifyPanelAuth(
+    request.headers.get("X-CostIQ-Panel-Auth") || url.searchParams.get("panel_auth") || (body && body.panel_auth) || "",
+    env
+  );
 }
 
 function nowIso() {
@@ -307,13 +383,13 @@ export async function onRequestGet({ request, env }) {
   if (!env.WEB_INTAKE) {
     return jsonResponse({ ok: false, error: "storage_not_configured" }, 503);
   }
-  const auth = await verifyTelegramInitData(request.headers.get("X-Telegram-Init-Data") || new URL(request.url).searchParams.get("tg_init_data") || "", env);
+  const auth = await verifyRequestUser(request, env);
   const userId = auth.ok ? String(auth.user.id) : "";
   const items = (await loadItems(env))
     .filter(isVisible)
     .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || String(b.created_at || "").localeCompare(String(a.created_at || "")))
     .map((item) => publicItem(item, userId));
-  return jsonResponse({ ok: true, items, auth: auth.ok ? { telegram_user: auth.user } : { telegram_user: null } });
+  return jsonResponse({ ok: true, items, auth: auth.ok ? { telegram_user: auth.user, source: auth.source } : { telegram_user: null } });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -324,7 +400,7 @@ export async function onRequestPost({ request, env }) {
   const action = cleanText(body.action, 40);
 
   if (action === "vote") {
-    const auth = await verifyTelegramInitData(request.headers.get("X-Telegram-Init-Data") || body.telegram_init_data || "", env);
+    const auth = await verifyRequestUser(request, env, body);
     if (!auth.ok) {
       return jsonResponse({ ok: false, error: "telegram_auth_required" }, 401);
     }
