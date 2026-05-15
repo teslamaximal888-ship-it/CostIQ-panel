@@ -58,6 +58,73 @@ const PANEL_VISUAL_DIGEST = [
 
 const PANEL_TOOLS = [
   {
+    id: "tep_calc",
+    title: "ТЭП-калькулятор",
+    subtitle: "ТЭП, население, соцобъекты, парковки",
+    status: "рабочий экран",
+    access: "public/admin",
+    input: "площадь, жильё, сценарии",
+    output: "расчёт и структура проекта",
+    tone: "blue",
+    skillId: "tep_calc",
+    visibility: "public",
+    primaryLabel: "Открыть ТЭП",
+    summary: "Быстрый вход в сценарий ТЭП: СПП, НП, население, социальные объекты, парковки, услуги и спорт. Сейчас работает как структурированная заявка, следующий шаг - интерактивный frontend-расчёт.",
+    steps: ["Исходные параметры", "Расчёт ТЭП", "Проверка нормативов", "Результат в заявке"],
+    metrics: ["СПП/НП", "население", "соцобъекты"],
+  },
+  {
+    id: "ncs_upss",
+    title: "НЦС / УПСС",
+    subtitle: "Справочные расчёты по нормативам",
+    status: "рабочий вход",
+    access: "public/admin",
+    input: "код, параметры, коэффициенты",
+    output: "стоимость и пояснения",
+    tone: "copper",
+    skillId: "ncs",
+    secondarySkillId: "upss",
+    visibility: "public",
+    primaryLabel: "Открыть НЦС",
+    secondaryLabel: "Открыть УПСС",
+    summary: "Единая карточка для укрупнённых нормативов. НЦС используется для федеральных нормативов цены строительства, УПСС - для московских укрупнённых показателей и коэффициентов.",
+    steps: ["Код или описание", "Параметры объекта", "Коэффициенты", "Стоимость с пояснением"],
+    metrics: ["НЦС 2025", "УПСС Москва", "коэффициенты"],
+  },
+  {
+    id: "smet_reference",
+    title: "Сметный справочник",
+    subtitle: "Расценки, ГЭСН, материалы и механизмы",
+    status: "рабочий вход",
+    access: "public/admin",
+    input: "описание работы или код",
+    output: "карточка работы",
+    tone: "teal",
+    skillId: "smet_reference",
+    visibility: "public",
+    primaryLabel: "Найти расценку",
+    summary: "Рабочая карточка поиска по базе расценок, КВР, ГЭСН, материалам и механизмам. Подходит для быстрых справок и проверки основания цены перед заявкой.",
+    steps: ["Запрос", "Поиск в базе", "Карточка работы", "Основание и диапазон"],
+    metrics: ["расценки", "ГЭСН", "материалы"],
+  },
+  {
+    id: "office_calc",
+    title: "Офисный калькулятор",
+    subtitle: "CAPEX офисов и fit-out",
+    status: "интерактивно",
+    access: "public/admin",
+    input: "класс, площадь, опции",
+    output: "стоимость и сохранённый расчёт",
+    tone: "green",
+    visibility: "public",
+    primaryLabel: "Открыть калькулятор",
+    summary: "Уже подключён как интерактивный frontend-калькулятор: класс офиса, площадь, fit-out, эталон сравнения и опции панели.",
+    steps: ["Класс и площадь", "Опции", "Итог CAPEX", "Сохранение/заявка"],
+    metrics: ["руб./м²", "fit-out", "опции"],
+    appView: "calculators",
+  },
+  {
+    id: "agent_factory",
     title: "Agent Factory",
     subtitle: "Паспорта и запуск новых агентов",
     status: "встроен",
@@ -65,33 +132,12 @@ const PANEL_TOOLS = [
     input: "роль, навыки, режимы Telegram",
     output: "JSON, SVG, HTML one-page",
     tone: "green",
-  },
-  {
-    title: "ТЭП-калькулятор",
-    subtitle: "ТЭП, население, соцобъекты, парковки",
-    status: "следующий экран",
-    access: "public/admin",
-    input: "площадь, жильё, сценарии",
-    output: "расчёт и структура проекта",
-    tone: "blue",
-  },
-  {
-    title: "НЦС / УПСС",
-    subtitle: "Справочные расчёты по нормативам",
-    status: "roadmap",
-    access: "public/admin",
-    input: "код, параметры, коэффициенты",
-    output: "стоимость и пояснения",
-    tone: "copper",
-  },
-  {
-    title: "Сметный справочник",
-    subtitle: "Расценки, ГЭСН, материалы и механизмы",
-    status: "roadmap",
-    access: "public/admin",
-    input: "описание работы или код",
-    output: "карточка работы",
-    tone: "teal",
+    visibility: "admin",
+    primaryLabel: "Открыть Factory",
+    summary: "Админский инструмент для паспортов агентов, инвентаризации, Telegram-режимов, визуальной карточки и handoff Александру.",
+    steps: ["Заявка", "Паспорт", "Telegram modes", "Handoff", "Acceptance"],
+    metrics: ["JSON", "SVG", "one-page"],
+    anchor: "agent-factory-form",
   },
 ];
 
@@ -886,6 +932,7 @@ const state = {
   webSkillGroup: "все",
   webSkillQuery: "",
   webSelectedSkillId: "",
+  panelToolId: "tep_calc",
   webRecentFilter: "all",
   webReviewDraft: null,
   webCurrentTask: null,
@@ -944,6 +991,7 @@ function saveMiniAppState() {
     webSkillGroup: state.webSkillGroup,
     webSkillQuery: state.webSkillQuery,
     webSelectedSkillId: state.webSelectedSkillId,
+    panelToolId: state.panelToolId,
     webRecentFilter: state.webRecentFilter,
   }, window.sessionStorage);
 }
@@ -958,6 +1006,7 @@ function restoreMiniAppState() {
   state.webSkillGroup = saved.webSkillGroup || state.webSkillGroup;
   state.webSkillQuery = saved.webSkillQuery || state.webSkillQuery;
   state.webSelectedSkillId = saved.webSelectedSkillId || state.webSelectedSkillId;
+  state.panelToolId = PANEL_TOOLS.some((tool) => tool.id === saved.panelToolId) ? saved.panelToolId : state.panelToolId;
   state.webRecentFilter = WEB_RECENT_FILTERS.includes(saved.webRecentFilter) ? saved.webRecentFilter : state.webRecentFilter;
   state.restoringState = false;
 }
@@ -1674,8 +1723,12 @@ function renderPanelTools() {
   if (!grid) {
     return;
   }
-  grid.innerHTML = PANEL_TOOLS.map((tool) => `
-    <article class="tool-card" data-tone="${escapeHtml(tool.tone)}">
+  const visibleTools = PANEL_TOOLS.filter((tool) => isAdminMode() || tool.visibility !== "admin");
+  if (!visibleTools.some((tool) => tool.id === state.panelToolId)) {
+    state.panelToolId = visibleTools[0] ? visibleTools[0].id : "";
+  }
+  grid.innerHTML = visibleTools.map((tool) => `
+    <button type="button" class="tool-card ${tool.id === state.panelToolId ? "active" : ""}" data-tool-select="${escapeHtml(tool.id)}" data-tone="${escapeHtml(tool.tone)}">
       <div class="tool-card-head">
         <span>${escapeHtml(tool.status)}</span>
         <em>${escapeHtml(tool.access)}</em>
@@ -1686,8 +1739,92 @@ function renderPanelTools() {
         <div><dt>Вход</dt><dd>${escapeHtml(tool.input)}</dd></div>
         <div><dt>Результат</dt><dd>${escapeHtml(tool.output)}</dd></div>
       </dl>
-    </article>
+    </button>
   `).join("");
+  renderPanelToolDetail();
+}
+
+function renderPanelToolDetail() {
+  const detail = document.getElementById("panel-tool-detail");
+  if (!detail) {
+    return;
+  }
+  const visibleTools = PANEL_TOOLS.filter((tool) => isAdminMode() || tool.visibility !== "admin");
+  const tool = visibleTools.find((item) => item.id === state.panelToolId) || visibleTools[0];
+  if (!tool) {
+    detail.innerHTML = `<div class="empty">Инструменты пока не настроены</div>`;
+    return;
+  }
+  const secondaryAction = tool.secondarySkillId
+    ? `<button type="button" class="ghost-button" data-tool-action="skill" data-skill-id="${escapeHtml(tool.secondarySkillId)}">${escapeHtml(tool.secondaryLabel || "Открыть")}</button>`
+    : "";
+  const adminBadge = tool.visibility === "admin"
+    ? `<span class="tool-access-badge">admin-only</span>`
+    : `<span class="tool-access-badge">public</span>`;
+  detail.innerHTML = `
+    <div class="tool-detail-card" data-tone="${escapeHtml(tool.tone)}">
+      <div class="tool-detail-copy">
+        <div class="tool-detail-title">
+          <span>${escapeHtml(tool.status)}</span>
+          ${adminBadge}
+          <h3>${escapeHtml(tool.title)}</h3>
+          <p>${escapeHtml(tool.summary)}</p>
+        </div>
+        <div class="tool-actions">
+          <button type="button" class="submit-button" data-tool-action="primary">${escapeHtml(tool.primaryLabel || "Открыть")}</button>
+          ${secondaryAction}
+        </div>
+      </div>
+      <div class="tool-flow" aria-label="Рабочий маршрут инструмента">
+        ${tool.steps.map((step, index) => `
+          <div class="tool-flow-step">
+            <span>${index + 1}</span>
+            <strong>${escapeHtml(step)}</strong>
+          </div>
+        `).join("")}
+      </div>
+      <div class="tool-metrics">
+        ${tool.metrics.map((metric) => `<span>${escapeHtml(metric)}</span>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function openPanelTool(tool) {
+  if (!tool) {
+    return;
+  }
+  if (tool.appView) {
+    setAppView(tool.appView);
+    return;
+  }
+  if (tool.anchor) {
+    const anchor = document.getElementById(tool.anchor);
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+  if (tool.skillId) {
+    setAppView("skills");
+    selectWebSkill(tool.skillId, { renderCards: true });
+    const intake = document.getElementById("web-intake");
+    if (intake) {
+      intake.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+}
+
+function openPanelToolSkill(skillId) {
+  if (!skillId) {
+    return;
+  }
+  setAppView("skills");
+  selectWebSkill(skillId, { renderCards: true });
+  const intake = document.getElementById("web-intake");
+  if (intake) {
+    intake.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 async function loadHomeFeed() {
@@ -4530,6 +4667,25 @@ document.addEventListener("click", (event) => {
   const agentActionButton = event.target.closest("[data-agent-action]");
   if (agentActionButton) {
     runAgentFactoryAction(agentActionButton.dataset.agentAction);
+    return;
+  }
+
+  const toolSelectButton = event.target.closest("[data-tool-select]");
+  if (toolSelectButton) {
+    state.panelToolId = toolSelectButton.dataset.toolSelect;
+    renderPanelTools();
+    saveMiniAppState();
+    return;
+  }
+
+  const toolActionButton = event.target.closest("[data-tool-action]");
+  if (toolActionButton) {
+    if (toolActionButton.dataset.toolAction === "skill") {
+      openPanelToolSkill(toolActionButton.dataset.skillId);
+      return;
+    }
+    const tool = PANEL_TOOLS.find((item) => item.id === state.panelToolId);
+    openPanelTool(tool);
     return;
   }
 
