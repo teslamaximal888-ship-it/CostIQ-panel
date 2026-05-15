@@ -1,6 +1,7 @@
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
 const WEB_HIDDEN_TASKS_STORAGE_KEY = "costiq_web_hidden_tasks";
+const OFFICE_CALC_STORAGE_KEY = "costiq_office_calculations";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
@@ -9,6 +10,12 @@ const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
+const OFFICE_FITOUT_RATES = {
+  none: { label: "Без fit-out", rate: 0 },
+  bronze: { label: "Bronze", rate: 35000 },
+  silver: { label: "Silver", rate: 55000 },
+  gold: { label: "Gold", rate: 80000 },
+};
 const APP_VIEW_TITLES = {
   home: "Главная",
   skills: "Навыки",
@@ -1449,6 +1456,315 @@ function officeOptionsTotal(data) {
   return selectedOfficeOptions(data).reduce((sum, option) => sum + option.cost, 0);
 }
 
+function readSavedOfficeCalculations() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(OFFICE_CALC_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => item && item.id).slice(0, 8) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeSavedOfficeCalculations(items) {
+  try {
+    window.localStorage.setItem(OFFICE_CALC_STORAGE_KEY, JSON.stringify(items.slice(0, 8)));
+  } catch (error) {
+    // localStorage can be unavailable in restricted webviews.
+  }
+}
+
+function officeCalculatorInputs() {
+  const classInput = document.getElementById("office-class");
+  const areaInput = document.getElementById("office-area");
+  const areaRange = document.getElementById("office-area-range");
+  const rentableInput = document.getElementById("office-rentable-share");
+  const fitoutInput = document.getElementById("office-fitout");
+  const referenceInput = document.getElementById("office-reference");
+  const area = Math.max(1, Number(areaInput && areaInput.value ? areaInput.value : 70000));
+  const rentableShare = Math.min(95, Math.max(35, Number(rentableInput && rentableInput.value ? rentableInput.value : 65)));
+  if (areaRange && Number(areaRange.value) !== area) {
+    areaRange.value = String(Math.min(Number(areaRange.max || area), Math.max(Number(areaRange.min || area), area)));
+  }
+  return {
+    officeClass: classInput ? classInput.value : "A",
+    area,
+    rentableShare,
+    rentableArea: area * rentableShare / 100,
+    fitout: fitoutInput ? fitoutInput.value : "none",
+    reference: referenceInput ? referenceInput.value : "mixed",
+  };
+}
+
+function officeAreaWarning(data, officeClass, area) {
+  const rows = Array.isArray(data && data.matrix) ? data.matrix.filter((row) => row.class === officeClass) : [];
+  if (!rows.length) {
+    return "Для выбранного класса нет строки матрицы.";
+  }
+  const minArea = Math.min(...rows.map((row) => Number(row.minArea || 0)).filter(Boolean));
+  const maxArea = Math.max(...rows.map((row) => Number(row.maxArea || 0)).filter(Boolean));
+  if (minArea && area < minArea) {
+    return `Площадь ниже диапазона матрицы ${formatMoney(minArea)} м²; применена ближайшая строка.`;
+  }
+  if (maxArea && area > maxArea) {
+    return `Площадь выше диапазона матрицы ${formatMoney(maxArea)} м²; применена ближайшая строка.`;
+  }
+  return "";
+}
+
+function currentOfficeCalculation() {
+  const data = state.officeCalculatorData;
+  if (!data) {
+    return null;
+  }
+  const inputs = officeCalculatorInputs();
+  const row = findOfficeMatrixRow(data, inputs.officeClass, inputs.area);
+  const baseRate = Number(row && row.rate ? row.rate : 0);
+  const optionsTotal = officeOptionsTotal(data);
+  const selected = selectedOfficeOptions(data);
+  const fitout = OFFICE_FITOUT_RATES[inputs.fitout] || OFFICE_FITOUT_RATES.none;
+  const fitoutTotal = inputs.rentableArea * Number(fitout.rate || 0);
+  const optionRate = optionsTotal / inputs.area;
+  const fitoutRateByTotalArea = fitoutTotal / inputs.area;
+  const totalRate = baseRate + optionRate + fitoutRateByTotalArea;
+  const totalCost = totalRate * inputs.area;
+  const ref = data.references || {};
+  const compareRate = inputs.reference === "dream"
+    ? Number(ref.dreamOffice && ref.dreamOffice.baseRate)
+    : inputs.reference === "louvre"
+      ? Number(ref.louvre && ref.louvre.baseRate)
+      : baseRate;
+  const deltaRate = totalRate - compareRate;
+  const warnings = [officeAreaWarning(data, inputs.officeClass, inputs.area)].filter(Boolean);
+  return {
+    id: `office-${Date.now()}`,
+    created_at: new Date().toISOString(),
+    version: data.version || "v4.2",
+    source: data.source || "",
+    inputs,
+    row,
+    selected,
+    baseRate,
+    optionsTotal,
+    optionRate,
+    fitout,
+    fitoutTotal,
+    fitoutRateByTotalArea,
+    totalRate,
+    totalCost,
+    compareRate,
+    deltaRate,
+    warnings,
+  };
+}
+
+function officeCalculationText(calc) {
+  if (!calc) {
+    return "";
+  }
+  return [
+    `Офисный калькулятор ${calc.version}`,
+    `Класс: ${calc.inputs.officeClass}`,
+    `Площадь: ${formatMoney(calc.inputs.area)} м²`,
+    `Арендопригодная: ${formatMoney(calc.inputs.rentableArea)} м² (${calc.inputs.rentableShare}%)`,
+    `Строка матрицы: ${calc.row ? `${calc.row.class} · ${calc.row.range}` : "не найдена"}`,
+    `Базовая ставка: ${formatRate(calc.baseRate)}`,
+    `Опции: ${formatMoney(calc.optionsTotal)} руб. (${formatRate(calc.optionRate)})`,
+    `Fit-out: ${calc.fitout.label}, ${formatMoney(calc.fitoutTotal)} руб. (${formatRate(calc.fitoutRateByTotalArea)})`,
+    `Итоговая ставка: ${formatRate(calc.totalRate)}`,
+    `Итоговый бюджет: ${formatMoney(calc.totalCost)} руб.`,
+    `Дельта к эталону: ${calc.deltaRate >= 0 ? "+" : ""}${formatRate(calc.deltaRate)}`,
+    calc.selected.length
+      ? `Выбранные опции: ${calc.selected.map((item) => `${item.title} — ${formatMoney(item.qty)} ${item.unit}`).join("; ")}`
+      : "Выбранные опции: нет",
+    calc.warnings.length ? `Предупреждения: ${calc.warnings.join("; ")}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function renderSavedOfficeCalculations() {
+  const container = document.getElementById("office-calc-saved");
+  if (!container) {
+    return;
+  }
+  const saved = readSavedOfficeCalculations();
+  if (!saved.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="calculator-saved-head">
+      <strong>Сохранённые расчёты</strong>
+      <span>${saved.length}</span>
+    </div>
+    ${saved.map((item) => `
+      <button type="button" class="calculator-saved-item" data-office-load="${escapeHtml(item.id)}">
+        <span>
+          <strong>${escapeHtml(item.inputs.officeClass)} · ${formatMoney(item.inputs.area)} м² · ${escapeHtml(item.fitout.label)}</strong>
+          <small>${formatRate(item.totalRate)} · ${formatMoney(item.totalCost)} руб. · ${escapeHtml(formatShortDate(item.created_at))}</small>
+        </span>
+      </button>
+    `).join("")}
+  `;
+}
+
+function applyOfficeCalculation(calc) {
+  if (!calc || !calc.inputs) {
+    return;
+  }
+  const fields = {
+    "office-class": calc.inputs.officeClass,
+    "office-area": Math.round(Number(calc.inputs.area || 70000)),
+    "office-area-range": Math.round(Number(calc.inputs.area || 70000)),
+    "office-rentable-share": Math.round(Number(calc.inputs.rentableShare || 65)),
+    "office-fitout": calc.inputs.fitout || "none",
+    "office-reference": calc.inputs.reference || "mixed",
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) {
+      field.value = String(value);
+    }
+  });
+  state.officeCalculatorState.quantities = {};
+  (Array.isArray(calc.selected) ? calc.selected : []).forEach((option) => {
+    if (option && option.id) {
+      state.officeCalculatorState.quantities[option.id] = Number(option.qty || 0);
+    }
+  });
+  renderOfficeCalculator();
+}
+
+function saveCurrentOfficeCalculation() {
+  const calc = currentOfficeCalculation();
+  if (!calc) {
+    showToast("Данные калькулятора ещё загружаются");
+    return;
+  }
+  const saved = readSavedOfficeCalculations();
+  writeSavedOfficeCalculations([calc, ...saved]);
+  renderSavedOfficeCalculations();
+  showToast("Расчёт сохранён");
+}
+
+function excelCell(value) {
+  return String(value || "").replace(/\t/g, " ").replace(/\n/g, " ");
+}
+
+function officeCalculationRows(calc) {
+  const rows = [
+    ["Параметр", "Значение"],
+    ["Версия", calc.version],
+    ["Класс", calc.inputs.officeClass],
+    ["Площадь, м2", Math.round(calc.inputs.area)],
+    ["Арендопригодная площадь, м2", Math.round(calc.inputs.rentableArea)],
+    ["Арендопригодная площадь, %", calc.inputs.rentableShare],
+    ["Fit-out", calc.fitout.label],
+    ["Fit-out ставка, руб./м2 аренд.", calc.fitout.rate],
+    ["Строка матрицы", calc.row ? `${calc.row.class} · ${calc.row.range}` : ""],
+    ["Базовая ставка, руб./м2", Math.round(calc.baseRate)],
+    ["Опции, руб.", Math.round(calc.optionsTotal)],
+    ["Fit-out, руб.", Math.round(calc.fitoutTotal)],
+    ["Итоговая ставка, руб./м2", Math.round(calc.totalRate)],
+    ["Итоговый бюджет, руб.", Math.round(calc.totalCost)],
+    ["Дельта к эталону, руб./м2", Math.round(calc.deltaRate)],
+  ];
+  rows.push([]);
+  rows.push(["Выбранные опции", "Количество", "Ед.", "Ставка", "Итого"]);
+  calc.selected.forEach((option) => {
+    rows.push([option.title, option.qty, option.unit, Math.round(Number(option.rate || 0)), Math.round(option.cost)]);
+  });
+  if (calc.warnings.length) {
+    rows.push([]);
+    rows.push(["Предупреждения", calc.warnings.join("; ")]);
+  }
+  return rows;
+}
+
+function downloadOfficeCalculationExcel() {
+  const calc = currentOfficeCalculation();
+  if (!calc) {
+    showToast("Данные калькулятора ещё загружаются");
+    return;
+  }
+  const rows = officeCalculationRows(calc);
+  const table = rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(excelCell(cell))}</td>`).join("")}</tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table>${table}</table></body></html>`;
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `office-calculation-${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  showToast("Excel сформирован");
+}
+
+async function sendOfficeCalculationToCostIQ(button) {
+  const calc = currentOfficeCalculation();
+  if (!calc) {
+    showToast("Данные калькулятора ещё загружаются");
+    return;
+  }
+  const user = state.telegramUser || {};
+  const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || document.getElementById("web-name")?.value || "Пользователь панели";
+  const formData = new FormData();
+  formData.set("name", name);
+  formData.set("skill", "office_calc");
+  formData.set("skill_title", "Офисный калькулятор");
+  formData.set("command", "/office_calc");
+  formData.set("input_type", "interactive_calculator");
+  formData.set("requires_file", "0");
+  formData.set("object", `Офис ${calc.inputs.officeClass}, ${formatMoney(calc.inputs.area)} м²`);
+  formData.set("query", officeCalculationText(calc));
+  formData.set("parameters", JSON.stringify({
+    class: calc.inputs.officeClass,
+    area: Math.round(calc.inputs.area),
+    rentable_share: calc.inputs.rentableShare,
+    fitout: calc.fitout.label,
+    total_rate: Math.round(calc.totalRate),
+    total_cost: Math.round(calc.totalCost),
+  }));
+  formData.set("extra_fields", JSON.stringify([
+    { label: "Класс", value: calc.inputs.officeClass },
+    { label: "Площадь", value: `${formatMoney(calc.inputs.area)} м²` },
+    { label: "Итог", value: `${formatRate(calc.totalRate)} / ${formatMoney(calc.totalCost)} руб.` },
+  ]));
+  if (state.telegramInitData) {
+    formData.set("telegram_init_data", state.telegramInitData);
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Отправляю...";
+  }
+  try {
+    const response = await fetch("/api/panel/task", { method: "POST", body: formData });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    renderWebTask(data.task);
+    rememberWebTask(data.task);
+    showToast("Расчёт отправлен в CostIQ");
+  } catch (error) {
+    showToast(safeErrorMessage(error && error.message));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Отправить расчёт в CostIQ";
+    }
+  }
+}
+
+function handleOfficeCalculatorAction(action, button) {
+  if (action === "save") {
+    saveCurrentOfficeCalculation();
+  } else if (action === "excel") {
+    downloadOfficeCalculationExcel();
+  } else if (action === "send") {
+    sendOfficeCalculationToCostIQ(button);
+  }
+}
+
 function renderOfficeCalculator() {
   const data = state.officeCalculatorData;
   const summary = document.getElementById("office-calc-summary");
@@ -1462,49 +1778,40 @@ function renderOfficeCalculator() {
     return;
   }
 
-  const classInput = document.getElementById("office-class");
-  const areaInput = document.getElementById("office-area");
-  const referenceInput = document.getElementById("office-reference");
-  const officeClass = classInput ? classInput.value : "A";
-  const area = Math.max(1, Number(areaInput && areaInput.value ? areaInput.value : 70000));
-  const reference = referenceInput ? referenceInput.value : "mixed";
-  const row = findOfficeMatrixRow(data, officeClass, area);
-  const baseRate = Number(row && row.rate ? row.rate : 0);
-  const optionsTotal = officeOptionsTotal(data);
-  const optionRate = optionsTotal / area;
-  const totalRate = baseRate + optionRate;
-  const totalCost = totalRate * area;
-  const selected = selectedOfficeOptions(data);
-  const ref = data.references || {};
-  const compareRate = reference === "dream"
-    ? Number(ref.dreamOffice && ref.dreamOffice.baseRate)
-    : reference === "louvre"
-      ? Number(ref.louvre && ref.louvre.baseRate)
-      : baseRate;
-  const deltaRate = totalRate - compareRate;
+  const calc = currentOfficeCalculation();
+  if (!calc) {
+    return;
+  }
 
   summary.innerHTML = `
     <div class="calc-metric">
       <span>Базовая строка</span>
-      <strong>${escapeHtml(row ? `${row.class} · ${row.range}` : "не найдена")}</strong>
-      <small>${escapeHtml(row && row.confidence ? `уверенность: ${row.confidence}` : "")}</small>
+      <strong>${escapeHtml(calc.row ? `${calc.row.class} · ${calc.row.range}` : "не найдена")}</strong>
+      <small>${escapeHtml(calc.row && calc.row.confidence ? `уверенность: ${calc.row.confidence}` : "")}</small>
     </div>
     <div class="calc-metric">
       <span>Базовая ставка</span>
-      <strong>${formatRate(baseRate)}</strong>
-      <small>${escapeHtml(row && row.card ? row.card : "")}</small>
+      <strong>${formatRate(calc.baseRate)}</strong>
+      <small>${escapeHtml(calc.row && calc.row.card ? calc.row.card : "")}</small>
     </div>
     <div class="calc-metric">
       <span>Опции</span>
-      <strong>${formatRate(optionRate)}</strong>
-      <small>${selected.length ? `${selected.length} выбрано · ${formatMoney(optionsTotal)} руб.` : "без дополнительных опций"}</small>
+      <strong>${formatRate(calc.optionRate)}</strong>
+      <small>${calc.selected.length ? `${calc.selected.length} выбрано · ${formatMoney(calc.optionsTotal)} руб.` : "без дополнительных опций"}</small>
+    </div>
+    <div class="calc-metric">
+      <span>Fit-out</span>
+      <strong>${formatRate(calc.fitoutRateByTotalArea)}</strong>
+      <small>${escapeHtml(`${calc.fitout.label} · ${formatMoney(calc.inputs.rentableArea)} м² арендопригодной`)}</small>
     </div>
     <div class="calc-metric accent">
       <span>Итог</span>
-      <strong>${formatRate(totalRate)}</strong>
-      <small>${formatMoney(totalCost)} руб. · дельта ${deltaRate >= 0 ? "+" : ""}${formatRate(deltaRate)}</small>
+      <strong>${formatRate(calc.totalRate)}</strong>
+      <small>${formatMoney(calc.totalCost)} руб. · дельта ${calc.deltaRate >= 0 ? "+" : ""}${formatRate(calc.deltaRate)}</small>
     </div>
+    ${calc.warnings.map((warning) => `<div class="calc-warning">${escapeHtml(warning)}</div>`).join("")}
   `;
+  renderSavedOfficeCalculations();
 
   const groups = [...new Set(data.options.map((option) => option.block))];
   optionsContainer.innerHTML = groups.map((group) => {
@@ -3290,12 +3597,48 @@ document.addEventListener("click", (event) => {
   const retryButton = event.target.closest("[data-web-retry]");
   if (retryButton) {
     retryWebTask(retryButton.dataset.webRetry);
+    return;
+  }
+
+  const officeActionButton = event.target.closest("[data-office-action]");
+  if (officeActionButton) {
+    handleOfficeCalculatorAction(officeActionButton.dataset.officeAction, officeActionButton);
+    return;
+  }
+
+  const officeLoadButton = event.target.closest("[data-office-load]");
+  if (officeLoadButton) {
+    const saved = readSavedOfficeCalculations();
+    const calc = saved.find((item) => item.id === officeLoadButton.dataset.officeLoad);
+    applyOfficeCalculation(calc);
+    showToast("Расчёт загружен");
   }
 });
 
 document.addEventListener("input", (event) => {
   const field = event.target;
-  if (field && ["office-class", "office-area", "office-reference"].includes(field.id)) {
+  if (field && field.dataset && field.dataset.officeOption) {
+    state.officeCalculatorState.quantities[field.dataset.officeOption] = Math.max(0, Number(field.value || 0));
+    renderOfficeCalculator();
+    return;
+  }
+  if (field && field.id === "office-area-range") {
+    const areaInput = document.getElementById("office-area");
+    if (areaInput) {
+      areaInput.value = field.value;
+    }
+    renderOfficeCalculator();
+    return;
+  }
+  if (field && field.id === "office-area") {
+    const areaRange = document.getElementById("office-area-range");
+    if (areaRange) {
+      areaRange.value = field.value;
+    }
+    renderOfficeCalculator();
+    return;
+  }
+  if (field && ["office-class", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
     renderOfficeCalculator();
     return;
   }
@@ -3312,7 +3655,7 @@ document.addEventListener("change", (event) => {
     renderOfficeCalculator();
     return;
   }
-  if (field && ["office-class", "office-area", "office-reference"].includes(field.id)) {
+  if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
     renderOfficeCalculator();
   }
 });

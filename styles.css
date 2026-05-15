@@ -729,7 +729,7 @@ h2 {
 }
 
 .calculator-summary {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .calc-metric {
@@ -761,6 +761,72 @@ h2 {
 
 .calc-metric small {
   margin-top: 7px;
+  line-height: 1.3;
+}
+
+.calc-warning {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 181, 99, 0.36);
+  border-radius: var(--radius);
+  background: rgba(255, 181, 99, 0.09);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.calculator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calculator-actions button {
+  min-height: 42px;
+}
+
+.calculator-saved {
+  display: grid;
+  gap: 8px;
+}
+
+.calculator-saved:empty {
+  display: none;
+}
+
+.calculator-saved-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calculator-saved-item {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.calculator-saved-item strong,
+.calculator-saved-item small {
+  display: block;
+}
+
+.calculator-saved-item small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
   line-height: 1.3;
 }
 

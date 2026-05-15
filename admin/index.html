@@ -161,6 +161,23 @@
               <input id="office-area" type="number" min="1000" step="1000" value="70000">
             </div>
             <div class="field">
+              <label for="office-area-range">Быстрая настройка площади</label>
+              <input id="office-area-range" type="range" min="10000" max="150000" step="1000" value="70000">
+            </div>
+            <div class="field">
+              <label for="office-rentable-share">Арендопригодная площадь, %</label>
+              <input id="office-rentable-share" type="number" min="35" max="95" step="1" value="65">
+            </div>
+            <div class="field">
+              <label for="office-fitout">Fit-out</label>
+              <select id="office-fitout">
+                <option value="none">Без fit-out</option>
+                <option value="bronze">Bronze</option>
+                <option value="silver">Silver</option>
+                <option value="gold">Gold</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="office-reference">Эталон сравнения</label>
               <select id="office-reference">
                 <option value="mixed">Смешанная база ФСК</option>
@@ -170,6 +187,12 @@
             </div>
           </div>
           <div class="calculator-summary" id="office-calc-summary"></div>
+          <div class="calculator-actions">
+            <button type="button" class="ghost-button" data-office-action="save">Сохранить расчёт</button>
+            <button type="button" class="ghost-button" data-office-action="excel">Сформировать Excel</button>
+            <button type="button" class="submit-button" data-office-action="send">Отправить расчёт в CostIQ</button>
+          </div>
+          <div class="calculator-saved" id="office-calc-saved"></div>
           <div class="calculator-options" id="office-calc-options"></div>
         </div>
       </section>
