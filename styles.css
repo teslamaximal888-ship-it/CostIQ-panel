@@ -161,6 +161,35 @@ h2 {
   color: var(--text);
 }
 
+.profile-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(241, 138, 69, 0.45);
+  border-radius: var(--radius);
+  background: #211c17;
+}
+
+.profile-notice span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-notice strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.profile-notice small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1900,6 +1929,10 @@ h2 {
     display: grid;
     justify-items: end;
     max-width: 46%;
+  }
+
+  .profile-notice {
+    display: grid;
   }
 
   .toolbar,

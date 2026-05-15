@@ -2,6 +2,10 @@ const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : 
 const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
 const WEB_HIDDEN_TASKS_STORAGE_KEY = "costiq_web_hidden_tasks";
 const OFFICE_CALC_STORAGE_KEY = "costiq_office_calculations";
+const OFFICE_CALC_DRAFT_STORAGE_KEY = "costiq_office_calculator_draft";
+const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
+const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
+const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
@@ -10,6 +14,7 @@ const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
+const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
 const OFFICE_FITOUT_RATES = {
   none: { label: "Без fit-out", rate: 0 },
   bronze: { label: "Bronze", rate: 35000 },
@@ -813,6 +818,11 @@ const state = {
   homeFeedItems: [],
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
+  appViewHistory: [],
+  restoringState: false,
+  telegramBackButtonBound: false,
+  telegramMainButtonBound: false,
+  telegramMainButtonAction: "",
 };
 
 function detectMode() {
@@ -827,8 +837,62 @@ function isAdminMode() {
   return state.mode === "admin";
 }
 
-function setAppView(view) {
+function readJsonStorage(key, fallback, storage = window.localStorage) {
+  try {
+    const value = storage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeJsonStorage(key, value, storage = window.localStorage) {
+  try {
+    storage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    // Storage may be unavailable inside restricted webviews.
+  }
+}
+
+function hasVerifiedTelegramProfile() {
+  return Boolean(state.telegramInitData || state.panelAuth);
+}
+
+function saveMiniAppState() {
+  if (state.restoringState) {
+    return;
+  }
+  writeJsonStorage(MINI_APP_STATE_STORAGE_KEY, {
+    appView: state.appView,
+    webSkillView: state.webSkillView,
+    webSkillGroup: state.webSkillGroup,
+    webSkillQuery: state.webSkillQuery,
+    webSelectedSkillId: state.webSelectedSkillId,
+    webRecentFilter: state.webRecentFilter,
+  }, window.sessionStorage);
+}
+
+function restoreMiniAppState() {
+  const saved = readJsonStorage(MINI_APP_STATE_STORAGE_KEY, {}, window.sessionStorage);
+  state.restoringState = true;
+  if (APP_VIEW_TITLES[saved.appView]) {
+    state.appView = saved.appView;
+  }
+  state.webSkillView = saved.webSkillView || state.webSkillView;
+  state.webSkillGroup = saved.webSkillGroup || state.webSkillGroup;
+  state.webSkillQuery = saved.webSkillQuery || state.webSkillQuery;
+  state.webSelectedSkillId = saved.webSelectedSkillId || state.webSelectedSkillId;
+  state.webRecentFilter = WEB_RECENT_FILTERS.includes(saved.webRecentFilter) ? saved.webRecentFilter : state.webRecentFilter;
+  state.restoringState = false;
+}
+
+function setAppView(view, options = {}) {
   const nextView = APP_VIEW_TITLES[view] ? view : "home";
+  const previousView = state.appView;
+  const pushHistory = options.pushHistory !== false && previousView && previousView !== nextView;
+  if (pushHistory) {
+    state.appViewHistory = [...state.appViewHistory.filter((item) => item !== nextView), previousView].slice(-8);
+  }
   state.appView = nextView;
   document.querySelectorAll("[data-app-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.appView === nextView);
@@ -845,30 +909,35 @@ function setAppView(view) {
   if (nextView === "calculators" && !state.officeCalculatorData) {
     loadOfficeCalculatorData();
   }
+  saveMiniAppState();
+  updateProfileNotice();
+  updateTelegramControls();
 }
 
 function initTelegram() {
   const initData = readTelegramInitData();
   const panelAuth = readPanelAuth();
   if (!tg) {
-    setText("tg-status", "В браузере");
+    setText("tg-status", state.panelAuth ? "Подтверждённый профиль" : "Открыто без профиля");
     setText("user-label", "предпросмотр");
     state.telegramInitData = initData;
     state.panelAuth = panelAuth;
+    updateProfileNotice();
+    updateTelegramControls();
     updateHomeShortcut("");
     return;
   }
 
   tg.ready();
   tg.expand();
-  tg.MainButton.hide();
+  bindTelegramButtons();
 
   const user = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
   const name = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
   state.telegramInitData = initData;
   state.panelAuth = panelAuth;
   state.telegramUser = user || null;
-  setText("tg-status", state.telegramInitData || state.panelAuth ? "Telegram профиль" : "Telegram без профиля");
+  setText("tg-status", hasVerifiedTelegramProfile() ? "Telegram профиль" : "Открыто без профиля");
   if (name) {
     setText("user-label", name);
     const webName = document.getElementById("web-name");
@@ -878,6 +947,159 @@ function initTelegram() {
   }
 
   initHomeShortcut();
+  updateProfileNotice();
+  updateTelegramControls();
+}
+
+function bindTelegramButtons() {
+  if (!tg) {
+    return;
+  }
+  if (!state.telegramBackButtonBound && tg.BackButton && typeof tg.onEvent === "function") {
+    tg.onEvent("backButtonClicked", handleTelegramBackButton);
+    state.telegramBackButtonBound = true;
+  }
+  if (!state.telegramMainButtonBound) {
+    if (typeof tg.onEvent === "function") {
+      tg.onEvent("mainButtonClicked", handleTelegramMainButton);
+      state.telegramMainButtonBound = true;
+    } else if (tg.MainButton && typeof tg.MainButton.onClick === "function") {
+      tg.MainButton.onClick(handleTelegramMainButton);
+      state.telegramMainButtonBound = true;
+    }
+  }
+}
+
+function handleTelegramBackButton() {
+  const previous = state.appViewHistory.pop();
+  if (previous) {
+    setAppView(previous, { pushHistory: false });
+    return;
+  }
+  if (state.appView !== "home") {
+    setAppView("home", { pushHistory: false });
+    return;
+  }
+  if (tg && typeof tg.close === "function") {
+    tg.close();
+  }
+}
+
+function handleTelegramMainButton() {
+  if (state.telegramMainButtonAction === "office_save") {
+    saveCurrentOfficeCalculation();
+    return;
+  }
+  if (state.telegramMainButtonAction === "web_submit") {
+    const form = document.getElementById("web-intake-form");
+    if (form && typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    }
+    return;
+  }
+  if (state.telegramMainButtonAction === "review_submit") {
+    const form = document.querySelector("[data-web-review-form]");
+    if (form && typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    }
+    return;
+  }
+  if (state.telegramMainButtonAction === "review_accept" && state.webCurrentTask && state.webCurrentTask.trace_id) {
+    submitWebReviewAction(state.webCurrentTask.trace_id, "accept_result");
+  }
+}
+
+function setTelegramMainButton(text, action) {
+  state.telegramMainButtonAction = action || "";
+  if (!tg || !tg.MainButton) {
+    return;
+  }
+  if (!text || !action) {
+    tg.MainButton.hide();
+    return;
+  }
+  if (typeof tg.MainButton.setText === "function") {
+    tg.MainButton.setText(text);
+  }
+  if (typeof tg.MainButton.setParams === "function") {
+    tg.MainButton.setParams({ text, color: "#59d18c", text_color: "#111214" });
+  }
+  tg.MainButton.show();
+}
+
+function updateTelegramControls() {
+  if (!tg) {
+    return;
+  }
+  if (tg.BackButton) {
+    const shouldShowBack = state.appView !== "home" || state.appViewHistory.length > 0;
+    if (shouldShowBack) {
+      tg.BackButton.show();
+    } else {
+      tg.BackButton.hide();
+    }
+  }
+
+  if (state.webReviewDraft) {
+    setTelegramMainButton(reviewActionTitle(state.webReviewDraft.action), "review_submit");
+  } else if (state.appView === "calculators") {
+    setTelegramMainButton("Сохранить расчёт", "office_save");
+  } else if (state.appView === "skills") {
+    setTelegramMainButton("Создать задачу", "web_submit");
+  } else if (state.appView === "tasks" && state.webCurrentTask && isReviewOpen(state.webCurrentTask)) {
+    setTelegramMainButton("Принять результат", "review_accept");
+  } else {
+    setTelegramMainButton("", "");
+  }
+}
+
+function ensureProfileNotice() {
+  let notice = document.getElementById("profile-notice");
+  if (notice) {
+    return notice;
+  }
+  const nav = document.querySelector(".app-nav");
+  if (!nav || !nav.parentNode) {
+    return null;
+  }
+  notice = document.createElement("section");
+  notice.id = "profile-notice";
+  notice.className = "profile-notice";
+  notice.hidden = true;
+  nav.insertAdjacentElement("afterend", notice);
+  return notice;
+}
+
+function updateProfileNotice(force = false) {
+  const notice = ensureProfileNotice();
+  if (!notice) {
+    return;
+  }
+  const needsProfile = !hasVerifiedTelegramProfile() && ["home", "skills", "tasks"].includes(state.appView);
+  notice.hidden = !(force || needsProfile);
+  if (notice.hidden) {
+    return;
+  }
+  notice.innerHTML = `
+    <span>
+      <strong>Открыто без подтверждённого Telegram-профиля</strong>
+      <small>Голосования и заявки доступны только при запуске панели через кнопку бота. Так сохраняется привязка к Telegram ID.</small>
+    </span>
+    <button type="button" class="ghost-button" data-open-bot="1">Открыть через бота</button>
+  `;
+}
+
+function openPanelBot() {
+  if (tg && typeof tg.openTelegramLink === "function") {
+    tg.openTelegramLink(PANEL_BOT_URL);
+    return;
+  }
+  window.open(PANEL_BOT_URL, "_blank", "noopener");
+}
+
+function showIdentityRequired(message = "Откройте панель через кнопку бота, чтобы Telegram передал профиль.") {
+  updateProfileNotice(true);
+  showToast(message);
 }
 
 function readTelegramInitData() {
@@ -1168,8 +1390,9 @@ function isContentPollClosed(item) {
 function renderHomeFeedItem(item) {
   if (!item || item.type === "poll") {
     const options = Array.isArray(item && item.options) ? item.options : [];
-    const canVote = Boolean(state.telegramInitData || state.panelAuth);
+    const canVote = hasVerifiedTelegramProfile();
     const isClosed = isContentPollClosed(item);
+    const draftVote = readJsonStorage(POLL_DRAFT_STORAGE_KEY, {}, window.localStorage);
     return `
       <article class="home-card poll-card${item && item.pinned ? " pinned" : ""}">
         <div class="home-card-head">
@@ -1181,7 +1404,7 @@ function renderHomeFeedItem(item) {
         <div class="poll-options">
           ${options.map((option) => {
             const percent = pollPercent(option, item || {});
-            const selected = item && item.user_vote === option.id;
+            const selected = item && (item.user_vote === option.id || (!item.user_vote && draftVote[item.id] === option.id));
             return `
               <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote && !isClosed ? "" : 'data-needs-telegram="1"'} ${isClosed ? "disabled" : ""}>
                 <span>
@@ -1194,7 +1417,7 @@ function renderHomeFeedItem(item) {
           }).join("")}
         </div>
         <div class="home-card-foot">
-          <span>${escapeHtml(isClosed ? "Голосование закрыто" : item && item.user_vote ? "Ваш голос учтён" : canVote ? "Можно выбрать один вариант" : "Голосование доступно из Telegram")}</span>
+          <span>${escapeHtml(isClosed ? "Голосование закрыто" : item && item.user_vote ? "Ваш голос учтён" : canVote ? "Можно выбрать один вариант" : "Откройте через бота для голосования")}</span>
           <span>${escapeHtml(formatShortDate(item && item.updated_at))}</span>
         </div>
       </article>
@@ -1377,22 +1600,12 @@ async function loadHomeFeed() {
 }
 
 async function voteInPoll(itemId, optionId) {
-  if (!state.telegramInitData && !state.panelAuth) {
-    if (tg && typeof tg.sendData === "function") {
-      try {
-        tg.sendData(JSON.stringify({
-          source: "costiq_panel",
-          action: "panel_vote",
-          item_id: itemId,
-          option_id: optionId,
-        }));
-        showToast("Отправил голос через Telegram. Обновите панель через несколько секунд.");
-      } catch (error) {
-        showToast("Telegram не передал профиль. Откройте панель через кнопку Mini App в боте.");
-      }
-      return;
-    }
-    showToast(tg ? "Панель открыта в Telegram, но профиль не передан. Откройте её через кнопку Mini App в боте." : "Голосование доступно при открытии панели из Telegram");
+  if (!hasVerifiedTelegramProfile()) {
+    const draftVote = readJsonStorage(POLL_DRAFT_STORAGE_KEY, {}, window.localStorage);
+    draftVote[itemId] = optionId;
+    writeJsonStorage(POLL_DRAFT_STORAGE_KEY, draftVote, window.localStorage);
+    renderHomeFeed(state.homeFeedItems);
+    showIdentityRequired("Голос выбран как черновик. Чтобы засчитать его, откройте панель через кнопку бота.");
     return;
   }
   const response = await fetch("/api/panel/content", {
@@ -1408,6 +1621,11 @@ async function voteInPoll(itemId, optionId) {
   if (!response.ok || !data.ok) {
     showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
     return;
+  }
+  const draftVote = readJsonStorage(POLL_DRAFT_STORAGE_KEY, {}, window.localStorage);
+  if (draftVote[itemId]) {
+    delete draftVote[itemId];
+    writeJsonStorage(POLL_DRAFT_STORAGE_KEY, draftVote, window.localStorage);
   }
   state.homeFeedItems = state.homeFeedItems.map((item) => (item.id === itemId ? data.item : item));
   renderHomeFeed(state.homeFeedItems);
@@ -1471,6 +1689,21 @@ function writeSavedOfficeCalculations(items) {
   } catch (error) {
     // localStorage can be unavailable in restricted webviews.
   }
+}
+
+function readOfficeCalculatorDraft() {
+  return readJsonStorage(OFFICE_CALC_DRAFT_STORAGE_KEY, null, window.localStorage);
+}
+
+function writeOfficeCalculatorDraft() {
+  const calc = currentOfficeCalculation();
+  if (!calc) {
+    return;
+  }
+  writeJsonStorage(OFFICE_CALC_DRAFT_STORAGE_KEY, {
+    inputs: calc.inputs,
+    selected: calc.selected.map((option) => ({ id: option.id, qty: option.qty })),
+  }, window.localStorage);
 }
 
 function officeCalculatorInputs() {
@@ -1631,6 +1864,7 @@ function applyOfficeCalculation(calc) {
     }
   });
   renderOfficeCalculator();
+  writeOfficeCalculatorDraft();
 }
 
 function saveCurrentOfficeCalculation() {
@@ -1705,6 +1939,10 @@ async function sendOfficeCalculationToCostIQ(button) {
     showToast("Данные калькулятора ещё загружаются");
     return;
   }
+  if (!hasVerifiedTelegramProfile()) {
+    showIdentityRequired("Чтобы отправить расчёт в CostIQ, откройте панель через кнопку бота.");
+    return;
+  }
   const user = state.telegramUser || {};
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || document.getElementById("web-name")?.value || "Пользователь панели";
   const formData = new FormData();
@@ -1731,6 +1969,9 @@ async function sendOfficeCalculationToCostIQ(button) {
   ]));
   if (state.telegramInitData) {
     formData.set("telegram_init_data", state.telegramInitData);
+  }
+  if (state.panelAuth) {
+    formData.set("panel_auth", state.panelAuth);
   }
   if (button) {
     button.disabled = true;
@@ -1812,6 +2053,7 @@ function renderOfficeCalculator() {
     ${calc.warnings.map((warning) => `<div class="calc-warning">${escapeHtml(warning)}</div>`).join("")}
   `;
   renderSavedOfficeCalculations();
+  writeOfficeCalculatorDraft();
 
   const groups = [...new Set(data.options.map((option) => option.block))];
   optionsContainer.innerHTML = groups.map((group) => {
@@ -1852,6 +2094,11 @@ async function loadOfficeCalculatorData() {
     }
     state.officeCalculatorData = data;
     setText("office-calc-status", data.version || "v4.2");
+    const draft = readOfficeCalculatorDraft();
+    if (draft) {
+      applyOfficeCalculation(draft);
+      return;
+    }
     renderOfficeCalculator();
   } catch (error) {
     setText("office-calc-status", "ошибка");
@@ -2312,6 +2559,9 @@ function renderWebSkillOptions() {
   if (!select.value && items.length) {
     select.value = items[0].id;
   }
+  if (state.webSelectedSkillId && items.some((item) => item.id === state.webSelectedSkillId)) {
+    select.value = state.webSelectedSkillId;
+  }
   selectWebSkill(select.value, { renderCards: false });
   renderWebSkillPicker();
 }
@@ -2327,9 +2577,12 @@ function selectWebSkill(skillId, options = {}) {
     select.value = skill.id;
   }
   renderWebIntakeFields(skill.id);
+  restoreWebIntakeDraft(skill.id);
   if (options.renderCards) {
     renderWebSkillCards();
   }
+  saveMiniAppState();
+  updateTelegramControls();
 }
 
 function renderWebSkillTabs() {
@@ -2392,6 +2645,13 @@ function renderWebSkillCards() {
 }
 
 function renderWebSkillPicker() {
+  document.querySelectorAll("[data-web-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.webView === state.webSkillView);
+  });
+  const search = document.getElementById("web-skill-search");
+  if (search && search.value !== state.webSkillQuery) {
+    search.value = state.webSkillQuery;
+  }
   renderWebSkillTabs();
   renderWebSkillCards();
 }
@@ -2470,6 +2730,50 @@ function renderWebIntakeFields(skillId) {
   if (fileInput) {
     fileInput.addEventListener("change", () => renderWebFilePreview(fileInput));
   }
+}
+
+function collectWebIntakeDraft() {
+  const form = document.getElementById("web-intake-form");
+  if (!form) {
+    return null;
+  }
+  const data = new FormData(form);
+  const fields = {};
+  for (const [key, value] of data.entries()) {
+    if (value instanceof File) {
+      continue;
+    }
+    fields[key] = String(value || "");
+  }
+  return {
+    skill: String(data.get("skill") || state.webSelectedSkillId || ""),
+    fields,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function saveWebIntakeDraft() {
+  const draft = collectWebIntakeDraft();
+  if (draft) {
+    writeJsonStorage(WEB_INTAKE_DRAFT_STORAGE_KEY, draft, window.localStorage);
+  }
+}
+
+function restoreWebIntakeDraft(skillId) {
+  const draft = readJsonStorage(WEB_INTAKE_DRAFT_STORAGE_KEY, null, window.localStorage);
+  if (!draft || !draft.fields || String(draft.skill || "") !== String(skillId || "")) {
+    return;
+  }
+  const form = document.getElementById("web-intake-form");
+  Object.entries(draft.fields).forEach(([name, value]) => {
+    if (name === "file") {
+      return;
+    }
+    const field = form && form.elements ? form.elements[name] : null;
+    if (field && field.type !== "file") {
+      field.value = value;
+    }
+  });
 }
 
 function renderWebFilePreview(input) {
@@ -2878,6 +3182,7 @@ function openWebReviewDraft(traceId, action) {
       input.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
+  updateTelegramControls();
 }
 
 function closeWebReviewDraft() {
@@ -2885,6 +3190,7 @@ function closeWebReviewDraft() {
   if (state.webCurrentTask) {
     renderWebTask(state.webCurrentTask);
   }
+  updateTelegramControls();
 }
 
 function rememberWebTask(task) {
@@ -2987,18 +3293,20 @@ function renderRecentWebTasks() {
     button.addEventListener("click", () => {
       state.webRecentFilter = button.dataset.webRecentFilter || "all";
       renderRecentWebTasks();
+      saveMiniAppState();
     });
   });
 }
 
 async function fetchMyWebTasks() {
-  if (!state.telegramInitData) {
+  if (!hasVerifiedTelegramProfile()) {
     return [];
   }
   const response = await fetch("/api/panel/my-tasks?limit=8", {
     cache: "no-store",
     headers: {
       "X-Telegram-Init-Data": state.telegramInitData,
+      "X-CostIQ-Panel-Auth": state.panelAuth,
     },
   });
   if (!response.ok) {
@@ -3051,6 +3359,7 @@ function renderWebTask(task) {
     return;
   }
   state.webCurrentTask = task;
+  updateTelegramControls();
 
   const traceId = task.trace_id || "";
   const status = webTaskStatusLabel(task.status);
@@ -3144,11 +3453,16 @@ function renderWebTask(task) {
 }
 
 function withTelegramInitData(url) {
-  if (!url || !state.telegramInitData) {
+  if (!url || (!state.telegramInitData && !state.panelAuth)) {
     return url;
   }
   const fullUrl = new URL(url, window.location.origin);
-  fullUrl.searchParams.set("tg_init_data", state.telegramInitData);
+  if (state.telegramInitData) {
+    fullUrl.searchParams.set("tg_init_data", state.telegramInitData);
+  }
+  if (state.panelAuth) {
+    fullUrl.searchParams.set("panel_auth", state.panelAuth);
+  }
   return fullUrl.pathname + fullUrl.search;
 }
 
@@ -3392,6 +3706,9 @@ async function submitWebReviewAction(traceId, action, text = "") {
   if (state.telegramInitData) {
     headers["X-Telegram-Init-Data"] = state.telegramInitData;
   }
+  if (state.panelAuth) {
+    headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
+  }
   const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/review`, {
     method: "POST",
     headers,
@@ -3441,6 +3758,11 @@ function loadWebTaskFromUrl() {
 
 async function submitWebIntake(event) {
   event.preventDefault();
+  if (!hasVerifiedTelegramProfile()) {
+    saveWebIntakeDraft();
+    showIdentityRequired("Черновик сохранён. Чтобы создать задачу, откройте панель через кнопку бота.");
+    return;
+  }
   const form = event.currentTarget;
   const button = form.querySelector('button[type="submit"]');
   const formData = new FormData(form);
@@ -3462,6 +3784,9 @@ async function submitWebIntake(event) {
   }
   if (state.telegramInitData) {
     formData.set("telegram_init_data", state.telegramInitData);
+  }
+  if (state.panelAuth) {
+    formData.set("panel_auth", state.panelAuth);
   }
 
   if (button) {
@@ -3516,6 +3841,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const openBotButton = event.target.closest("[data-open-bot]");
+  if (openBotButton) {
+    openPanelBot();
+    return;
+  }
+
   const pollButton = event.target.closest("[data-poll-id][data-option-id]");
   if (pollButton) {
     if (pollButton.disabled) {
@@ -3564,6 +3895,7 @@ document.addEventListener("click", (event) => {
       button.classList.toggle("active", button === viewButton);
     });
     renderView();
+    saveMiniAppState();
     return;
   }
 
@@ -3571,6 +3903,7 @@ document.addEventListener("click", (event) => {
   if (tab) {
     state.selected = tab.dataset.group;
     renderView();
+    saveMiniAppState();
     return;
   }
 
@@ -3642,10 +3975,16 @@ document.addEventListener("input", (event) => {
     renderOfficeCalculator();
     return;
   }
+  if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
+    saveWebIntakeDraft();
+    updateTelegramControls();
+    return;
+  }
   if (!field || field.name !== "review_text" || !field.closest("[data-web-review-form]") || !state.webReviewDraft) {
     return;
   }
   state.webReviewDraft.text = field.value;
+  updateTelegramControls();
 });
 
 document.addEventListener("change", (event) => {
@@ -3657,6 +3996,10 @@ document.addEventListener("change", (event) => {
   }
   if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
     renderOfficeCalculator();
+    return;
+  }
+  if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
+    saveWebIntakeDraft();
   }
 });
 
@@ -3713,6 +4056,7 @@ document.querySelectorAll("[data-web-view]").forEach((button) => {
       item.classList.toggle("active", item === button);
     });
     renderWebSkillPicker();
+    saveMiniAppState();
   });
 });
 
@@ -3721,6 +4065,7 @@ if (webSkillSearch) {
   webSkillSearch.addEventListener("input", (event) => {
     state.webSkillQuery = event.target.value || "";
     renderWebSkillCards();
+    saveMiniAppState();
   });
 }
 
@@ -3733,6 +4078,7 @@ if (webSkillTabs) {
     }
     state.webSkillGroup = button.dataset.webGroup || "все";
     renderWebSkillPicker();
+    saveMiniAppState();
   });
 }
 
@@ -3873,8 +4219,9 @@ if (searchInput) {
   });
 }
 
+restoreMiniAppState();
 renderView();
-setAppView("home");
+setAppView(state.appView || "home", { pushHistory: false });
 initTelegram();
 startHomeFeedRefresh();
 refreshContentAdmin();

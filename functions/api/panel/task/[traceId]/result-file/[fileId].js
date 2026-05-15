@@ -5,7 +5,7 @@ function jsonResponse(payload, status = 200) {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "X-CostIQ-Admin, X-Telegram-Init-Data",
+      "Access-Control-Allow-Headers": "X-CostIQ-Admin, X-Telegram-Init-Data, X-CostIQ-Panel-Auth",
     },
   });
 }
@@ -51,6 +51,26 @@ function hex(bytes) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function base64UrlToBytes(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function timingSafeEqualHex(a, b) {
+  const left = String(a || "").toLowerCase();
+  const right = String(b || "").toLowerCase();
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return diff === 0;
+}
+
 async function verifyTelegramInitData(initData, env) {
   const token = env.TELEGRAM_BOT_TOKEN || env.COSTIQ_TELEGRAM_BOT_TOKEN || "";
   const raw = cleanText(initData, 5000);
@@ -81,6 +101,31 @@ async function verifyTelegramInitData(initData, env) {
   }
 }
 
+async function verifyPanelAuth(panelAuth, env) {
+  const raw = cleanText(panelAuth, 5000);
+  if (!raw) {
+    return null;
+  }
+  const [payload64, providedSig] = raw.split(".");
+  if (!payload64 || !providedSig) {
+    return null;
+  }
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  const secretHex = adminSecret ? await sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+  const expectedSig = hex(await hmacSha256(new TextEncoder().encode(secretHex), payload64));
+  if (!timingSafeEqualHex(expectedSig, providedSig)) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payload64)));
+    const exp = Number(payload.exp || 0);
+    const id = Number(payload.uid || payload.id);
+    return Number.isFinite(exp) && exp * 1000 >= Date.now() && Number.isFinite(id) ? { id } : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function canDownload(request, env, task) {
   if (await hasAdminAccess(request, env)) {
     return true;
@@ -89,7 +134,9 @@ async function canDownload(request, env, task) {
     return true;
   }
   const url = new URL(request.url);
-  const auth = await verifyTelegramInitData(request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || "", env);
+  const auth =
+    (await verifyTelegramInitData(request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || "", env)) ||
+    (await verifyPanelAuth(request.headers.get("X-CostIQ-Panel-Auth") || url.searchParams.get("panel_auth") || "", env));
   return Boolean(auth && Number(auth.id) === Number(task.telegram_user.id));
 }
 

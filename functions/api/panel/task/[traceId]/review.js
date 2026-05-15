@@ -1,6 +1,7 @@
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
+const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -9,7 +10,7 @@ function jsonResponse(payload, status = 200) {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data",
+      "Access-Control-Allow-Headers": "Content-Type, X-Telegram-Init-Data, X-CostIQ-Panel-Auth",
     },
   });
 }
@@ -48,6 +49,31 @@ function hex(bytes) {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return hex(new Uint8Array(digest));
+}
+
+function base64UrlToBytes(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
+
+function timingSafeEqualHex(a, b) {
+  const left = String(a || "").toLowerCase();
+  const right = String(b || "").toLowerCase();
+  if (left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return diff === 0;
+}
+
 async function verifyTelegramInitData(initData, env) {
   const token = env.TELEGRAM_BOT_TOKEN || env.COSTIQ_TELEGRAM_BOT_TOKEN || "";
   const raw = cleanText(initData, 5000);
@@ -82,12 +108,42 @@ async function verifyTelegramInitData(initData, env) {
   return Number.isFinite(id) ? { ok: true, user: { id } } : { ok: false, error: "user_missing" };
 }
 
+async function verifyPanelAuth(panelAuth, env) {
+  const raw = cleanText(panelAuth, 5000);
+  if (!raw) {
+    return { ok: false, skipped: "empty" };
+  }
+  const [payload64, providedSig] = raw.split(".");
+  if (!payload64 || !providedSig) {
+    return { ok: false, error: "panel_auth_malformed" };
+  }
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  const secretHex = adminSecret ? await sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+  const expectedSig = hex(await hmacSha256(new TextEncoder().encode(secretHex), payload64));
+  if (!timingSafeEqualHex(expectedSig, providedSig)) {
+    return { ok: false, error: "panel_auth_mismatch" };
+  }
+  let payload = null;
+  try {
+    payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payload64)));
+  } catch (error) {
+    return { ok: false, error: "panel_auth_payload_invalid" };
+  }
+  const exp = Number(payload.exp || 0);
+  const id = Number(payload.uid || payload.id);
+  if (!Number.isFinite(exp) || exp * 1000 < Date.now() || !Number.isFinite(id)) {
+    return { ok: false, error: "panel_auth_invalid" };
+  }
+  return { ok: true, user: { id } };
+}
+
 async function canReview(request, env, task) {
   if (!task.telegram_user || !task.telegram_user.id) {
     return true;
   }
   const initData = request.headers.get("X-Telegram-Init-Data") || "";
-  const auth = await verifyTelegramInitData(initData, env);
+  const initAuth = await verifyTelegramInitData(initData, env);
+  const auth = initAuth.ok ? initAuth : await verifyPanelAuth(request.headers.get("X-CostIQ-Panel-Auth") || "", env);
   return Boolean(auth.ok && Number(auth.user.id) === Number(task.telegram_user.id));
 }
 
