@@ -259,6 +259,107 @@
         </div>
       </section>
 
+      <section class="agent-factory admin-only" data-app-section="tools">
+        <div class="section-head">
+          <div>
+            <h2>Agent Factory</h2>
+            <p>Паспорта агентов, инвентаризация и передача Александру</p>
+          </div>
+          <span>admin-only</span>
+        </div>
+
+        <div class="factory-steps" aria-label="Этапы Agent Factory">
+          <button type="button" data-agent-step="request" class="active">Новый агент</button>
+          <button type="button" data-agent-step="passport">Паспорт агента</button>
+          <button type="button" data-agent-step="inventory">Инвентаризация</button>
+          <button type="button" data-agent-step="telegram">Telegram-режимы</button>
+          <button type="button" data-agent-step="handoff">Передача Александру</button>
+          <button type="button" data-agent-step="acceptance">Приёмка</button>
+        </div>
+        <div class="factory-step-summary" id="agent-step-summary"></div>
+
+        <form id="agent-factory-form" class="agent-factory-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="agent-operation-mode">Режим</label>
+              <select id="agent-operation-mode" name="operation_mode">
+                <option value="new_agent">Новый агент</option>
+                <option value="existing_agent_enrichment">Дозаполнение существующего</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="agent-code">Код агента</label>
+              <input id="agent-code" name="code" type="text" autocomplete="off" placeholder="SAM">
+            </div>
+            <div class="field">
+              <label for="agent-name">Название</label>
+              <input id="agent-name" name="name" type="text" autocomplete="off" placeholder="SAM / Сэм">
+            </div>
+            <div class="field">
+              <label for="agent-username">Telegram username</label>
+              <input id="agent-username" name="username" type="text" autocomplete="off" placeholder="@sam_fsk_bot">
+            </div>
+            <div class="field">
+              <label for="agent-profile">Профиль</label>
+              <select id="agent-profile" name="profile">
+                <option value="working_agent">Рабочий агент</option>
+                <option value="agent_manager">Agent Manager</option>
+                <option value="reference_agent">Справочный агент</option>
+                <option value="personal_assistant">Личный помощник</option>
+                <option value="group_admin_agent">Админ групп</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="agent-department">Подразделение</label>
+              <input id="agent-department" name="department" type="text" autocomplete="off" placeholder="САУ / ИД / договорной отдел">
+            </div>
+            <div class="field wide">
+              <label for="agent-purpose">Роль и задачи</label>
+              <textarea id="agent-purpose" name="purpose" placeholder="Что агент делает, для кого и какой результат выдаёт"></textarea>
+            </div>
+            <div class="field wide">
+              <label for="agent-skills">Навыки</label>
+              <textarea id="agent-skills" name="skills" placeholder="Каждый навык с новой строки"></textarea>
+            </div>
+            <div class="field wide">
+              <label for="agent-access">Доступы и allowlist</label>
+              <textarea id="agent-access" name="access" placeholder="Роли, пользователи, группы, support chat"></textarea>
+            </div>
+            <div class="field wide">
+              <label for="agent-gaps">Открытые вопросы</label>
+              <textarea id="agent-gaps" name="known_gaps" placeholder="Что нужно подтвердить у Максима или Александра"></textarea>
+            </div>
+          </div>
+
+          <div class="factory-modes">
+            <label><input type="checkbox" name="mode_mini_app" checked> Mini App</label>
+            <label><input type="checkbox" name="mode_bot_to_bot" checked> Bot-to-Bot</label>
+            <label><input type="checkbox" name="mode_guest"> Guest Mode</label>
+            <label><input type="checkbox" name="mode_business"> Business / Chat Access</label>
+            <label><input type="checkbox" name="mode_managed_bots"> Managed Bots</label>
+          </div>
+
+          <div class="calculator-actions">
+            <button type="button" class="ghost-button" data-agent-action="load-sam">SAM</button>
+            <button type="button" class="ghost-button" data-agent-action="save-inventory">Сохранить карточку</button>
+            <button type="button" class="ghost-button" data-agent-action="copy-json">Копировать JSON</button>
+            <button type="button" class="ghost-button" data-agent-action="download-json">Скачать JSON</button>
+            <button type="button" class="submit-button" data-agent-action="copy-handoff">ТЗ Александру</button>
+          </div>
+        </form>
+
+        <div class="factory-output-grid">
+          <div class="activity-panel">
+            <h3>Паспорт</h3>
+            <pre id="agent-passport-preview" class="factory-preview"></pre>
+          </div>
+          <div class="activity-panel">
+            <h3>Инвентаризация</h3>
+            <div class="activity-list compact" id="agent-inventory-list"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="activity admin-only" data-app-section="tasks">
         <div class="section-head">
           <div>
