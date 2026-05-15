@@ -7,6 +7,7 @@ const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
+const AGENT_FACTORY_STORAGE_KEY = "costiq_agent_factory_inventory";
 const TELEGRAM_MAIN_BUTTON_ENABLED = false;
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
@@ -16,6 +17,7 @@ const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
+const AGENT_FACTORY_SUPPORT_CHAT = "-1003923170152";
 const OFFICE_FITOUT_RATES = {
   none: { label: "Без fit-out", rate: 0 },
   bronze: { label: "Bronze", rate: 35000 },
@@ -443,6 +445,15 @@ const utilityActions = {
   },
 };
 
+const agentFactoryStepText = {
+  request: "Сбор заявки: режим, агент, профиль, подразделение и задача.",
+  passport: "JSON-паспорт v2.1: роль, навыки, меню, доступы, безопасность и acceptance.",
+  inventory: "Дозаполнение существующих агентов без вывода token: known gaps и текущий runtime.",
+  telegram: "Telegram-режимы: Mini App, Bot-to-Bot, Guest, Business, Managed Bots и ограничения.",
+  handoff: `Передача Александру через support chat ${AGENT_FACTORY_SUPPORT_CHAT}: что за CostIQ и что за техническим запуском.`,
+  acceptance: "Приёмка: личка, меню, Mini App, Bot-to-Bot ping, allowlist, логи и restart.",
+};
+
 const formConfigs = {
   check_kp: {
     title: "Проверка КП",
@@ -820,6 +831,7 @@ const state = {
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
   appViewHistory: [],
+  agentFactoryStep: "request",
   restoringState: false,
   telegramBackButtonBound: false,
   telegramMainButtonBound: false,
@@ -909,6 +921,9 @@ function setAppView(view, options = {}) {
   }
   if (nextView === "calculators" && !state.officeCalculatorData) {
     loadOfficeCalculatorData();
+  }
+  if (nextView === "tools") {
+    renderAgentFactory();
   }
   saveMiniAppState();
   updateProfileNotice();
@@ -2550,6 +2565,265 @@ function showToast(text) {
   showToast.timer = window.setTimeout(() => toast.classList.remove("visible"), 2200);
 }
 
+function linesFromText(value) {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function agentFactoryForm() {
+  return document.getElementById("agent-factory-form");
+}
+
+function collectAgentFactoryPayload() {
+  const form = agentFactoryForm();
+  const formData = form ? new FormData(form) : new FormData();
+  return {
+    operation_mode: String(formData.get("operation_mode") || "new_agent"),
+    code: String(formData.get("code") || "").trim(),
+    name: String(formData.get("name") || "").trim(),
+    username: String(formData.get("username") || "").trim(),
+    profile: String(formData.get("profile") || "working_agent"),
+    department: String(formData.get("department") || "").trim(),
+    purpose: String(formData.get("purpose") || "").trim(),
+    skills: linesFromText(formData.get("skills")),
+    access: String(formData.get("access") || "").trim(),
+    known_gaps: linesFromText(formData.get("known_gaps")),
+    modes: {
+      mini_app: formData.get("mode_mini_app") === "on",
+      bot_to_bot: formData.get("mode_bot_to_bot") === "on",
+      guest_mode: formData.get("mode_guest") === "on",
+      business_chat_access: formData.get("mode_business") === "on",
+      managed_bots: formData.get("mode_managed_bots") === "on",
+    },
+  };
+}
+
+function buildAgentFactoryPassport(payload = collectAgentFactoryPayload()) {
+  const code = payload.code || "TODO_AGENT_CODE";
+  const now = new Date().toISOString();
+  return {
+    schema_version: "agent_passport.v2.1",
+    operation_mode: payload.operation_mode,
+    passport_status: "draft",
+    prepared_by: "CostIQ / Agent Factory",
+    prepared_at: now,
+    agent: {
+      code,
+      name: payload.name || code,
+      profile: payload.profile,
+      department: payload.department || "TODO_DEPARTMENT",
+      purpose: payload.purpose || "TODO_PURPOSE",
+    },
+    telegram_bot: {
+      username: payload.username || "TODO_USERNAME",
+      token: payload.operation_mode === "existing_agent_enrichment" ? "managed_externally" : "TODO_SECRET",
+      privacy_policy_url: "TODO_PRIVACY_POLICY_URL",
+    },
+    telegram_capability_matrix: {
+      mini_app: payload.modes.mini_app,
+      bot_to_bot: payload.modes.bot_to_bot,
+      guest_mode: payload.modes.guest_mode,
+      business_chat_access: payload.modes.business_chat_access,
+      managed_bots: payload.modes.managed_bots,
+      groups_privacy: "enabled_by_default",
+      restrict_usage: "telegram_native_restriction_plus_corporate_allowlist",
+    },
+    skills: payload.skills.map((title, index) => ({
+      id: `${code.toLowerCase()}_skill_${index + 1}`.replace(/[^a-z0-9_]/g, "_"),
+      title,
+      public: true,
+      roles: ["admin", "user"],
+      miniapp_card: true,
+      telegram_menu: true,
+    })),
+    role_menus: {
+      admin: ["Паспорт агента", "Telegram-режимы", "Allowlist", "Приёмка"],
+      user: payload.skills.length ? payload.skills : ["Рабочий сценарий агента"],
+    },
+    permissions: {
+      allowlist: payload.access || "TODO_ALLOWLIST",
+      support_chat_id: AGENT_FACTORY_SUPPORT_CHAT,
+      admin_rights: "only_after_maxim_approval",
+    },
+    agent_links: {
+      allowed_sources: ["CostIQ"],
+      max_trace_depth: 1,
+      anti_cycles: true,
+    },
+    security: {
+      secrets_policy: "do_not_print_tokens_in_chat",
+      dedupe: "10_minutes",
+      rate_limit: "enabled",
+      trace_id_required: true,
+    },
+    inventory_status: {
+      source: "Agent Factory panel draft",
+      confirmed: [],
+      todo: payload.known_gaps,
+    },
+    handoff: {
+      channel: AGENT_FACTORY_SUPPORT_CHAT,
+      assignee: "Александр",
+      costiq_scope: ["business_role", "passport", "skills", "menus", "acceptance"],
+      alexander_scope: ["backend", "env", "systemd", "logs", "token_storage"],
+    },
+    telegram_acceptance: [
+      "личный чат отвечает",
+      "меню admin/user корректно",
+      "Mini App карточки видны по ролям",
+      "Bot-to-Bot ping проходит с trace_id",
+      "allowlist блокирует лишних пользователей",
+    ],
+    operational_acceptance: [
+      "статус сервиса проверяется",
+      "логи доступны",
+      "restart описан",
+      "token хранится вне открытых паспортов",
+    ],
+    known_gaps: payload.known_gaps,
+  };
+}
+
+function buildAgentFactoryHandoff(payload = collectAgentFactoryPayload()) {
+  const passport = buildAgentFactoryPassport(payload);
+  return [
+    `ТЗ Александру: ${passport.agent.name}`,
+    `Режим: ${passport.operation_mode}`,
+    `Профиль: ${passport.agent.profile}`,
+    `Username: ${passport.telegram_bot.username}`,
+    `Канал передачи: ${AGENT_FACTORY_SUPPORT_CHAT}`,
+    "",
+    "Что нужно поднять технически:",
+    "- backend/bridge по шаблону агента",
+    "- безопасное хранение token в .env/секретах",
+    "- role-based меню admin/user",
+    "- allowlist и ограничения доступа",
+    "- trace_id, dedupe, rate limit, max_trace_depth=1",
+    "- логи, systemd, restart и health-check",
+    "",
+    "Навыки:",
+    ...(payload.skills.length ? payload.skills.map((skill) => `- ${skill}`) : ["- TODO_SKILLS"]),
+    "",
+    "Приёмка:",
+    ...passport.telegram_acceptance.map((item) => `- ${item}`),
+  ].join("\n");
+}
+
+function renderAgentFactory() {
+  const preview = document.getElementById("agent-passport-preview");
+  if (preview) {
+    preview.textContent = JSON.stringify(buildAgentFactoryPassport(), null, 2);
+  }
+
+  document.querySelectorAll("[data-agent-step]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.agentStep === state.agentFactoryStep);
+  });
+  setText("agent-step-summary", agentFactoryStepText[state.agentFactoryStep] || agentFactoryStepText.request);
+
+  const list = document.getElementById("agent-inventory-list");
+  if (!list) {
+    return;
+  }
+  const items = readJsonStorage(AGENT_FACTORY_STORAGE_KEY, [], window.localStorage);
+  if (!Array.isArray(items) || !items.length) {
+    list.innerHTML = `<div class="empty">Карточки ещё не сохранены</div>`;
+    return;
+  }
+  list.innerHTML = items
+    .slice(-8)
+    .reverse()
+    .map((item) => `
+      <div class="activity-item">
+        <span>
+          <strong>${escapeHtml(item.name || item.code || "агент")}</strong>
+          <small>${escapeHtml([item.operation_mode, item.username, item.updated_at ? formatShortDate(item.updated_at) : ""].filter(Boolean).join(" · "))}</small>
+        </span>
+        <em>${escapeHtml(item.passport_status || "draft")}</em>
+      </div>
+    `)
+    .join("");
+}
+
+function setAgentFactoryPresetSam() {
+  const form = agentFactoryForm();
+  if (!form) {
+    return;
+  }
+  form.elements.operation_mode.value = "new_agent";
+  form.elements.code.value = "SAM";
+  form.elements.name.value = "SAM / Сэм";
+  form.elements.username.value = "@sam_fsk_bot";
+  form.elements.profile.value = "working_agent";
+  form.elements.department.value = "Исполнительная документация / САУ";
+  form.elements.purpose.value = "Проектный агент по исполнительной документации: реестр ИД, входной контроль, генерация актов, подсказки по недостающим документам.";
+  form.elements.skills.value = [
+    "Реестр исполнительной документации по проекту",
+    "Входной контроль документов ИД",
+    "Генерация актов по шаблонам",
+    "Контроль недостающих документов по стадии и разделу работ",
+  ].join("\n");
+  form.elements.access.value = `Максим, CostIQ, Александр, support chat ${AGENT_FACTORY_SUPPORT_CHAT}`;
+  form.elements.known_gaps.value = "Подтвердить username и token после BotFather\nЗакрыть privacy_policy_url перед боевым запуском";
+  renderAgentFactory();
+}
+
+function saveAgentFactoryInventory() {
+  const passport = buildAgentFactoryPassport();
+  const items = readJsonStorage(AGENT_FACTORY_STORAGE_KEY, [], window.localStorage);
+  const next = Array.isArray(items) ? items.filter((item) => item.code !== passport.agent.code) : [];
+  next.push({
+    code: passport.agent.code,
+    name: passport.agent.name,
+    username: passport.telegram_bot.username,
+    operation_mode: passport.operation_mode,
+    passport_status: passport.passport_status,
+    updated_at: passport.prepared_at,
+    passport,
+  });
+  writeJsonStorage(AGENT_FACTORY_STORAGE_KEY, next.slice(-30), window.localStorage);
+  renderAgentFactory();
+  showToast("Карточка агента сохранена");
+}
+
+function downloadTextFile(fileName, text, type = "application/json;charset=utf-8") {
+  const blob = new Blob([text], { type });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+}
+
+async function copyTextToClipboard(text, fallbackMessage) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Скопировано");
+  } catch (error) {
+    showToast(fallbackMessage);
+  }
+}
+
+function runAgentFactoryAction(action) {
+  const passportText = JSON.stringify(buildAgentFactoryPassport(), null, 2);
+  if (action === "load-sam") {
+    setAgentFactoryPresetSam();
+  } else if (action === "save-inventory") {
+    saveAgentFactoryInventory();
+  } else if (action === "copy-json") {
+    copyTextToClipboard(passportText, "JSON готов в предпросмотре");
+  } else if (action === "download-json") {
+    const code = buildAgentFactoryPassport().agent.code || "agent";
+    downloadTextFile(`${code.toLowerCase()}_agent_passport.json`, passportText);
+    showToast("JSON сформирован");
+  } else if (action === "copy-handoff") {
+    copyTextToClipboard(buildAgentFactoryHandoff(), "ТЗ готово в Agent Factory");
+  }
+}
+
 function renderWebSkillOptions() {
   const select = document.getElementById("web-skill");
   if (!select) {
@@ -3871,6 +4145,19 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const agentStepButton = event.target.closest("[data-agent-step]");
+  if (agentStepButton) {
+    state.agentFactoryStep = agentStepButton.dataset.agentStep || "request";
+    renderAgentFactory();
+    return;
+  }
+
+  const agentActionButton = event.target.closest("[data-agent-action]");
+  if (agentActionButton) {
+    runAgentFactoryAction(agentActionButton.dataset.agentAction);
+    return;
+  }
+
   const nativeDownload = event.target.closest("[data-native-download]");
   if (nativeDownload) {
     event.preventDefault();
@@ -3989,6 +4276,10 @@ document.addEventListener("input", (event) => {
     updateTelegramControls();
     return;
   }
+  if (field && field.closest && field.closest("#agent-factory-form")) {
+    renderAgentFactory();
+    return;
+  }
   if (!field || field.name !== "review_text" || !field.closest("[data-web-review-form]") || !state.webReviewDraft) {
     return;
   }
@@ -4005,6 +4296,10 @@ document.addEventListener("change", (event) => {
   }
   if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
     renderOfficeCalculator();
+    return;
+  }
+  if (field && field.closest && field.closest("#agent-factory-form")) {
+    renderAgentFactory();
     return;
   }
   if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
@@ -4230,6 +4525,7 @@ if (searchInput) {
 
 restoreMiniAppState();
 renderView();
+renderAgentFactory();
 setAppView(state.appView || "home", { pushHistory: false });
 initTelegram();
 startHomeFeedRefresh();
