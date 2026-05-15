@@ -2669,6 +2669,17 @@ function buildAgentFactoryPassport(payload = collectAgentFactoryPayload()) {
       costiq_scope: ["business_role", "passport", "skills", "menus", "acceptance"],
       alexander_scope: ["backend", "env", "systemd", "logs", "token_storage"],
     },
+    visual_layer: {
+      schema_version: "costiq_visual_layer.v2",
+      source_of_truth: "agent_passport",
+      allowed_outputs: ["agent_card_svg", "agent_links_svg", "handoff_onepage_html"],
+      style_preset: "fsk_dark_copper",
+      rules: [
+        "visualization_does_not_change_facts",
+        "tokens_are_never_rendered",
+        "all_values_come_from_passport_fields",
+      ],
+    },
     telegram_acceptance: [
       "личный чат отвечает",
       "меню admin/user корректно",
@@ -2711,10 +2722,173 @@ function buildAgentFactoryHandoff(payload = collectAgentFactoryPayload()) {
   ].join("\n");
 }
 
+function escapeXml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function shortSvgText(value, max = 72) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, max - 1)).trim()}...`;
+}
+
+function svgTextLines(value, maxChars = 42, maxLines = 3) {
+  const words = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const lines = [];
+  let current = "";
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+  if (current) {
+    lines.push(current);
+  }
+  const trimmed = lines.slice(0, maxLines);
+  if (lines.length > maxLines && trimmed.length) {
+    trimmed[trimmed.length - 1] = shortSvgText(trimmed[trimmed.length - 1], maxChars);
+  }
+  return trimmed.length ? trimmed : ["TODO"];
+}
+
+function renderSvgLines(lines, x, y, options = {}) {
+  const size = options.size || 20;
+  const fill = options.fill || "#f2f4f7";
+  const weight = options.weight || 500;
+  const lineHeight = options.lineHeight || Math.round(size * 1.35);
+  return lines
+    .map((line, index) => `<text x="${x}" y="${y + index * lineHeight}" fill="${fill}" font-family="Arial, Helvetica, sans-serif" font-size="${size}" font-weight="${weight}">${escapeXml(line)}</text>`)
+    .join("");
+}
+
+function buildAgentCardSvg(passport = buildAgentFactoryPassport()) {
+  const enabledModes = Object.entries(passport.telegram_capability_matrix || {})
+    .filter(([, value]) => value === true)
+    .map(([key]) => key.replace(/_/g, " "));
+  const skills = Array.isArray(passport.skills) && passport.skills.length ? passport.skills.slice(0, 4) : [{ title: "Рабочий сценарий агента" }];
+  const gaps = Array.isArray(passport.known_gaps) && passport.known_gaps.length ? passport.known_gaps.slice(0, 2) : ["Нет критичных gaps в черновике"];
+  const purposeLines = svgTextLines(passport.agent.purpose, 48, 3);
+  const modeLine = enabledModes.length ? enabledModes.join(" / ") : "режимы не выбраны";
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Agent Factory visual card">
+  <rect width="1280" height="720" fill="#111214"/>
+  <rect x="36" y="36" width="1208" height="648" rx="22" fill="#1b1d21" stroke="#343841"/>
+  <rect x="36" y="36" width="1208" height="92" rx="22" fill="#18231e"/>
+  <text x="72" y="92" fill="#59d18c" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">CostIQ Agent Factory</text>
+  <text x="1035" y="92" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="18">${escapeXml(passport.operation_mode)}</text>
+  <text x="72" y="185" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="800">${escapeXml(shortSvgText(passport.agent.name, 34))}</text>
+  <text x="72" y="226" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="22">${escapeXml(shortSvgText(`${passport.telegram_bot.username} · ${passport.agent.profile} · ${passport.agent.department}`, 86))}</text>
+  ${renderSvgLines(purposeLines, 72, 286, { size: 24, fill: "#f2f4f7", weight: 600, lineHeight: 34 })}
+  <rect x="72" y="420" width="520" height="178" rx="16" fill="#23262c" stroke="#343841"/>
+  <text x="102" y="462" fill="#f18a45" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800">Навыки</text>
+  ${skills.map((skill, index) => `<text x="102" y="${504 + index * 30}" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="20">${escapeXml(shortSvgText(skill.title || skill, 42))}</text>`).join("")}
+  <rect x="642" y="420" width="530" height="178" rx="16" fill="#23262c" stroke="#343841"/>
+  <text x="672" y="462" fill="#f18a45" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800">Telegram и приёмка</text>
+  <text x="672" y="504" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="20">${escapeXml(shortSvgText(modeLine, 48))}</text>
+  <text x="672" y="536" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="18">${escapeXml(shortSvgText(`Handoff: ${passport.handoff.channel} · ${passport.handoff.assignee}`, 52))}</text>
+  ${gaps.map((gap, index) => `<text x="672" y="${570 + index * 26}" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="17">${escapeXml(shortSvgText(gap, 56))}</text>`).join("")}
+  <text x="72" y="650" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="16">Факты берутся из JSON-паспорта. Token не выводится.</text>
+</svg>`;
+}
+
+function buildAgentLinksSvg(passport = buildAgentFactoryPassport()) {
+  const agentName = shortSvgText(passport.agent.name, 28);
+  const modes = Object.entries(passport.telegram_capability_matrix || {})
+    .filter(([, value]) => value === true)
+    .map(([key]) => key.replace(/_/g, " "))
+    .slice(0, 5);
+  const modeLabels = modes.length ? modes : ["Mini App", "menu", "allowlist"];
+  const modeY = [235, 315, 395, 475, 555];
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Agent Factory links map">
+  <rect width="1280" height="720" fill="#111214"/>
+  <text x="64" y="74" fill="#59d18c" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">Agent Factory · схема запуска</text>
+  <text x="64" y="112" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="18">${escapeXml(shortSvgText(`${passport.agent.code} · ${passport.telegram_bot.username}`, 70))}</text>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#f18a45"/>
+    </marker>
+  </defs>
+  <rect x="70" y="210" width="210" height="92" rx="16" fill="#1b1d21" stroke="#343841"/>
+  <text x="104" y="248" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="800">Заявка</text>
+  <text x="104" y="278" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="16">роль и задачи</text>
+  <line x1="280" y1="256" x2="405" y2="256" stroke="#f18a45" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="410" y="190" width="250" height="132" rx="18" fill="#18231e" stroke="#59d18c"/>
+  <text x="446" y="242" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="800">${escapeXml(agentName)}</text>
+  <text x="446" y="278" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="17">JSON-паспорт</text>
+  <line x1="660" y1="256" x2="790" y2="256" stroke="#f18a45" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="794" y="210" width="210" height="92" rx="16" fill="#1b1d21" stroke="#343841"/>
+  <text x="828" y="248" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="800">Handoff</text>
+  <text x="828" y="278" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="16">Александр</text>
+  <line x1="1004" y1="256" x2="1120" y2="256" stroke="#f18a45" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="1125" y="210" width="95" height="92" rx="16" fill="#1b1d21" stroke="#343841"/>
+  <text x="1148" y="248" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="800">Run</text>
+  <text x="1148" y="278" fill="#aab1bd" font-family="Arial, Helvetica, sans-serif" font-size="15">accept</text>
+  ${modeLabels.map((mode, index) => `
+  <line x1="535" y1="322" x2="535" y2="${modeY[index]}" stroke="#343841" stroke-width="2"/>
+  <rect x="420" y="${modeY[index] - 24}" width="230" height="48" rx="14" fill="#23262c" stroke="#343841"/>
+  <text x="446" y="${modeY[index] + 7}" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="18">${escapeXml(shortSvgText(mode, 22))}</text>`).join("")}
+  <rect x="72" y="560" width="1090" height="82" rx="16" fill="#23262c" stroke="#343841"/>
+  <text x="104" y="596" fill="#f18a45" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800">Контроль качества</text>
+  <text x="104" y="626" fill="#f2f4f7" font-family="Arial, Helvetica, sans-serif" font-size="18">${escapeXml(shortSvgText("token вне открытых файлов · allowlist · trace_id · dedupe · rate limit · max_trace_depth=1", 118))}</text>
+</svg>`;
+}
+
+function buildAgentOnePageHtml(passport = buildAgentFactoryPassport()) {
+  const cardSvg = buildAgentCardSvg(passport);
+  const linksSvg = buildAgentLinksSvg(passport);
+  return `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(passport.agent.name)} · Agent Factory</title>
+  <style>
+    body { margin: 0; background: #111214; color: #f2f4f7; font-family: Arial, Helvetica, sans-serif; }
+    main { width: min(1180px, 100%); margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 34px; }
+    p { color: #aab1bd; line-height: 1.45; }
+    section { margin-top: 18px; padding: 16px; border: 1px solid #343841; border-radius: 8px; background: #1b1d21; }
+    svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; color: #f2f4f7; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(passport.agent.name)}</h1>
+    <p>${escapeHtml(passport.agent.purpose)}</p>
+    <section>${cardSvg}</section>
+    <section>${linksSvg}</section>
+    <section><h2>Handoff</h2><pre>${escapeHtml(buildAgentFactoryHandoff())}</pre></section>
+  </main>
+</body>
+</html>`;
+}
+
 function renderAgentFactory() {
+  const passport = buildAgentFactoryPassport();
   const preview = document.getElementById("agent-passport-preview");
   if (preview) {
-    preview.textContent = JSON.stringify(buildAgentFactoryPassport(), null, 2);
+    preview.textContent = JSON.stringify(passport, null, 2);
+  }
+
+  const visual = document.getElementById("agent-visual-preview");
+  if (visual) {
+    visual.innerHTML = buildAgentCardSvg(passport);
   }
 
   document.querySelectorAll("[data-agent-step]").forEach((button) => {
@@ -2821,6 +2995,18 @@ function runAgentFactoryAction(action) {
     showToast("JSON сформирован");
   } else if (action === "copy-handoff") {
     copyTextToClipboard(buildAgentFactoryHandoff(), "ТЗ готово в Agent Factory");
+  } else if (action === "download-card-svg") {
+    const code = buildAgentFactoryPassport().agent.code || "agent";
+    downloadTextFile(`${code.toLowerCase()}_agent_card.svg`, buildAgentCardSvg(), "image/svg+xml;charset=utf-8");
+    showToast("SVG карточка сформирована");
+  } else if (action === "download-map-svg") {
+    const code = buildAgentFactoryPassport().agent.code || "agent";
+    downloadTextFile(`${code.toLowerCase()}_agent_links.svg`, buildAgentLinksSvg(), "image/svg+xml;charset=utf-8");
+    showToast("SVG схема сформирована");
+  } else if (action === "download-onepage-html") {
+    const code = buildAgentFactoryPassport().agent.code || "agent";
+    downloadTextFile(`${code.toLowerCase()}_agent_onepage.html`, buildAgentOnePageHtml(), "text/html;charset=utf-8");
+    showToast("HTML one-page сформирован");
   }
 }
 

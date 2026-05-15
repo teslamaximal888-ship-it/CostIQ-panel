@@ -345,6 +345,9 @@
             <button type="button" class="ghost-button" data-agent-action="copy-json">Копировать JSON</button>
             <button type="button" class="ghost-button" data-agent-action="download-json">Скачать JSON</button>
             <button type="button" class="submit-button" data-agent-action="copy-handoff">ТЗ Александру</button>
+            <button type="button" class="ghost-button" data-agent-action="download-card-svg">SVG карточка</button>
+            <button type="button" class="ghost-button" data-agent-action="download-map-svg">SVG схема</button>
+            <button type="button" class="ghost-button" data-agent-action="download-onepage-html">HTML one-page</button>
           </div>
         </form>
 
@@ -357,6 +360,16 @@
             <h3>Инвентаризация</h3>
             <div class="activity-list compact" id="agent-inventory-list"></div>
           </div>
+        </div>
+        <div class="factory-visual-panel">
+          <div class="section-head compact">
+            <div>
+              <h3>Визуальный слой</h3>
+              <p>Карточка агента, схема связей и one-page handoff из текущего паспорта</p>
+            </div>
+            <span>CostIQ Visual Layer</span>
+          </div>
+          <div id="agent-visual-preview" class="factory-visual-preview"></div>
         </div>
       </section>
 

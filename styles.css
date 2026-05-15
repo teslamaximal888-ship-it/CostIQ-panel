@@ -604,6 +604,43 @@ h2 {
   margin-top: 12px;
 }
 
+.factory-visual-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.section-head.compact {
+  margin-bottom: 10px;
+}
+
+.section-head.compact h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.section-head.compact p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.factory-visual-preview {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111214;
+}
+
+.factory-visual-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .factory-preview {
   min-height: 320px;
   max-height: 520px;
