@@ -603,6 +603,11 @@ h2 {
   opacity: 0.86;
 }
 
+.poll-options button:disabled {
+  cursor: default;
+  opacity: 0.82;
+}
+
 .poll-options button.selected {
   border-color: rgba(89, 209, 140, 0.7);
 }
@@ -641,6 +646,59 @@ h2 {
 
 .poll-options button.selected i {
   background: rgba(89, 209, 140, 0.16);
+}
+
+.content-admin-token {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.content-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.content-admin-form,
+.content-preview {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.content-preview > span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.content-preview .home-card {
+  background: var(--surface-2);
+}
+
+.content-preview .poll-options button {
+  pointer-events: none;
+}
+
+.content-admin-list {
+  margin-top: 12px;
+}
+
+.content-admin-item {
+  align-items: flex-start;
+}
+
+.content-admin-item .queue-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .check-field {
@@ -1741,6 +1799,7 @@ h2 {
   .quick,
   .metrics,
   .home-feed-grid,
+  .content-admin-layout,
   .tool-grid,
   .calculator-summary,
   .calculator-options,
@@ -1784,6 +1843,8 @@ h2 {
   .insights,
   .grid,
   .home-feed-grid,
+  .content-admin-layout,
+  .content-admin-token,
   .tool-grid,
   .calculator-inputs,
   .calculator-summary,

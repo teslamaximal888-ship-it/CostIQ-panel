@@ -1114,6 +1114,8 @@ function safeErrorMessage(message) {
     title_body_required: "Заполните заголовок и текст.",
     poll_not_found: "Голосование уже закрыто или не найдено.",
     option_not_found: "Вариант голосования не найден.",
+    content_not_found: "Запись ленты не найдена.",
+    unsupported_action: "Действие недоступно для этой записи.",
   };
   return map[normalized] || "Не удалось создать задачу. Проверьте поля и попробуйте ещё раз.";
 }
@@ -1147,15 +1149,25 @@ function pollPercent(option, item) {
   return Math.round((Number(option.count || 0) / total) * 100);
 }
 
+function isContentPollClosed(item) {
+  const status = String((item && item.status) || "").toLowerCase();
+  if (status === "closed") {
+    return true;
+  }
+  const closesAt = item && item.closes_at ? Date.parse(item.closes_at) : 0;
+  return Boolean(closesAt && closesAt < Date.now());
+}
+
 function renderHomeFeedItem(item) {
   if (!item || item.type === "poll") {
     const options = Array.isArray(item && item.options) ? item.options : [];
     const canVote = Boolean(state.telegramInitData || state.panelAuth);
+    const isClosed = isContentPollClosed(item);
     return `
       <article class="home-card poll-card${item && item.pinned ? " pinned" : ""}">
         <div class="home-card-head">
           <span>${escapeHtml(contentTypeLabel("poll"))}</span>
-          ${item && item.pinned ? "<em>закреплено</em>" : ""}
+          ${isClosed ? "<em>закрыто</em>" : item && item.pinned ? "<em>закреплено</em>" : ""}
         </div>
         <h3>${escapeHtml(item && item.title ? item.title : "Голосование")}</h3>
         <p>${escapeHtml(item && item.body ? item.body : "")}</p>
@@ -1164,7 +1176,7 @@ function renderHomeFeedItem(item) {
             const percent = pollPercent(option, item || {});
             const selected = item && item.user_vote === option.id;
             return `
-              <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote ? "" : 'data-needs-telegram="1"'}>
+              <button type="button" class="${selected ? "selected" : ""}" data-poll-id="${escapeHtml(item.id)}" data-option-id="${escapeHtml(option.id)}" ${canVote && !isClosed ? "" : 'data-needs-telegram="1"'} ${isClosed ? "disabled" : ""}>
                 <span>
                   <strong>${escapeHtml(option.title)}</strong>
                   <small>${escapeHtml(option.count || 0)} голосов · ${percent}%</small>
@@ -1175,7 +1187,7 @@ function renderHomeFeedItem(item) {
           }).join("")}
         </div>
         <div class="home-card-foot">
-          <span>${escapeHtml(item && item.user_vote ? "Ваш голос учтён" : canVote ? "Можно выбрать один вариант" : "Голосование доступно из Telegram")}</span>
+          <span>${escapeHtml(isClosed ? "Голосование закрыто" : item && item.user_vote ? "Ваш голос учтён" : canVote ? "Можно выбрать один вариант" : "Голосование доступно из Telegram")}</span>
           <span>${escapeHtml(formatShortDate(item && item.updated_at))}</span>
         </div>
       </article>
@@ -1205,6 +1217,111 @@ function renderHomeFeedItem(item) {
       </div>
     </article>
   `;
+}
+
+function contentAdminToken() {
+  const input = document.getElementById("content-admin-token");
+  return String((input && input.value) || webQueueToken()).trim();
+}
+
+function contentStatusLabel(status) {
+  const normalized = String(status || "published").toLowerCase();
+  const labels = {
+    published: "опубликовано",
+    hidden: "скрыто",
+    closed: "закрыто",
+  };
+  return labels[normalized] || normalized || "опубликовано";
+}
+
+function renderContentAdminList(items) {
+  const list = document.getElementById("content-admin-list");
+  if (!list) {
+    return;
+  }
+  const content = Array.isArray(items) ? items : [];
+  if (!content.length) {
+    list.innerHTML = `<div class="empty">Записей ленты пока нет</div>`;
+    return;
+  }
+  list.innerHTML = content.map((item) => {
+    const options = Array.isArray(item.options) ? item.options : [];
+    const topOptions = options
+      .map((option) => `${option.title}: ${option.count || 0}`)
+      .join(" · ");
+    const status = String(item.status || "published").toLowerCase();
+    const isPoll = item.type === "poll";
+    const isPinned = Boolean(item.pinned);
+    return `
+      <div class="activity-item content-admin-item">
+        <span>
+          <strong>${escapeHtml(compact(item.title || item.id, 90))}</strong>
+          <small>${escapeHtml([contentTypeLabel(item.type), contentStatusLabel(status), isPinned ? "закреплено" : "", formatShortDate(item.updated_at || item.created_at)].filter(Boolean).join(" · "))}</small>
+          ${isPoll ? `<small>${escapeHtml(`${item.total_votes || 0} голосов${topOptions ? ` · ${topOptions}` : ""}`)}</small>` : item.image_url ? `<small>${escapeHtml(compact(item.image_url, 120))}</small>` : ""}
+        </span>
+        <span class="queue-actions">
+          ${status === "hidden" ? `<button type="button" class="ghost-button" data-content-action="publish" data-content-id="${escapeHtml(item.id)}">Показать</button>` : `<button type="button" class="ghost-button" data-content-action="hide" data-content-id="${escapeHtml(item.id)}">Скрыть</button>`}
+          ${isPinned ? `<button type="button" class="ghost-button" data-content-action="unpin" data-content-id="${escapeHtml(item.id)}">Открепить</button>` : `<button type="button" class="ghost-button" data-content-action="pin" data-content-id="${escapeHtml(item.id)}">Закрепить</button>`}
+          ${isPoll && status !== "closed" ? `<button type="button" class="ghost-button" data-content-action="close" data-content-id="${escapeHtml(item.id)}">Закрыть</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("");
+}
+
+async function refreshContentAdmin() {
+  if (!isAdminMode()) {
+    return;
+  }
+  const token = contentAdminToken();
+  if (!token) {
+    setText("content-admin-status", "нужен токен");
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(WEB_QUEUE_TOKEN_STORAGE_KEY, token);
+  } catch (error) {
+    // sessionStorage may be unavailable in restricted webviews.
+  }
+  const response = await fetch(`/api/panel/content?ts=${Date.now()}`, {
+    cache: "no-store",
+    headers: {
+      "X-CostIQ-Admin": token,
+    },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    setText("content-admin-status", `HTTP ${response.status}`);
+    showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
+    return;
+  }
+  setText("content-admin-status", `${(data.items || []).length} записей`);
+  renderContentAdminList(data.items || []);
+}
+
+async function runContentAdminAction(id, operation) {
+  const token = contentAdminToken();
+  if (!token) {
+    showToast("Нужен админ-токен");
+    setText("content-admin-status", "нужен токен");
+    return;
+  }
+  const response = await fetch("/api/panel/content", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CostIQ-Admin": token,
+    },
+    body: JSON.stringify({ action: "content_action", id, operation }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
+    return;
+  }
+  showToast("Лента обновлена");
+  loadHomeFeed();
+  refreshContentAdmin();
 }
 
 function renderHomeFeed(items) {
@@ -3094,7 +3211,16 @@ document.addEventListener("click", (event) => {
 
   const pollButton = event.target.closest("[data-poll-id][data-option-id]");
   if (pollButton) {
+    if (pollButton.disabled) {
+      return;
+    }
     voteInPoll(pollButton.dataset.pollId, pollButton.dataset.optionId);
+    return;
+  }
+
+  const contentActionButton = event.target.closest("[data-content-action][data-content-id]");
+  if (contentActionButton) {
+    runContentAdminAction(contentActionButton.dataset.contentId, contentActionButton.dataset.contentAction);
     return;
   }
 
@@ -3287,6 +3413,15 @@ if (webQueueTokenInput) {
   }
 }
 
+const contentAdminTokenInput = document.getElementById("content-admin-token");
+if (contentAdminTokenInput) {
+  try {
+    contentAdminTokenInput.value = window.sessionStorage.getItem(WEB_QUEUE_TOKEN_STORAGE_KEY) || "";
+  } catch (error) {
+    contentAdminTokenInput.value = "";
+  }
+}
+
 const webQueueRefresh = document.getElementById("web-queue-refresh");
 if (webQueueRefresh) {
   webQueueRefresh.addEventListener("click", refreshWebQueue);
@@ -3297,34 +3432,65 @@ if (homeShortcutButton) {
   homeShortcutButton.addEventListener("click", requestHomeShortcut);
 }
 
+function collectContentAdminPayload(form) {
+  const formData = new FormData(form);
+  const options = String(formData.get("options") || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((title) => ({ title }));
+  return {
+    type: String(formData.get("type") || "news"),
+    title: String(formData.get("title") || "").trim(),
+    body: String(formData.get("body") || "").trim(),
+    image_url: String(formData.get("image_url") || "").trim(),
+    image_caption: String(formData.get("image_caption") || "").trim(),
+    status: String(formData.get("status") || "published"),
+    pinned: formData.get("pinned") === "on",
+    options,
+  };
+}
+
+function updateContentPreview() {
+  const form = document.getElementById("content-admin-form");
+  const preview = document.getElementById("content-preview");
+  if (!form || !preview) {
+    return;
+  }
+  const item = collectContentAdminPayload(form);
+  if (!item.title && !item.body && !item.image_url) {
+    preview.innerHTML = `<span>Предпросмотр</span><div class="empty">Заполните заголовок, текст или ссылку на изображение</div>`;
+    return;
+  }
+  const options = item.options.length ? item.options : [{ title: "Вариант 1", count: 0 }, { title: "Вариант 2", count: 0 }];
+  const previewItem = {
+    ...item,
+    id: "content-preview-item",
+    options,
+    total_votes: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  preview.innerHTML = `<span>Предпросмотр</span>${renderHomeFeedItem(previewItem)}`;
+}
+
 const contentAdminForm = document.getElementById("content-admin-form");
 if (contentAdminForm) {
+  contentAdminForm.addEventListener("input", updateContentPreview);
+  contentAdminForm.addEventListener("reset", () => {
+    window.setTimeout(updateContentPreview, 0);
+  });
   contentAdminForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const contentTokenInput = document.getElementById("content-admin-token");
-    const token = String((contentTokenInput && contentTokenInput.value) || webQueueToken()).trim();
+    const token = contentAdminToken();
     if (!token) {
       showToast("Нужен админ-токен");
       setText("content-admin-status", "нужен токен");
       return;
     }
-    const formData = new FormData(contentAdminForm);
-    const options = String(formData.get("options") || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((title) => ({ title }));
-    const payload = {
-      type: String(formData.get("type") || "news"),
-      title: String(formData.get("title") || "").trim(),
-      body: String(formData.get("body") || "").trim(),
-      image_url: String(formData.get("image_url") || "").trim(),
-      image_caption: String(formData.get("image_caption") || "").trim(),
-      status: String(formData.get("status") || "published"),
-      pinned: formData.get("pinned") === "on",
-      options,
-    };
+    const payload = collectContentAdminPayload(contentAdminForm);
     try {
+      window.sessionStorage.setItem(WEB_QUEUE_TOKEN_STORAGE_KEY, token);
       const response = await fetch("/api/panel/content", {
         method: "POST",
         headers: {
@@ -3339,13 +3505,21 @@ if (contentAdminForm) {
       }
       setText("content-admin-status", "сохранено");
       contentAdminForm.reset();
+      updateContentPreview();
       showToast("Опубликовано на главной");
       loadHomeFeed();
+      refreshContentAdmin();
     } catch (error) {
       setText("content-admin-status", "ошибка");
       showToast(safeErrorMessage(error && error.message));
     }
   });
+  updateContentPreview();
+}
+
+const contentAdminRefresh = document.getElementById("content-admin-refresh");
+if (contentAdminRefresh) {
+  contentAdminRefresh.addEventListener("click", refreshContentAdmin);
 }
 
 const searchInput = document.getElementById("search-input");
@@ -3360,6 +3534,7 @@ renderView();
 setAppView("home");
 initTelegram();
 startHomeFeedRefresh();
+refreshContentAdmin();
 startPanelDataRefresh();
 renderRecentWebTasks();
 refreshRecentWebTasks();

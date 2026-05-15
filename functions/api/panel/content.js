@@ -322,6 +322,9 @@ function publicItem(item, userId = "") {
 
 function isVisible(item) {
   const status = String(item.status || "published").toLowerCase();
+  if (status === "closed" && item.type === "poll") {
+    return true;
+  }
   if (status !== "published") {
     return false;
   }
@@ -329,6 +332,14 @@ function isVisible(item) {
     return item.type === "news";
   }
   return true;
+}
+
+function isPollClosed(item) {
+  const status = String(item.status || "published").toLowerCase();
+  if (status === "closed") {
+    return true;
+  }
+  return Boolean(item.closes_at && Date.parse(item.closes_at) && Date.parse(item.closes_at) < Date.now());
 }
 
 function normalizeOptions(options) {
@@ -359,7 +370,7 @@ function itemFromBody(body, existing = null) {
     image_url: cleanUrl(body.image_url || (existing && existing.image_url) || ""),
     image_caption: cleanText(body.image_caption || (existing && existing.image_caption) || "", 240),
     status: cleanText(body.status || (existing && existing.status) || "published", 40),
-    pinned: Boolean(body.pinned),
+    pinned: body.pinned === undefined && existing ? Boolean(existing.pinned) : Boolean(body.pinned),
     closes_at: cleanText(body.closes_at || (existing && existing.closes_at) || "", 80),
     created_at: created,
     updated_at: nowIso(),
@@ -375,6 +386,26 @@ function itemFromBody(body, existing = null) {
   return item;
 }
 
+function applyContentOperation(item, operation) {
+  const next = { ...item };
+  if (operation === "hide") {
+    next.status = "hidden";
+  } else if (operation === "publish") {
+    next.status = "published";
+  } else if (operation === "close" && next.type === "poll") {
+    next.status = "closed";
+    next.closes_at = nowIso();
+  } else if (operation === "pin") {
+    next.pinned = true;
+  } else if (operation === "unpin") {
+    next.pinned = false;
+  } else {
+    return null;
+  }
+  next.updated_at = nowIso();
+  return next;
+}
+
 export async function onRequestOptions() {
   return jsonResponse({ ok: true });
 }
@@ -383,13 +414,19 @@ export async function onRequestGet({ request, env }) {
   if (!env.WEB_INTAKE) {
     return jsonResponse({ ok: false, error: "storage_not_configured" }, 503);
   }
+  const admin = await hasAdminAccess(request, env);
   const auth = await verifyRequestUser(request, env);
   const userId = auth.ok ? String(auth.user.id) : "";
   const items = (await loadItems(env))
-    .filter(isVisible)
+    .filter((item) => admin || isVisible(item))
     .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || String(b.created_at || "").localeCompare(String(a.created_at || "")))
     .map((item) => publicItem(item, userId));
-  return jsonResponse({ ok: true, items, auth: auth.ok ? { telegram_user: auth.user, source: auth.source } : { telegram_user: null } });
+  return jsonResponse({
+    ok: true,
+    items,
+    admin,
+    auth: auth.ok ? { telegram_user: auth.user, source: auth.source } : { telegram_user: null },
+  });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -407,7 +444,7 @@ export async function onRequestPost({ request, env }) {
     const itemId = cleanId(body.item_id || body.id, "poll");
     const optionId = cleanId(body.option_id, "option");
     const item = await readItem(env, itemId);
-    if (!item || item.type !== "poll" || !isVisible(item)) {
+    if (!item || item.type !== "poll" || !isVisible(item) || isPollClosed(item)) {
       return jsonResponse({ ok: false, error: "poll_not_found" }, 404);
     }
     if (!item.options.some((option) => option.id === optionId)) {
@@ -434,6 +471,21 @@ export async function onRequestPost({ request, env }) {
   }
 
   const currentIds = await readIndex(env);
+  if (action === "content_action") {
+    const id = cleanId(body.id, "content");
+    const item = await readItem(env, id);
+    if (!item) {
+      return jsonResponse({ ok: false, error: "content_not_found" }, 404);
+    }
+    const updated = applyContentOperation(item, cleanText(body.operation, 40));
+    if (!updated) {
+      return jsonResponse({ ok: false, error: "unsupported_action" }, 400);
+    }
+    await writeItem(env, updated);
+    await writeIndex(env, [updated.id, ...currentIds.filter((itemId) => itemId !== updated.id)]);
+    return jsonResponse({ ok: true, item: publicItem(updated), saved: updated.id });
+  }
+
   if (action === "delete") {
     const id = cleanId(body.id, "content");
     await env.WEB_INTAKE.delete(`${CONTENT_KEY_PREFIX}${id}`);

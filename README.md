@@ -176,6 +176,13 @@ Version v31 adds visual home content:
 - the ФГИС ЦС salary news uses a static chart image; `news-fgis-salary-2025-2026-05-14` has `/assets/fgis-salary-chart.svg` saved in KV
 - the legacy `welcome-panel-v1` feed item is hidden from the rendered feed to avoid duplicating the new welcome block
 
+Version v34 improves news and poll administration:
+
+- `/admin/` has a home feed management block with publication form, media preview and existing item list
+- admins can hide/show content, pin/unpin records and close polls without editing KV manually
+- closed polls stay visible with aggregate results, but new votes are rejected by the API
+- admin content lists include hidden and closed records, while the public feed only shows published records and closed poll results
+
 Manual snapshot refresh:
 
 ```bash

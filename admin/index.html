@@ -297,62 +297,69 @@
       <section class="content-admin admin-only" data-app-section="home">
         <div class="section-head">
           <div>
-            <h2>Контент главной</h2>
-            <p>Создание новостей и голосований</p>
+            <h2>Управление лентой</h2>
+            <p>Новости, диаграммы, закрепление и закрытие голосований</p>
           </div>
           <span id="content-admin-status">admin token</span>
         </div>
-        <form id="content-admin-form">
-          <div class="form-grid">
-            <div class="field wide">
-              <label for="content-admin-token">Админ-токен</label>
-              <input id="content-admin-token" type="password" autocomplete="off" placeholder="Можно использовать тот же токен, что для web-очереди">
+        <div class="content-admin-token">
+          <input id="content-admin-token" type="password" autocomplete="off" placeholder="Админ-токен">
+          <button type="button" class="ghost-button" id="content-admin-refresh">Обновить</button>
+        </div>
+        <div class="content-admin-layout">
+          <form id="content-admin-form" class="content-admin-form">
+            <div class="form-grid">
+              <div class="field">
+                <label for="content-type">Тип</label>
+                <select id="content-type" name="type">
+                  <option value="news">Новость</option>
+                  <option value="poll">Голосование</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="content-status">Статус</label>
+                <select id="content-status" name="status">
+                  <option value="published">Опубликовано</option>
+                  <option value="hidden">Скрыто</option>
+                  <option value="closed">Закрыто</option>
+                </select>
+              </div>
+              <label class="check-field">
+                <input type="checkbox" name="pinned">
+                <span>Закрепить</span>
+              </label>
+              <div class="field wide">
+                <label for="content-title">Заголовок</label>
+                <input id="content-title" name="title" type="text" autocomplete="off" placeholder="Короткий заголовок" required>
+              </div>
+              <div class="field wide">
+                <label for="content-body">Текст</label>
+                <textarea id="content-body" name="body" rows="5" placeholder="Текст новости или вопрос голосования" required></textarea>
+              </div>
+              <div class="field wide">
+                <label for="content-image-url">Изображение / диаграмма</label>
+                <input id="content-image-url" name="image_url" type="url" autocomplete="off" placeholder="/assets/diagram.svg или https://...">
+              </div>
+              <div class="field wide">
+                <label for="content-image-caption">Подпись к изображению</label>
+                <input id="content-image-caption" name="image_caption" type="text" autocomplete="off" placeholder="Краткая подпись под изображением">
+              </div>
+              <div class="field wide">
+                <label for="content-options">Варианты голосования</label>
+                <textarea id="content-options" name="options" rows="5" placeholder="Один вариант на строку"></textarea>
+              </div>
             </div>
-            <div class="field">
-              <label for="content-type">Тип</label>
-              <select id="content-type" name="type">
-                <option value="news">Новость</option>
-                <option value="poll">Голосование</option>
-              </select>
+            <div class="form-actions">
+              <button class="ghost-button" type="reset">Очистить</button>
+              <button class="submit-button" type="submit">Опубликовать</button>
             </div>
-            <div class="field">
-              <label for="content-title">Заголовок</label>
-              <input id="content-title" name="title" type="text" autocomplete="off" required>
-            </div>
-            <div class="field wide">
-              <label for="content-body">Текст</label>
-              <textarea id="content-body" name="body" required></textarea>
-            </div>
-            <div class="field">
-              <label for="content-image-url">Изображение / диаграмма</label>
-              <input id="content-image-url" name="image_url" type="url" autocomplete="off" placeholder="https://... или /assets/...">
-            </div>
-            <div class="field">
-              <label for="content-image-caption">Подпись</label>
-              <input id="content-image-caption" name="image_caption" type="text" autocomplete="off" placeholder="Краткое описание изображения">
-            </div>
-            <div class="field wide">
-              <label for="content-options">Варианты голосования</label>
-              <textarea id="content-options" name="options" placeholder="Один вариант на строку. Для новости оставить пустым."></textarea>
-            </div>
-            <div class="field">
-              <label for="content-status">Статус</label>
-              <select id="content-status" name="status">
-                <option value="published">Опубликовано</option>
-                <option value="draft">Черновик</option>
-                <option value="hidden">Скрыто</option>
-              </select>
-            </div>
-            <label class="check-field">
-              <input id="content-pinned" name="pinned" type="checkbox">
-              <span>Закрепить наверху</span>
-            </label>
-          </div>
-          <div class="form-actions">
-            <button class="ghost-button" type="reset">Очистить</button>
-            <button class="submit-button" type="submit">Опубликовать</button>
-          </div>
-        </form>
+          </form>
+          <aside class="content-preview" id="content-preview">
+            <span>Предпросмотр</span>
+            <div class="empty">Заполните заголовок, текст или ссылку на изображение</div>
+          </aside>
+        </div>
+        <div class="activity-list content-admin-list" id="content-admin-list"></div>
       </section>
     </main>
 
