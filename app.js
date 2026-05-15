@@ -7,6 +7,7 @@ const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
 const WEB_QUEUE_TOKEN_STORAGE_KEY = "costiq_web_queue_admin_token";
+const TELEGRAM_MAIN_BUTTON_ENABLED = false;
 const WEB_STATUS_POLL_MS = 15000;
 const WEB_RECENT_REFRESH_MS = 60000;
 const WEB_FILE_MAX_BYTES = 25 * 1024 * 1024;
@@ -959,7 +960,7 @@ function bindTelegramButtons() {
     tg.onEvent("backButtonClicked", handleTelegramBackButton);
     state.telegramBackButtonBound = true;
   }
-  if (!state.telegramMainButtonBound) {
+  if (TELEGRAM_MAIN_BUTTON_ENABLED && !state.telegramMainButtonBound) {
     if (typeof tg.onEvent === "function") {
       tg.onEvent("mainButtonClicked", handleTelegramMainButton);
       state.telegramMainButtonBound = true;
@@ -986,6 +987,9 @@ function handleTelegramBackButton() {
 }
 
 function handleTelegramMainButton() {
+  if (!TELEGRAM_MAIN_BUTTON_ENABLED) {
+    return;
+  }
   if (state.telegramMainButtonAction === "office_save") {
     saveCurrentOfficeCalculation();
     return;
@@ -1012,6 +1016,11 @@ function handleTelegramMainButton() {
 function setTelegramMainButton(text, action) {
   state.telegramMainButtonAction = action || "";
   if (!tg || !tg.MainButton) {
+    return;
+  }
+  if (!TELEGRAM_MAIN_BUTTON_ENABLED) {
+    state.telegramMainButtonAction = "";
+    tg.MainButton.hide();
     return;
   }
   if (!text || !action) {
