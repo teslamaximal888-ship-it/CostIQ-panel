@@ -30,6 +30,23 @@
         <button type="button" data-app-view="tasks">Мои заявки</button>
       </nav>
 
+      <section class="welcome-panel" data-app-section="home" aria-label="Приветствие CostIQ">
+        <div class="welcome-copy">
+          <span>Рабочая панель САУ</span>
+          <h2>Добро пожаловать в CostIQ</h2>
+          <p>Здесь собираем важные новости, голосования команды, заявки, расчёты и будущие инструменты в одном аккуратном рабочем экране.</p>
+          <div class="welcome-points" aria-label="Ключевые возможности">
+            <em>Новости</em>
+            <em>Голосования</em>
+            <em>Заявки</em>
+            <em>Калькуляторы</em>
+          </div>
+        </div>
+        <figure class="welcome-visual">
+          <img src="/assets/costiq-welcome-visual.svg" alt="Визуализация панели CostIQ с графиками и рабочими карточками">
+        </figure>
+      </section>
+
       <section class="home-feed" id="home-feed" data-app-section="home">
         <div class="section-head">
           <div>
@@ -39,6 +56,17 @@
           <span id="home-feed-status">загрузка</span>
         </div>
         <div class="home-feed-grid" id="home-feed-grid"></div>
+      </section>
+
+      <section class="panel-visual-digest" data-app-section="home" aria-label="Короткая сводка панели">
+        <div class="section-head">
+          <div>
+            <h2>Что сейчас важно</h2>
+            <p>Короткая визуальная сводка по панели и ближайшим рабочим экранам</p>
+          </div>
+          <span>visual layer</span>
+        </div>
+        <div class="visual-digest-grid" id="visual-digest-grid"></div>
       </section>
 
       <section class="metrics admin-only" aria-label="Состояние" data-app-section="home">
@@ -205,12 +233,7 @@
           </div>
           <span>roadmap</span>
         </div>
-        <div class="tool-grid">
-          <article><strong>ТЭП-калькулятор</strong><small>Готовится как отдельный экран панели</small></article>
-          <article><strong>НЦС / УПСС</strong><small>Справочные расчёты по нормативам</small></article>
-          <article><strong>Сметный справочник</strong><small>Расценки, ГЭСН, материалы и механизмы</small></article>
-          <article><strong>Agent Factory</strong><small>Паспорта и запуск новых агентов</small></article>
-        </div>
+        <div class="tool-grid enhanced" id="panel-tool-grid"></div>
       </section>
 
       <section class="tasks-section" data-app-section="tasks">

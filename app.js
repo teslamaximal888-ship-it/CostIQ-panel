@@ -32,6 +32,69 @@ const APP_VIEW_TITLES = {
   tasks: "Мои заявки",
 };
 
+const PANEL_VISUAL_DIGEST = [
+  {
+    label: "Панель",
+    title: "Единый рабочий экран",
+    text: "Новости, голосования, заявки, расчёты и инструменты собраны в одном Mini App.",
+    tone: "green",
+    meta: "главная",
+  },
+  {
+    label: "Результаты",
+    title: "Review loop",
+    text: "Карточка результата показывает статус, файл, предупреждения, вопрос, доработку и принятие.",
+    tone: "blue",
+    meta: "мои заявки",
+  },
+  {
+    label: "Инструменты",
+    title: "Agent Factory как эталон",
+    text: "Паспорта агентов, визуальная карточка, схема запуска и handoff Александру.",
+    tone: "copper",
+    meta: "admin-only",
+  },
+];
+
+const PANEL_TOOLS = [
+  {
+    title: "Agent Factory",
+    subtitle: "Паспорта и запуск новых агентов",
+    status: "встроен",
+    access: "admin-only",
+    input: "роль, навыки, режимы Telegram",
+    output: "JSON, SVG, HTML one-page",
+    tone: "green",
+  },
+  {
+    title: "ТЭП-калькулятор",
+    subtitle: "ТЭП, население, соцобъекты, парковки",
+    status: "следующий экран",
+    access: "public/admin",
+    input: "площадь, жильё, сценарии",
+    output: "расчёт и структура проекта",
+    tone: "blue",
+  },
+  {
+    title: "НЦС / УПСС",
+    subtitle: "Справочные расчёты по нормативам",
+    status: "roadmap",
+    access: "public/admin",
+    input: "код, параметры, коэффициенты",
+    output: "стоимость и пояснения",
+    tone: "copper",
+  },
+  {
+    title: "Сметный справочник",
+    subtitle: "Расценки, ГЭСН, материалы и механизмы",
+    status: "roadmap",
+    access: "public/admin",
+    input: "описание работы или код",
+    output: "карточка работы",
+    tone: "teal",
+  },
+];
+
 const functions = [
   "проверка",
   "расчёты",
@@ -1591,6 +1654,42 @@ function renderHomeFeed(items) {
     : `<div class="empty">Пока нет новостей и активных голосований</div>`;
 }
 
+function renderPanelVisualDigest() {
+  const grid = document.getElementById("visual-digest-grid");
+  if (!grid) {
+    return;
+  }
+  grid.innerHTML = PANEL_VISUAL_DIGEST.map((item) => `
+    <article class="visual-digest-card" data-tone="${escapeHtml(item.tone)}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.title)}</strong>
+      <p>${escapeHtml(item.text)}</p>
+      <em>${escapeHtml(item.meta)}</em>
+    </article>
+  `).join("");
+}
+
+function renderPanelTools() {
+  const grid = document.getElementById("panel-tool-grid");
+  if (!grid) {
+    return;
+  }
+  grid.innerHTML = PANEL_TOOLS.map((tool) => `
+    <article class="tool-card" data-tone="${escapeHtml(tool.tone)}">
+      <div class="tool-card-head">
+        <span>${escapeHtml(tool.status)}</span>
+        <em>${escapeHtml(tool.access)}</em>
+      </div>
+      <strong>${escapeHtml(tool.title)}</strong>
+      <small>${escapeHtml(tool.subtitle)}</small>
+      <dl>
+        <div><dt>Вход</dt><dd>${escapeHtml(tool.input)}</dd></div>
+        <div><dt>Результат</dt><dd>${escapeHtml(tool.output)}</dd></div>
+      </dl>
+    </article>
+  `).join("");
+}
+
 async function loadHomeFeed() {
   const grid = document.getElementById("home-feed-grid");
   if (!grid) {
@@ -2879,6 +2978,57 @@ function buildAgentOnePageHtml(passport = buildAgentFactoryPassport()) {
 </html>`;
 }
 
+function buildAgentFactoryVisualBoard(passport = buildAgentFactoryPassport()) {
+  const enabledModes = Object.entries(passport.telegram_capability_matrix || {})
+    .filter(([, value]) => value === true)
+    .map(([key]) => key.replace(/_/g, " "));
+  const skills = Array.isArray(passport.skills) ? passport.skills : [];
+  const gaps = Array.isArray(passport.known_gaps) ? passport.known_gaps : [];
+  const checklist = Array.isArray(passport.telegram_acceptance) ? passport.telegram_acceptance.slice(0, 5) : [];
+  const stages = [
+    ["Заявка", passport.agent.purpose && passport.agent.purpose !== "TODO_PURPOSE"],
+    ["Паспорт", passport.passport_status === "draft" || passport.passport_status],
+    ["Telegram", enabledModes.length > 0],
+    ["Handoff", Boolean(passport.handoff && passport.handoff.channel)],
+    ["Приёмка", checklist.length > 0],
+  ];
+
+  return `
+    <div class="agent-visual-board">
+      <div class="agent-flow">
+        ${stages.map(([label, done], index) => `
+          <span class="${done ? "done" : ""}">
+            <i>${index + 1}</i>
+            ${escapeHtml(label)}
+          </span>
+        `).join("")}
+      </div>
+      <div class="agent-visual-summary">
+        <div>
+          <b>${escapeHtml(passport.agent.name)}</b>
+          <small>${escapeHtml([passport.telegram_bot.username, passport.agent.profile, passport.operation_mode].filter(Boolean).join(" · "))}</small>
+        </div>
+        <div>
+          <b>${escapeHtml(skills.length || 0)}</b>
+          <small>навыков в паспорте</small>
+        </div>
+        <div>
+          <b>${escapeHtml(enabledModes.length || 0)}</b>
+          <small>режимов Telegram</small>
+        </div>
+        <div>
+          <b>${escapeHtml(gaps.length || 0)}</b>
+          <small>открытых вопросов</small>
+        </div>
+      </div>
+      <div class="agent-card-preview">${buildAgentCardSvg(passport)}</div>
+      <div class="agent-checklist-preview">
+        ${checklist.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderAgentFactory() {
   const passport = buildAgentFactoryPassport();
   const preview = document.getElementById("agent-passport-preview");
@@ -2888,7 +3038,7 @@ function renderAgentFactory() {
 
   const visual = document.getElementById("agent-visual-preview");
   if (visual) {
-    visual.innerHTML = buildAgentCardSvg(passport);
+    visual.innerHTML = buildAgentFactoryVisualBoard(passport);
   }
 
   document.querySelectorAll("[data-agent-step]").forEach((button) => {
@@ -3641,6 +3791,43 @@ function renderReviewPanel(task) {
   `;
 }
 
+function renderTaskTimeline(task) {
+  const status = String((task && task.status) || "").toLowerCase();
+  const finished = ["done", "ready_for_review", "accepted", "closed", "closed_by_timeout"].includes(status);
+  const failed = status === "failed";
+  const stages = [
+    ["Заявка", true],
+    ["В работе", ["queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking"].includes(status) || finished || failed],
+    ["Результат", finished],
+    ["Проверка", ["done", "ready_for_review", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"].includes(status)],
+    ["Закрытие", ["accepted", "closed", "closed_by_timeout"].includes(status)],
+  ];
+  return `
+    <div class="web-task-timeline" aria-label="Статус заявки">
+      ${stages.map(([label, active], index) => `
+        <span class="${active ? "active" : ""}${failed && index === 1 ? " danger" : ""}">
+          <i>${index + 1}</i>
+          ${escapeHtml(label)}
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderTaskVisualSummary(task, primaryDownload) {
+  const warnings = Array.isArray(task.warnings) ? task.warnings.filter(Boolean) : [];
+  const version = `v${reviewVersion(task)}`;
+  const fileLabel = primaryDownload ? primaryDownload.name || "готов" : task.file_name ? "входной файл" : "без файла";
+  return `
+    <div class="web-task-visual-summary">
+      <div><span>Статус</span><strong>${escapeHtml(webTaskStatusLabel(task.status))}</strong></div>
+      <div><span>Версия</span><strong>${escapeHtml(version)}</strong></div>
+      <div><span>Файл</span><strong>${escapeHtml(compact(fileLabel, 32))}</strong></div>
+      <div><span>Предупреждения</span><strong>${escapeHtml(String(warnings.length))}</strong></div>
+    </div>
+  `;
+}
+
 function openWebReviewDraft(traceId, action) {
   state.webReviewDraft = { traceId, action, text: "" };
   if (state.webCurrentTask && state.webCurrentTask.trace_id === traceId) {
@@ -3893,6 +4080,8 @@ function renderWebTask(task) {
       </span>
     </div>
     <p class="web-task-message">${escapeHtml(webStatusMessage(task))}</p>
+    ${renderTaskTimeline(task)}
+    ${renderTaskVisualSummary(task, primaryDownload)}
     <dl>
       <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
       <div><dt>Запрос</dt><dd>${escapeHtml(objectLabel)}</dd></div>
@@ -4710,6 +4899,8 @@ if (searchInput) {
 }
 
 restoreMiniAppState();
+renderPanelVisualDigest();
+renderPanelTools();
 renderView();
 renderAgentFactory();
 setAppView(state.appView || "home", { pushHistory: false });
