@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-15T14:30:01Z",
+  "generated_at": "2026-05-15T14:35:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
     "today": "41 входящих",
-    "errors": "2"
+    "errors": "3"
   },
   "tasks": {
     "total": 2,
@@ -35,11 +35,11 @@
     ]
   },
   "trace": {
-    "total_finishes": 23,
-    "finishes_24h": 0,
-    "finishes_7d": 23,
-    "errors_7d": 2,
-    "avg_latency_ms": 6379,
+    "total_finishes": 24,
+    "finishes_24h": 1,
+    "finishes_7d": 24,
+    "errors_7d": 3,
+    "avg_latency_ms": 6113,
     "top_intents": [
       [
         "bot_to_bot_outbound",
@@ -74,13 +74,17 @@
       [
         "relayed",
         2
+      ],
+      [
+        "reply_file_redirect",
+        1
       ]
     ],
     "last": {
-      "ts": "2026-05-14T14:22:28+0300",
-      "intent": "reply_risk_check",
-      "status": "success",
-      "latency_ms": 18336
+      "ts": "2026-05-15T17:34:44+0300",
+      "intent": "reply_file_task",
+      "status": "reply_file_redirect",
+      "latency_ms": 0
     }
   },
   "bridge": {
