@@ -26,6 +26,51 @@ KVR_MATERIALS_FILE = KVR_DIR / "kvr_materials.json"
 OUTPUT_FILE = ROOT / "data" / "smet-reference.json"
 SECTION_OUTPUT_DIR = ROOT / "data" / "smet-reference"
 SECTION_CHUNK_SIZE = 5000
+SNAPSHOT_VERSION = "smet-reference-panel-v4-bot-sections-gesn-analytics"
+
+BOT_SECTION_ORDER = [
+    "Подготовка территории",
+    "Временные ЗиС",
+    "Земляные работы",
+    "Водопонижение",
+    "Сваи и шпунты",
+    "Гидроизоляция",
+    "Покрытие стилобата",
+    "Монолитные конструкции",
+    "ЖБИ",
+    "СТК",
+    "Каменная кладка",
+    "Металлоконструкции",
+    "Кровля",
+    "Башенные краны",
+    "Лифты",
+    "Отопление",
+    "ВК",
+    "Вентиляция",
+    "ЭОМ",
+    "СС",
+    "ИТП",
+    "Кондиционирование",
+    "Фасады",
+    "Окна двери",
+    "Отделка МОП",
+    "Отделка квартир",
+    "Наружные сети",
+    "Благоустройство",
+    "Материалы",
+]
+
+SECTION_ALIASES = {
+    "водоснабжение и канализация": "ВК",
+    "электромонтажные работы": "ЭОМ",
+    "слаботочные системы": "СС",
+    "индивидуальные тепловые пункты": "ИТП",
+    "кладка": "Каменная кладка",
+    "спк": "Окна двери",
+    "окна и двери": "Окна двери",
+    "мтр": "Материалы",
+}
+TECHNICAL_SECTIONS = {"л6", "л7"}
 
 
 def clean_text(value: Any, limit: int = 420) -> str:
@@ -42,6 +87,14 @@ def num(value: Any) -> float:
 
 def normalize_key(value: Any) -> str:
     return " ".join(str(value or "").lower().replace("ё", "е").split())
+
+
+def canonical_section(value: Any) -> str:
+    section = clean_text(value, 120)
+    key = normalize_key(section)
+    if not key or key in TECHNICAL_SECTIONS:
+        return ""
+    return SECTION_ALIASES.get(key, section)
 
 
 def load_json(path: Path, default: Any) -> Any:
@@ -255,7 +308,7 @@ def rate_record(
     linked_materials: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     title = clean_text(item.get("desc") or item.get("description"), 420)
-    section = clean_text(item.get("section"), 120)
+    section = canonical_section(item.get("section"))
     kvr_info = lookup_kvr_info(title, section, kvr_index)
     kvr_code = clean_text(kvr_info.get("kvr_code") or item.get("kvr_code") or item.get("code"), 80)
     work = num(item.get("work"))
@@ -325,7 +378,10 @@ def main() -> None:
         if isinstance(item, dict) and (item.get("desc") or item.get("description"))
     ]
     gesn = [gesn_record(item, index) for index, item in enumerate(source_gesn, start=1) if isinstance(item, dict)]
-    sections = sorted({row["section"] for row in rates if row.get("section")})
+    sectioned_rates = [row for row in rates if row.get("section")]
+    sections_with_data = {row["section"] for row in sectioned_rates}
+    sections = [section for section in BOT_SECTION_ORDER if section in sections_with_data]
+    sections.extend(sorted(sections_with_data - set(sections)))
     SECTION_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     section_files: dict[str, list[str]] = {}
     for old_file in SECTION_OUTPUT_DIR.glob("*.json"):
@@ -337,7 +393,7 @@ def main() -> None:
         for chunk_index, chunk in enumerate(chunks, start=1):
             filename = f"section-{index:03d}-{chunk_index:02d}.json"
             section_payload = {
-                "version": "smet-reference-panel-v3-bot-search",
+                "version": SNAPSHOT_VERSION,
                 "section": section,
                 "count": len(section_items),
                 "chunk": chunk_index,
@@ -351,14 +407,15 @@ def main() -> None:
             urls.append(f"/data/smet-reference/{filename}")
         section_files[section] = urls
     payload = {
-        "version": "smet-reference-panel-v3-bot-search",
+        "version": SNAPSHOT_VERSION,
         "generated": date.today().isoformat(),
         "source": "Боевая база CostIQ: rates_store + КВР + материалы Л7 + ГЭСН",
         "stats": {
             "rates": len(source_rates),
-            "searchable_rates": len(rates),
-            "work_rates": sum(1 for row in rates if row.get("rate_kind") == "work"),
-            "material_rates": sum(1 for row in rates if row.get("rate_kind") == "material"),
+            "searchable_rates": len(sectioned_rates),
+            "unsectioned_rates": len(rates) - len(sectioned_rates),
+            "work_rates": sum(1 for row in sectioned_rates if row.get("rate_kind") == "work"),
+            "material_rates": sum(1 for row in sectioned_rates if row.get("rate_kind") == "material"),
             "gesn": len(gesn),
             "sections": len(sections),
             "kvr_links": len(rate_kvr_map) if isinstance(rate_kvr_map, dict) else len(rate_kvr_map or []),

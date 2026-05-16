@@ -106,7 +106,7 @@ const PANEL_TOOLS = [
     primaryLabel: "Открыть поиск",
     summary: "Интерактивный поиск по базе расценок и ГЭСН прямо в панели: ставка, материал/работа, основание, объект, трудозатраты, механизмы и материалы. Выбранную позицию можно сразу отправить в CostIQ как заявку.",
     steps: ["Запрос", "Поиск в базе", "Карточка работы", "Заявка из позиции"],
-    metrics: ["20k+ расценок", "8k+ ГЭСН", "карточка работы"],
+    metrics: ["73k+ расценок", "8k+ ГЭСН", "карточка работы"],
     anchor: "smet-reference-tool",
   },
   {
@@ -1979,6 +1979,24 @@ function scoreSmetReferenceGesn(item, parts) {
   return tokenSetRatio(parts.query, `${code} ${title}`);
 }
 
+function smetReferenceGesnAnalytics(rate) {
+  const data = state.smetReferenceData;
+  if (!rate || rate.type !== "rate" || !data || !Array.isArray(data.items)) {
+    return [];
+  }
+  const workTitle = String(rate.title || "").split(":")[0].replace(/[;,.]+$/g, " ").trim();
+  const parts = smetReferenceQueryParts(workTitle);
+  if (!parts.query || parts.query.length < 5) {
+    return [];
+  }
+  return data.items
+    .filter((item) => item.type === "gesn")
+    .map((item) => ({ ...item, _score: scoreSmetReferenceGesn(item, parts) }))
+    .filter((item) => item._score >= 72)
+    .sort((a, b) => b._score - a._score || String(a.code || "").localeCompare(String(b.code || ""), "ru"))
+    .slice(0, 5);
+}
+
 function currentSmetReferenceItems() {
   const data = state.smetReferenceData;
   if (!data || !Array.isArray(data.items)) {
@@ -2184,6 +2202,20 @@ function renderSmetReferenceCard() {
         return `<em>${escapeHtml([row.code, row.title, row.unit].filter(Boolean).join(" · "))}${escapeHtml(price)}</em>`;
       }).join("")}</div>`
     : "";
+  const gesnAnalytics = smetReferenceGesnAnalytics(item);
+  const gesnAnalyticsBlock = gesnAnalytics.length
+    ? `<div class="smet-card-list"><span>Похожие нормы ГЭСН</span>${gesnAnalytics.map((row) => {
+        const details = [
+          row.code,
+          row.labor_hours ? `${formatMoney(row.labor_hours)} чел-ч` : "",
+          row.unit,
+          row._score ? `${row._score}%` : "",
+        ].filter(Boolean).join(" · ");
+        return `<em>${escapeHtml(details)}<br>${escapeHtml(row.title || "")}</em>`;
+      }).join("")}</div>`
+    : item.type === "rate"
+      ? `<div class="smet-card-list muted"><span>ГЭСН-аналитика</span><em>Прямой связки с нормой нет. Можно искать похожие нормы по наименованию работы.</em></div>`
+      : "";
   card.innerHTML = `
     <article>
       <div class="smet-card-head">
@@ -2204,6 +2236,7 @@ function renderSmetReferenceCard() {
       ${materials}
       ${machines}
       ${linkedMaterials}
+      ${gesnAnalyticsBlock}
     </article>
   `;
 }
@@ -5484,7 +5517,7 @@ document.addEventListener("input", (event) => {
     return;
   }
   if (field && field.id === "smet-reference-query") {
-    state.smetReferenceQuery = field.value.trim();
+    state.smetReferenceQuery = field.value;
     renderSmetReferenceTool();
     return;
   }
