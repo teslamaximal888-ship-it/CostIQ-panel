@@ -3701,6 +3701,43 @@ function webStatusMessage(task) {
   return "Заявка принята. Ответ появится здесь после обработки.";
 }
 
+function webTaskCheckpointLabel(checkpoint) {
+  const normalized = String(checkpoint || "").toLowerCase();
+  const labels = {
+    file_received: "файл получен",
+    file_parsed: "файл распознан",
+    validated_input: "данные проверены",
+    matched_rates: "расценки сопоставлены",
+    calculated: "расчёт выполнен",
+    ai_review_started: "AI-анализ начат",
+    ai_review_done: "AI-анализ завершён",
+    result_file_created: "файл сформирован",
+    result_uploaded: "результат загружен",
+    ready_for_review: "готово к проверке",
+  };
+  return labels[normalized] || "";
+}
+
+function renderTaskCheckpoint(task) {
+  const checkpoint = task && task.checkpoint && typeof task.checkpoint === "object" ? task.checkpoint : {};
+  const label = webTaskCheckpointLabel(checkpoint.current);
+  if (!label && !checkpoint.message) {
+    return "";
+  }
+  const message = checkpoint.message || "Последний технический этап обработки";
+  const updated = checkpoint.updated_at ? ` · ${formatShortDate(checkpoint.updated_at)}` : "";
+  const completed = Array.isArray(checkpoint.completed) ? checkpoint.completed : [];
+  return `
+    <div class="web-checkpoint">
+      <span>
+        <strong>${escapeHtml(label || "checkpoint")}</strong>
+        <small>${escapeHtml(message)}${escapeHtml(updated)}</small>
+      </span>
+      ${completed.length ? `<em>${escapeHtml(String(completed.length))} этапов</em>` : ""}
+    </div>
+  `;
+}
+
 function recentFilterLabel(filter) {
   if (filter === "hidden") {
     return "Скрытые";
@@ -3955,10 +3992,12 @@ function renderTaskVisualSummary(task, primaryDownload) {
   const warnings = Array.isArray(task.warnings) ? task.warnings.filter(Boolean) : [];
   const version = `v${reviewVersion(task)}`;
   const fileLabel = primaryDownload ? primaryDownload.name || "готов" : task.file_name ? "входной файл" : "без файла";
+  const checkpointLabel = webTaskCheckpointLabel(task && task.checkpoint && task.checkpoint.current) || "нет";
   return `
     <div class="web-task-visual-summary">
       <div><span>Статус</span><strong>${escapeHtml(webTaskStatusLabel(task.status))}</strong></div>
       <div><span>Версия</span><strong>${escapeHtml(version)}</strong></div>
+      <div><span>Этап</span><strong>${escapeHtml(compact(checkpointLabel, 32))}</strong></div>
       <div><span>Файл</span><strong>${escapeHtml(compact(fileLabel, 32))}</strong></div>
       <div><span>Предупреждения</span><strong>${escapeHtml(String(warnings.length))}</strong></div>
     </div>
@@ -4217,6 +4256,7 @@ function renderWebTask(task) {
       </span>
     </div>
     <p class="web-task-message">${escapeHtml(webStatusMessage(task))}</p>
+    ${renderTaskCheckpoint(task)}
     ${renderTaskTimeline(task)}
     ${renderTaskVisualSummary(task, primaryDownload)}
     <dl>
@@ -4292,7 +4332,8 @@ function renderWebQueue(data) {
       const queueState = task.queue_state || {};
       const flags = [queueState.stale ? "зависла" : "", queueState.due ? "к обработке" : ""].filter(Boolean).join(" · ");
       const eta = formatQueueEta(queueState);
-      const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, flags, eta]
+      const checkpointLabel = webTaskCheckpointLabel(task && task.checkpoint && task.checkpoint.current);
+      const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, checkpointLabel, flags, eta]
         .filter(Boolean)
         .join(" · ");
       const title = recentTaskSummary(task);

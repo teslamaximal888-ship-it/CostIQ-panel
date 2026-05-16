@@ -1,4 +1,5 @@
 import { isTaskActive, isTaskBridgeDue, normalizeTaskStatus, taskLifecycleSnapshot } from "./_shared/task-lifecycle.js";
+import { taskCheckpointSnapshot } from "./_shared/task-checkpoints.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -192,6 +193,7 @@ export async function onRequestGet({ request, env }) {
       return {
         ...task,
         lifecycle: taskLifecycleSnapshot(task),
+        checkpoint: taskCheckpointSnapshot(task),
         queue_state: {
           stale: state.stale,
           due: state.due,

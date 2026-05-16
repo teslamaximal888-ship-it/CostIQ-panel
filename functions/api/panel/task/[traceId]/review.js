@@ -3,6 +3,7 @@ import {
   normalizeTaskStatus,
   transitionTaskStatus,
 } from "../../_shared/task-lifecycle.js";
+import { taskCheckpointSnapshot } from "../../_shared/task-checkpoints.js";
 
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
@@ -179,6 +180,7 @@ async function upsertTaskIndex(env, task) {
 
 function publicTask(task) {
   const { attachment, telegram_user, telegram_auth_date, retry_after, processing_started_at, processing_finished_at, ...safeTask } = task;
+  safeTask.checkpoint = taskCheckpointSnapshot(task);
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }

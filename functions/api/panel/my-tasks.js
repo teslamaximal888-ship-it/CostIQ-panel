@@ -1,4 +1,5 @@
 import { taskLifecycleSnapshot } from "./_shared/task-lifecycle.js";
+import { taskCheckpointSnapshot } from "./_shared/task-checkpoints.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -164,6 +165,7 @@ async function readTask(env, key) {
 function publicTask(task) {
   const { attachment, telegram_user, telegram_auth_date, ...safeTask } = task;
   safeTask.lifecycle = taskLifecycleSnapshot(task);
+  safeTask.checkpoint = taskCheckpointSnapshot(task);
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }

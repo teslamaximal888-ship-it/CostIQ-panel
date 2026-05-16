@@ -191,6 +191,14 @@ Version v41 adds the task state machine:
 - invalid jumps such as `created -> accepted` and `failed -> accepted` are rejected with `invalid_status_transition`
 - legacy `done` remains supported for old results and review compatibility
 
+Version v42 adds task checkpoints:
+
+- shared checkpoint module defines ordered processing milestones for long-running agent tasks
+- bridge can write progress through `POST /api/panel/task/:trace_id/checkpoint`
+- checkpoints are stored separately from lifecycle status as `checkpoint.current`, `completed`, `message`, `payload`, and `allowed_next`
+- invalid jumps such as `file_received -> result_uploaded` are rejected with `invalid_checkpoint_transition`
+- public task cards and the admin queue expose the current technical stage without leaking R2 keys or secrets
+
 Manual snapshot refresh:
 
 ```bash
