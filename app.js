@@ -3724,6 +3724,7 @@ function webTaskEventLabel(type) {
     task_created: "заявка создана",
     state_changed: "статус изменён",
     checkpoint_saved: "checkpoint",
+    resume_scheduled: "resume",
     operator_event: "оператор",
     bridge_event: "bridge",
     ready_for_review: "готово к проверке",
@@ -3752,6 +3753,26 @@ function renderTaskCheckpoint(task) {
         <small>${escapeHtml(message)}${escapeHtml(updated)}</small>
       </span>
       ${completed.length ? `<em>${escapeHtml(String(completed.length))} этапов</em>` : ""}
+    </div>
+  `;
+}
+
+function renderTaskResume(task) {
+  const resume = task && task.resume && typeof task.resume === "object" ? task.resume : {};
+  if (!resume.requested_at && !resume.can_resume) {
+    return "";
+  }
+  const checkpointLabel = webTaskCheckpointLabel(resume.checkpoint) || resume.checkpoint || "с начала";
+  const next = Array.isArray(resume.next_checkpoints) ? resume.next_checkpoints.map((item) => webTaskCheckpointLabel(item) || item).filter(Boolean) : [];
+  const requested = resume.requested_at ? ` · ${formatShortDate(resume.requested_at)}` : "";
+  const message = resume.message || (resume.can_resume ? "Можно продолжить от последнего checkpoint" : "Последний resume-контекст");
+  return `
+    <div class="web-resume">
+      <span>
+        <strong>${escapeHtml(`Resume: ${checkpointLabel}`)}</strong>
+        <small>${escapeHtml(message)}${escapeHtml(requested)}</small>
+      </span>
+      ${next.length ? `<em>${escapeHtml(compact(next.join(", "), 80))}</em>` : ""}
     </div>
   `;
 }
@@ -4308,6 +4329,7 @@ function renderWebTask(task) {
     </div>
     <p class="web-task-message">${escapeHtml(webStatusMessage(task))}</p>
     ${renderTaskCheckpoint(task)}
+    ${renderTaskResume(task)}
     ${renderTaskTimeline(task)}
     ${renderTaskVisualSummary(task, primaryDownload)}
     ${renderTaskEventLog(task, { limit: 5 })}
@@ -4401,11 +4423,12 @@ function renderWebQueue(data) {
             <small>${escapeHtml(detail)}</small>
             ${lastEventLine ? `<small>${escapeHtml(compact(lastEventLine, 180))}</small>` : ""}
             ${task.error_text ? `<small>${escapeHtml(compact(task.error_text, 160))}</small>` : ""}
+            ${renderTaskResume(task)}
             ${renderTaskEventLog(task, { limit: 4, title: "Operator-view" })}
           </div>
           <span class="queue-actions">
             <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
-            ${["failed", "retry"].includes(String(task.status || "").toLowerCase()) ? `<button type="button" class="ghost-button" data-web-retry="${escapeHtml(task.trace_id)}">Повторить</button>` : ""}
+            ${task.resume && task.resume.can_resume ? `<button type="button" class="ghost-button" data-web-retry="${escapeHtml(task.trace_id)}">Resume</button>` : ""}
           </span>
         </div>
       `;
@@ -4503,25 +4526,24 @@ async function retryWebTask(traceId) {
     showToast("Нужен админ-токен");
     return;
   }
-  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/result`, {
+  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/resume`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-CostIQ-Admin": token,
     },
     body: JSON.stringify({
-      status: "retry",
-      result: "",
-      error_text: "",
+      mode: "resume",
+      source: "admin_queue",
+      message: "Оператор запустил повтор от последнего checkpoint",
       retry_after: "",
-      attempts: 0,
     }),
   });
   if (!response.ok) {
     showToast(`Повтор не запущен: HTTP ${response.status}`);
     return;
   }
-  showToast("Заявка возвращена в обработку");
+  showToast("Resume запланирован");
   refreshWebQueue();
 }
 

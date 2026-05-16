@@ -19,6 +19,9 @@ function eventCategory(event) {
   if (type === "checkpoint_saved") {
     return "checkpoint";
   }
+  if (type === "resume_scheduled") {
+    return "resume";
+  }
   if (type === "state_changed" || type === "task_created") {
     return "lifecycle";
   }

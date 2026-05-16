@@ -1,6 +1,7 @@
 import { isTaskActive, isTaskBridgeDue, normalizeTaskStatus, taskLifecycleSnapshot } from "./_shared/task-lifecycle.js";
 import { taskCheckpointSnapshot } from "./_shared/task-checkpoints.js";
 import { taskEventLogSnapshot } from "./_shared/task-events.js";
+import { taskResumeSnapshot } from "./_shared/task-resume.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -191,11 +192,16 @@ export async function onRequestGet({ request, env }) {
       .filter(Boolean)
       .map((task) => {
       const state = queueState(task, now, staleMs);
+      const resume = taskResumeSnapshot(task);
+      if (state.status === "in_progress" && state.stale) {
+        resume.can_resume = true;
+      }
       return {
         ...task,
         lifecycle: taskLifecycleSnapshot(task),
         checkpoint: taskCheckpointSnapshot(task),
         events: taskEventLogSnapshot(task, 30),
+        resume,
         queue_state: {
           stale: state.stale,
           due: state.due,

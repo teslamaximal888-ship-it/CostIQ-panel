@@ -206,6 +206,14 @@ Version v43 adds task event logs and operator-view:
 - public task, my-tasks, review response and admin queue expose compact event history without attachments, Telegram auth data or R2 keys
 - `/admin/` Web-очередь shows last event, checkpoint, error text and a short operator timeline for each task
 
+Version v44 adds checkpoint-based resume/retry:
+
+- shared resume module builds a safe `resume` snapshot from task status and the last checkpoint
+- admin/bridge can schedule continuation through `POST /api/panel/task/:trace_id/resume`
+- resumable tasks are `failed`, `retry`, and stale `in_progress`; the task returns to `retry` with the same `trace_id`
+- the resume contract stores checkpoint, completed checkpoints, next checkpoints, attempt, requester and message
+- `/admin/` uses the resume endpoint instead of overwriting status through the result API, and shows resume context in operator-view
+
 Manual snapshot refresh:
 
 ```bash

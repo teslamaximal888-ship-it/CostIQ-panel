@@ -1,6 +1,7 @@
 import { taskLifecycleSnapshot } from "./_shared/task-lifecycle.js";
 import { taskCheckpointSnapshot } from "./_shared/task-checkpoints.js";
 import { taskEventLogSnapshot } from "./_shared/task-events.js";
+import { taskResumeSnapshot } from "./_shared/task-resume.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -168,6 +169,7 @@ function publicTask(task) {
   safeTask.lifecycle = taskLifecycleSnapshot(task);
   safeTask.checkpoint = taskCheckpointSnapshot(task);
   safeTask.events = taskEventLogSnapshot(task, 30);
+  safeTask.resume = taskResumeSnapshot(task);
   if (attachment) {
     safeTask.attachment_status = task.attachment_status || "stored";
   }
