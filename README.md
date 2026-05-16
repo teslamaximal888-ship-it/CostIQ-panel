@@ -214,10 +214,19 @@ Version v44 adds checkpoint-based resume/retry:
 - the resume contract stores checkpoint, completed checkpoints, next checkpoints, attempt, requester and message
 - `/admin/` uses the resume endpoint instead of overwriting status through the result API, and shows resume context in operator-view
 
+Version v46 adds the interactive smet reference tool:
+
+- the `Инструменты` card `Сметный справочник` opens a dedicated frontend search screen instead of a plain intake form
+- public snapshot `data/smet-reference.json` contains safe compact fields from the unified smet database: rates, sections, GESN labor, materials and machines
+- `scripts/build_smet_reference_data.py` rebuilds the snapshot from `/home/ClawdLangust/data/unified_smet_db.json`
+- users can filter by source and section, inspect a work card, then send the selected position into the normal `smet_reference` CostIQ request
+- the source databases remain read-only; the panel snapshot does not expose secrets or write to `/home/ClawdLangust/data`
+
 Manual snapshot refresh:
 
 ```bash
 python3 scripts/build_panel_data.py
+python3 scripts/build_smet_reference_data.py
 ```
 
 Automatic refresh command:

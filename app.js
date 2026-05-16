@@ -16,6 +16,7 @@ const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
+const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
 const AGENT_FACTORY_SUPPORT_CHAT = "-1003923170152";
 const OFFICE_FITOUT_RATES = {
@@ -100,12 +101,12 @@ const PANEL_TOOLS = [
     input: "описание работы или код",
     output: "карточка работы",
     tone: "teal",
-    skillId: "smet_reference",
     visibility: "public",
-    primaryLabel: "Найти расценку",
-    summary: "Рабочая карточка поиска по базе расценок, КВР, ГЭСН, материалам и механизмам. Подходит для быстрых справок и проверки основания цены перед заявкой.",
-    steps: ["Запрос", "Поиск в базе", "Карточка работы", "Основание и диапазон"],
-    metrics: ["расценки", "ГЭСН", "материалы"],
+    primaryLabel: "Открыть поиск",
+    summary: "Интерактивный поиск по базе расценок и ГЭСН прямо в панели: ставка, материал/работа, основание, объект, трудозатраты, механизмы и материалы. Выбранную позицию можно сразу отправить в CostIQ как заявку.",
+    steps: ["Запрос", "Поиск в базе", "Карточка работы", "Заявка из позиции"],
+    metrics: ["20k+ расценок", "8k+ ГЭСН", "карточка работы"],
+    anchor: "smet-reference-tool",
   },
   {
     id: "office_calc",
@@ -940,6 +941,12 @@ const state = {
   homeFeedItems: [],
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
+  smetReferenceData: null,
+  smetReferenceQuery: "",
+  smetReferenceScope: "all",
+  smetReferenceSection: "all",
+  smetReferenceSelectedId: "",
+  smetReferenceResults: [],
   appViewHistory: [],
   agentFactoryStep: "request",
   restoringState: false,
@@ -1036,6 +1043,8 @@ function setAppView(view, options = {}) {
   }
   if (nextView === "tools") {
     renderAgentFactory();
+    loadSmetReferenceData();
+    renderSmetReferenceTool();
   }
   saveMiniAppState();
   updateProfileNotice();
@@ -1813,6 +1822,304 @@ function openPanelTool(tool) {
       intake.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}. -]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function smetReferenceLabel(item) {
+  if (!item) {
+    return "";
+  }
+  return item.type === "gesn" ? "ГЭСН" : "расценка";
+}
+
+function smetReferencePrice(item) {
+  if (!item) {
+    return "";
+  }
+  if (item.type === "gesn") {
+    return item.labor_hours ? `${formatMoney(item.labor_hours)} чел-ч` : "норма";
+  }
+  return item.total ? `${formatMoney(item.total)} руб./${item.unit || "ед."}` : "без цены";
+}
+
+function smetReferenceSearchBlob(item) {
+  return normalizeSearchText([
+    item.title,
+    item.code,
+    item.unit,
+    item.section,
+    item.basis,
+    item.object,
+    Array.isArray(item.materials) ? item.materials.join(" ") : "",
+    Array.isArray(item.machines) ? item.machines.join(" ") : "",
+  ].join(" "));
+}
+
+function scoreSmetReferenceItem(item, queryTokens, rawQuery) {
+  const blob = item._search || smetReferenceSearchBlob(item);
+  let score = 0;
+  if (rawQuery && item.code && normalizeSearchText(item.code).includes(rawQuery)) {
+    score += 80;
+  }
+  for (const token of queryTokens) {
+    if (!token) {
+      continue;
+    }
+    if (normalizeSearchText(item.code).includes(token)) {
+      score += 45;
+    }
+    if (normalizeSearchText(item.title).includes(token)) {
+      score += 25;
+    }
+    if (blob.includes(token)) {
+      score += 10;
+    }
+  }
+  if (item.type === "rate" && item.total) {
+    score += 4;
+  }
+  if (item.basis) {
+    score += 2;
+  }
+  return score;
+}
+
+function currentSmetReferenceItems() {
+  const data = state.smetReferenceData;
+  if (!data || !Array.isArray(data.items)) {
+    return [];
+  }
+  return data.items;
+}
+
+function findSmetReferenceItem(id) {
+  return currentSmetReferenceItems().find((item) => item.id === id) || null;
+}
+
+function searchSmetReference() {
+  const items = currentSmetReferenceItems();
+  const rawQuery = normalizeSearchText(state.smetReferenceQuery);
+  const tokens = rawQuery.split(" ").filter((token) => token.length >= 2);
+  const hasQuery = tokens.length > 0;
+  const section = state.smetReferenceSection;
+  const scope = state.smetReferenceScope;
+  const filtered = items.filter((item) => {
+    if (scope !== "all" && item.type !== scope) {
+      return false;
+    }
+    if (section !== "all" && item.section !== section) {
+      return false;
+    }
+    if (!hasQuery) {
+      return item.type === "rate" && Number(item.total || 0) > 0;
+    }
+    return scoreSmetReferenceItem(item, tokens, rawQuery) > 0;
+  });
+  const scored = filtered
+    .map((item) => ({ item, score: hasQuery ? scoreSmetReferenceItem(item, tokens, rawQuery) : Number(item.total || 0) }))
+    .sort((a, b) => b.score - a.score || String(a.item.title || "").localeCompare(String(b.item.title || ""), "ru"))
+    .slice(0, 40)
+    .map((row) => row.item);
+  state.smetReferenceResults = scored;
+  if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
+    state.smetReferenceSelectedId = scored[0] ? scored[0].id : "";
+  }
+}
+
+function renderSmetReferenceFilters() {
+  const data = state.smetReferenceData;
+  const sectionSelect = document.getElementById("smet-reference-section");
+  if (!data || !sectionSelect || sectionSelect.dataset.ready === "1") {
+    return;
+  }
+  const sections = Array.isArray(data.sections) ? data.sections : [];
+  sectionSelect.innerHTML = [
+    `<option value="all">Все разделы</option>`,
+    ...sections.map((section) => `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`),
+  ].join("");
+  sectionSelect.dataset.ready = "1";
+}
+
+function renderSmetReferenceResults() {
+  const container = document.getElementById("smet-reference-results");
+  if (!container) {
+    return;
+  }
+  const results = state.smetReferenceResults || [];
+  if (!results.length) {
+    container.innerHTML = `<div class="empty">Введите запрос или выберите раздел</div>`;
+    return;
+  }
+  container.innerHTML = results.map((item) => `
+    <button type="button" class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}">
+      <span>${escapeHtml(smetReferenceLabel(item))}</span>
+      <strong>${escapeHtml(item.title || "Без названия")}</strong>
+      <small>${escapeHtml([item.code, item.section, item.unit].filter(Boolean).join(" · "))}</small>
+      <em>${escapeHtml(smetReferencePrice(item))}</em>
+    </button>
+  `).join("");
+}
+
+function renderSmetReferenceCard() {
+  const card = document.getElementById("smet-reference-card");
+  if (!card) {
+    return;
+  }
+  const item = findSmetReferenceItem(state.smetReferenceSelectedId);
+  if (!item) {
+    card.innerHTML = `<div class="empty">Выберите позицию из результатов</div>`;
+    return;
+  }
+  const priceBlock = item.type === "gesn"
+    ? `
+      <div class="smet-card-metrics">
+        <div><span>Трудозатраты</span><strong>${escapeHtml(formatMoney(item.labor_hours || 0))}</strong><small>чел-ч / ${escapeHtml(item.unit || "ед.")}</small></div>
+        <div><span>Разряд</span><strong>${escapeHtml(item.rank || "-")}</strong><small>${escapeHtml(item.section || "ГЭСН")}</small></div>
+      </div>
+    `
+    : `
+      <div class="smet-card-metrics">
+        <div><span>Всего</span><strong>${escapeHtml(formatMoney(item.total || 0))}</strong><small>руб./${escapeHtml(item.unit || "ед.")}</small></div>
+        <div><span>Работа</span><strong>${escapeHtml(formatMoney(item.work || 0))}</strong><small>руб.</small></div>
+        <div><span>Материал</span><strong>${escapeHtml(formatMoney(item.material || 0))}</strong><small>руб.</small></div>
+      </div>
+    `;
+  const materials = Array.isArray(item.materials) && item.materials.length
+    ? `<div class="smet-card-list"><span>Материалы</span>${item.materials.map((row) => `<em>${escapeHtml(row)}</em>`).join("")}</div>`
+    : "";
+  const machines = Array.isArray(item.machines) && item.machines.length
+    ? `<div class="smet-card-list"><span>Механизмы</span>${item.machines.map((row) => `<em>${escapeHtml(row)}</em>`).join("")}</div>`
+    : "";
+  card.innerHTML = `
+    <article>
+      <div class="smet-card-head">
+        <span>${escapeHtml(smetReferenceLabel(item))}</span>
+        <em>${escapeHtml(item.code || item.section || "")}</em>
+      </div>
+      <h3>${escapeHtml(item.title || "Без названия")}</h3>
+      ${priceBlock}
+      <dl>
+        <div><dt>Ед. изм.</dt><dd>${escapeHtml(item.unit || "-")}</dd></div>
+        <div><dt>Раздел</dt><dd>${escapeHtml(item.section || "-")}</dd></div>
+        <div><dt>Основание</dt><dd>${escapeHtml(item.basis || "-")}</dd></div>
+        <div><dt>Объект</dt><dd>${escapeHtml(item.object || "-")}</dd></div>
+      </dl>
+      ${materials}
+      ${machines}
+    </article>
+  `;
+}
+
+function renderSmetReferenceTool() {
+  const section = document.getElementById("smet-reference-tool");
+  if (!section) {
+    return;
+  }
+  section.hidden = state.appView !== "tools" || state.panelToolId !== "smet_reference";
+  if (section.hidden) {
+    return;
+  }
+  renderSmetReferenceFilters();
+  const query = document.getElementById("smet-reference-query");
+  const scope = document.getElementById("smet-reference-scope");
+  const sectionSelect = document.getElementById("smet-reference-section");
+  if (query && query.value !== state.smetReferenceQuery) {
+    query.value = state.smetReferenceQuery;
+  }
+  if (scope) {
+    scope.value = state.smetReferenceScope;
+  }
+  if (sectionSelect) {
+    sectionSelect.value = state.smetReferenceSection;
+  }
+  searchSmetReference();
+  const data = state.smetReferenceData;
+  const stats = data && data.stats ? data.stats : null;
+  setText("smet-reference-status", stats ? `${formatMoney(stats.rates)} расценок · ${formatMoney(stats.gesn)} ГЭСН` : "загрузка");
+  renderSmetReferenceResults();
+  renderSmetReferenceCard();
+}
+
+async function loadSmetReferenceData() {
+  if (state.smetReferenceData) {
+    return;
+  }
+  try {
+    const response = await fetch(`${SMET_REFERENCE_DATA_URL}?ts=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(data.items)) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    data.items = data.items.map((item) => ({ ...item, _search: smetReferenceSearchBlob(item) }));
+    state.smetReferenceData = data;
+    renderSmetReferenceTool();
+  } catch (error) {
+    setText("smet-reference-status", "ошибка");
+    const results = document.getElementById("smet-reference-results");
+    if (results) {
+      results.innerHTML = `<div class="empty">Не удалось загрузить сметный справочник</div>`;
+    }
+  }
+}
+
+function smetReferenceRequestText(item) {
+  if (!item) {
+    return "";
+  }
+  const lines = [
+    `Нужна проверка / пояснение по позиции сметного справочника.`,
+    `Источник: ${smetReferenceLabel(item)}`,
+    item.code ? `Код: ${item.code}` : "",
+    `Наименование: ${item.title || ""}`,
+    item.unit ? `Ед. изм.: ${item.unit}` : "",
+    item.section ? `Раздел: ${item.section}` : "",
+    item.type === "gesn"
+      ? `Трудозатраты: ${formatMoney(item.labor_hours || 0)} чел-ч`
+      : `Цена: всего ${formatMoney(item.total || 0)} руб., работа ${formatMoney(item.work || 0)} руб., материал ${formatMoney(item.material || 0)} руб.`,
+    item.basis ? `Основание: ${item.basis}` : "",
+    item.object ? `Объект: ${item.object}` : "",
+  ].filter(Boolean);
+  return lines.join("\n");
+}
+
+function sendSmetReferenceToCostIQ() {
+  const item = findSmetReferenceItem(state.smetReferenceSelectedId);
+  if (!item) {
+    showToast("Выберите позицию");
+    return;
+  }
+  setAppView("skills");
+  selectWebSkill("smet_reference", { renderCards: true });
+  const query = document.querySelector("#web-dynamic-fields [name='query']");
+  const unit = document.querySelector("#web-dynamic-fields [name='unit']");
+  const section = document.querySelector("#web-dynamic-fields [name='section']");
+  const comment = document.querySelector("#web-dynamic-fields [name='comment']");
+  if (query) {
+    query.value = item.title || "";
+  }
+  if (unit) {
+    unit.value = item.unit || "";
+  }
+  if (section) {
+    section.value = item.section || "";
+  }
+  if (comment) {
+    comment.value = smetReferenceRequestText(item);
+  }
+  saveWebIntakeDraft();
+  const intake = document.getElementById("web-intake");
+  if (intake) {
+    intake.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  showToast("Позиция перенесена в заявку");
 }
 
 function openPanelToolSkill(skillId) {
@@ -4796,6 +5103,7 @@ document.addEventListener("click", (event) => {
   if (toolSelectButton) {
     state.panelToolId = toolSelectButton.dataset.toolSelect;
     renderPanelTools();
+    renderSmetReferenceTool();
     saveMiniAppState();
     return;
   }
@@ -4894,6 +5202,31 @@ document.addEventListener("click", (event) => {
     const calc = saved.find((item) => item.id === officeLoadButton.dataset.officeLoad);
     applyOfficeCalculation(calc);
     showToast("Расчёт загружен");
+    return;
+  }
+
+  const smetReferenceResult = event.target.closest("[data-smet-reference-id]");
+  if (smetReferenceResult) {
+    state.smetReferenceSelectedId = smetReferenceResult.dataset.smetReferenceId || "";
+    renderSmetReferenceResults();
+    renderSmetReferenceCard();
+    return;
+  }
+
+  const smetReferenceAction = event.target.closest("[data-smet-reference-action]");
+  if (smetReferenceAction) {
+    const action = smetReferenceAction.dataset.smetReferenceAction;
+    if (action === "clear") {
+      state.smetReferenceQuery = "";
+      state.smetReferenceScope = "all";
+      state.smetReferenceSection = "all";
+      state.smetReferenceSelectedId = "";
+      renderSmetReferenceTool();
+    }
+    if (action === "send") {
+      sendSmetReferenceToCostIQ();
+    }
+    return;
   }
 });
 
@@ -4924,6 +5257,11 @@ document.addEventListener("input", (event) => {
     renderOfficeCalculator();
     return;
   }
+  if (field && field.id === "smet-reference-query") {
+    state.smetReferenceQuery = field.value.trim();
+    renderSmetReferenceTool();
+    return;
+  }
   if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
     saveWebIntakeDraft();
     updateTelegramControls();
@@ -4949,6 +5287,16 @@ document.addEventListener("change", (event) => {
   }
   if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
     renderOfficeCalculator();
+    return;
+  }
+  if (field && field.id === "smet-reference-scope") {
+    state.smetReferenceScope = field.value || "all";
+    renderSmetReferenceTool();
+    return;
+  }
+  if (field && field.id === "smet-reference-section") {
+    state.smetReferenceSection = field.value || "all";
+    renderSmetReferenceTool();
     return;
   }
   if (field && field.closest && field.closest("#agent-factory-form")) {

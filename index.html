@@ -315,6 +315,46 @@
         <div class="tool-detail" id="panel-tool-detail"></div>
       </section>
 
+      <section class="smet-reference-section" id="smet-reference-tool" data-app-section="tools">
+        <div class="section-head">
+          <div>
+            <h2>Сметный справочник</h2>
+            <p>Поиск по расценкам ФСК, КВР и ГЭСН без создания заявки</p>
+          </div>
+          <span id="smet-reference-status">загрузка</span>
+        </div>
+        <div class="smet-reference-tool">
+          <div class="smet-search-panel">
+            <div class="field wide">
+              <label for="smet-reference-query">Запрос</label>
+              <input id="smet-reference-query" type="search" autocomplete="off" placeholder="Каменная кладка, кабель ВВГнг, ГЭСН 08-02-409">
+            </div>
+            <div class="field">
+              <label for="smet-reference-scope">Источник</label>
+              <select id="smet-reference-scope">
+                <option value="all">Всё</option>
+                <option value="rate">Расценки</option>
+                <option value="gesn">ГЭСН</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="smet-reference-section">Раздел</label>
+              <select id="smet-reference-section">
+                <option value="all">Все разделы</option>
+              </select>
+            </div>
+            <div class="smet-reference-actions">
+              <button type="button" class="ghost-button" data-smet-reference-action="clear">Очистить</button>
+              <button type="button" class="submit-button" data-smet-reference-action="send">Отправить в CostIQ</button>
+            </div>
+          </div>
+          <div class="smet-reference-layout">
+            <div class="smet-results" id="smet-reference-results"></div>
+            <div class="smet-card" id="smet-reference-card"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="tasks-section" data-app-section="tasks">
         <div class="web-recent" id="web-recent" hidden></div>
       </section>

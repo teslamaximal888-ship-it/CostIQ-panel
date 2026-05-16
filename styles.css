@@ -816,6 +816,217 @@ h2 {
   font-weight: 700;
 }
 
+.smet-reference-section {
+  margin-top: 14px;
+}
+
+.smet-reference-tool {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.smet-search-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 150px minmax(180px, 0.7fr) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.smet-reference-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.smet-reference-actions button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.smet-reference-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1.14fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.smet-results {
+  display: grid;
+  gap: 8px;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.smet-result {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-height: 98px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.smet-result:hover,
+.smet-result.active {
+  border-color: rgba(88, 210, 196, 0.58);
+  background: linear-gradient(180deg, rgba(88, 210, 196, 0.08), var(--surface));
+}
+
+.smet-result span,
+.smet-result small,
+.smet-result em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.smet-result span {
+  color: var(--teal);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.smet-result strong {
+  line-height: 1.25;
+}
+
+.smet-card {
+  min-width: 0;
+}
+
+.smet-card article {
+  padding: 14px;
+  border: 1px solid rgba(88, 210, 196, 0.35);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #151819 0%, #172021 66%, #161d22 100%);
+}
+
+.smet-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.smet-card-head span,
+.smet-card-head em {
+  padding: 5px 8px;
+  border: 1px solid rgba(88, 210, 196, 0.36);
+  border-radius: 999px;
+  color: var(--teal);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.smet-card-head em {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.smet-card h3 {
+  margin: 12px 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.smet-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.smet-card-metrics div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.smet-card-metrics span,
+.smet-card-metrics small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.smet-card-metrics strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.smet-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.smet-card dl div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.smet-card dt,
+.smet-card dd {
+  margin: 0;
+}
+
+.smet-card dt,
+.smet-card-list span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.smet-card dd {
+  margin-top: 5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.smet-card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.smet-card-list span {
+  flex: 0 0 100%;
+}
+
+.smet-card-list em {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 12px;
+  font-style: normal;
+}
+
 .factory-steps {
   display: flex;
   gap: 8px;
@@ -2680,6 +2891,10 @@ h2 {
   .calculator-inputs,
   .calculator-summary,
   .calculator-options,
+  .smet-search-panel,
+  .smet-reference-layout,
+  .smet-card-metrics,
+  .smet-card dl,
   .public-skill-grid,
   .activity-grid,
   .trace-summary,
@@ -2735,6 +2950,15 @@ h2 {
 
   .calculator-option b {
     grid-column: 2;
+  }
+
+  .smet-reference-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .smet-results {
+    max-height: 420px;
   }
 
   .view-toggle {
