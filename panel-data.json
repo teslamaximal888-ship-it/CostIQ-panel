@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-16T13:00:01Z",
+  "generated_at": "2026-05-16T13:05:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
@@ -37,13 +37,13 @@
   "trace": {
     "total_finishes": 25,
     "finishes_24h": 2,
-    "finishes_7d": 24,
+    "finishes_7d": 22,
     "errors_7d": 3,
-    "avg_latency_ms": 17565,
+    "avg_latency_ms": 19143,
     "top_intents": [
       [
         "bot_to_bot_outbound",
-        13
+        11
       ],
       [
         "reply_context",
@@ -65,7 +65,7 @@
     "top_statuses": [
       [
         "sent",
-        13
+        11
       ],
       [
         "success",
