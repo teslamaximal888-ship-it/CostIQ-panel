@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-16T14:35:01Z",
+  "generated_at": "2026-05-16T14:40:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
@@ -36,7 +36,7 @@
   },
   "trace": {
     "total_finishes": 25,
-    "finishes_24h": 1,
+    "finishes_24h": 0,
     "finishes_7d": 18,
     "errors_7d": 3,
     "avg_latency_ms": 21934,
