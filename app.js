@@ -3718,6 +3718,24 @@ function webTaskCheckpointLabel(checkpoint) {
   return labels[normalized] || "";
 }
 
+function webTaskEventLabel(type) {
+  const normalized = String(type || "").toLowerCase();
+  const labels = {
+    task_created: "заявка создана",
+    state_changed: "статус изменён",
+    checkpoint_saved: "checkpoint",
+    operator_event: "оператор",
+    bridge_event: "bridge",
+    ready_for_review: "готово к проверке",
+    question_requested: "вопрос",
+    revision_requested: "доработка",
+    accepted: "принято",
+    closed: "закрыто",
+    closed_by_timeout: "закрыто по сроку",
+  };
+  return labels[normalized] || webTaskStatusLabel(normalized);
+}
+
 function renderTaskCheckpoint(task) {
   const checkpoint = task && task.checkpoint && typeof task.checkpoint === "object" ? task.checkpoint : {};
   const label = webTaskCheckpointLabel(checkpoint.current);
@@ -3734,6 +3752,39 @@ function renderTaskCheckpoint(task) {
         <small>${escapeHtml(message)}${escapeHtml(updated)}</small>
       </span>
       ${completed.length ? `<em>${escapeHtml(String(completed.length))} этапов</em>` : ""}
+    </div>
+  `;
+}
+
+function renderTaskEventLog(task, options = {}) {
+  const events = task && task.events && typeof task.events === "object" ? task.events : {};
+  const items = Array.isArray(events.items) ? events.items : [];
+  const limit = Number(options.limit || 5);
+  const title = options.title || "Ход задачи";
+  if (!items.length && !events.last_error) {
+    return "";
+  }
+  const visibleItems = items.slice(-limit).reverse();
+  return `
+    <div class="web-event-log">
+      <div class="web-event-log-head">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(String(events.total || items.length))} событий</small>
+      </div>
+      ${events.last_error ? `<div class="web-event-row danger"><span>ошибка</span><small>${escapeHtml(compact(events.last_error, 180))}</small></div>` : ""}
+      ${visibleItems.map((event) => {
+        const checkpoint = webTaskCheckpointLabel(event.checkpoint) || event.checkpoint || "";
+        const movement = event.from || event.to ? [event.from, event.to].filter(Boolean).join(" → ") : "";
+        const detail = event.message || checkpoint || movement || event.source || "";
+        const meta = [event.actor, formatShortDate(event.created_at)].filter(Boolean).join(" · ");
+        return `
+          <div class="web-event-row" data-category="${escapeHtml(event.category || "system")}">
+            <span>${escapeHtml(webTaskEventLabel(event.type))}</span>
+            <small>${escapeHtml(compact(detail || meta, 180))}</small>
+            ${meta ? `<em>${escapeHtml(meta)}</em>` : ""}
+          </div>
+        `;
+      }).join("")}
     </div>
   `;
 }
@@ -4259,6 +4310,7 @@ function renderWebTask(task) {
     ${renderTaskCheckpoint(task)}
     ${renderTaskTimeline(task)}
     ${renderTaskVisualSummary(task, primaryDownload)}
+    ${renderTaskEventLog(task, { limit: 5 })}
     <dl>
       <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
       <div><dt>Запрос</dt><dd>${escapeHtml(objectLabel)}</dd></div>
@@ -4333,17 +4385,24 @@ function renderWebQueue(data) {
       const flags = [queueState.stale ? "зависла" : "", queueState.due ? "к обработке" : ""].filter(Boolean).join(" · ");
       const eta = formatQueueEta(queueState);
       const checkpointLabel = webTaskCheckpointLabel(task && task.checkpoint && task.checkpoint.current);
+      const events = task.events && typeof task.events === "object" ? task.events : {};
+      const lastEvent = Array.isArray(events.items) && events.items.length ? events.items[events.items.length - 1] : null;
+      const lastEventLine = lastEvent
+        ? `${webTaskEventLabel(lastEvent.type)}${lastEvent.message ? `: ${lastEvent.message}` : ""}`
+        : "";
       const detail = [task.trace_id, task.skill_title || task.skill, task.updated_at || task.created_at, checkpointLabel, flags, eta]
         .filter(Boolean)
         .join(" · ");
       const title = recentTaskSummary(task);
       return `
         <div class="activity-item">
-          <span>
+          <div>
             <strong>${escapeHtml(compact(title, 90))}</strong>
             <small>${escapeHtml(detail)}</small>
+            ${lastEventLine ? `<small>${escapeHtml(compact(lastEventLine, 180))}</small>` : ""}
             ${task.error_text ? `<small>${escapeHtml(compact(task.error_text, 160))}</small>` : ""}
-          </span>
+            ${renderTaskEventLog(task, { limit: 4, title: "Operator-view" })}
+          </div>
           <span class="queue-actions">
             <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
             ${["failed", "retry"].includes(String(task.status || "").toLowerCase()) ? `<button type="button" class="ghost-button" data-web-retry="${escapeHtml(task.trace_id)}">Повторить</button>` : ""}

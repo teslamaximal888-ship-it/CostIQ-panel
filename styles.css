@@ -1950,6 +1950,63 @@ h2 {
   font-style: normal;
 }
 
+.web-event-log {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.web-event-log-head,
+.web-event-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.web-event-log-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.web-event-log-head strong,
+.web-event-row span {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.web-event-log-head small,
+.web-event-row small,
+.web-event-row em {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+  font-style: normal;
+}
+
+.web-event-row {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.web-event-row[data-category="checkpoint"] span {
+  color: var(--blue);
+}
+
+.web-event-row[data-category="review"] span {
+  color: var(--green);
+}
+
+.web-event-row.danger span,
+.web-event-row[data-category="error"] span {
+  color: var(--red);
+}
+
 .web-task-visual-summary {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2458,6 +2515,21 @@ h2 {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.3;
+}
+
+.activity-item .web-event-log {
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.activity-item .web-event-log-head,
+.activity-item .web-event-row {
+  grid-template-columns: minmax(92px, 0.34fr) minmax(0, 1fr);
+}
+
+.activity-item .web-event-row em {
+  grid-column: 1 / -1;
+  margin-top: -2px;
 }
 
 .activity-item em {

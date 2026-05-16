@@ -199,6 +199,13 @@ Version v42 adds task checkpoints:
 - invalid jumps such as `file_received -> result_uploaded` are rejected with `invalid_checkpoint_transition`
 - public task cards and the admin queue expose the current technical stage without leaking R2 keys or secrets
 
+Version v43 adds task event logs and operator-view:
+
+- shared event snapshot module merges lifecycle, checkpoint and review events into a safe `events` contract
+- bridge/admin can append operator events through `POST /api/panel/task/:trace_id/event`
+- public task, my-tasks, review response and admin queue expose compact event history without attachments, Telegram auth data or R2 keys
+- `/admin/` Web-очередь shows last event, checkpoint, error text and a short operator timeline for each task
+
 Manual snapshot refresh:
 
 ```bash

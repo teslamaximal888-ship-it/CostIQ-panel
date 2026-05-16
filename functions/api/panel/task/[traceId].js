@@ -1,5 +1,6 @@
 import { taskLifecycleSnapshot } from "../_shared/task-lifecycle.js";
 import { taskCheckpointSnapshot } from "../_shared/task-checkpoints.js";
+import { taskEventLogSnapshot } from "../_shared/task-events.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -49,6 +50,7 @@ export async function onRequestGet({ env, params }) {
   const { attachment, telegram_user, telegram_auth_date, retry_after, processing_started_at, processing_finished_at, ...publicTask } = task;
   publicTask.lifecycle = taskLifecycleSnapshot(task);
   publicTask.checkpoint = taskCheckpointSnapshot(task);
+  publicTask.events = taskEventLogSnapshot(task, 40);
   if (attachment) {
     publicTask.attachment_status = task.attachment_status || "stored";
   }
