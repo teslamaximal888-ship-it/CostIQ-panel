@@ -1837,7 +1837,10 @@ function smetReferenceLabel(item) {
   if (!item) {
     return "";
   }
-  return item.type === "gesn" ? "ГЭСН" : "расценка";
+  if (item.type === "gesn") {
+    return "ГЭСН";
+  }
+  return item.rate_kind === "material" ? "материал" : "работа";
 }
 
 function smetReferencePrice(item) {
@@ -1853,20 +1856,32 @@ function smetReferencePrice(item) {
 function smetReferenceSearchBlob(item) {
   return normalizeSearchText([
     item.title,
+    item.material_name,
     item.code,
+    item.kvr_name,
     item.unit,
     item.section,
     item.basis,
     item.object,
     Array.isArray(item.materials) ? item.materials.join(" ") : "",
     Array.isArray(item.machines) ? item.machines.join(" ") : "",
+    Array.isArray(item.linked_materials) ? item.linked_materials.map((row) => `${row.title || ""} ${row.code || ""}`).join(" ") : "",
   ].join(" "));
 }
 
 function scoreSmetReferenceItem(item, queryTokens, rawQuery) {
   const blob = item._search || smetReferenceSearchBlob(item);
+  if (queryTokens.length && !queryTokens.every((token) => blob.includes(token) || normalizeSearchText(item.code).includes(token))) {
+    return 0;
+  }
   let score = 0;
   if (rawQuery && item.code && normalizeSearchText(item.code).includes(rawQuery)) {
+    score += 120;
+  }
+  if (rawQuery && normalizeSearchText(item.title).includes(rawQuery)) {
+    score += 100;
+  }
+  if (rawQuery && item.material_name && normalizeSearchText(item.material_name).includes(rawQuery)) {
     score += 80;
   }
   for (const token of queryTokens) {
@@ -1883,8 +1898,14 @@ function scoreSmetReferenceItem(item, queryTokens, rawQuery) {
       score += 10;
     }
   }
+  if (item.type === "rate" && item.rate_kind === "work") {
+    score += 8;
+  }
   if (item.type === "rate" && item.total) {
     score += 4;
+  }
+  if (item.kvr_median) {
+    score += 3;
   }
   if (item.basis) {
     score += 2;
@@ -1961,7 +1982,7 @@ function renderSmetReferenceResults() {
   container.innerHTML = results.map((item) => `
     <button type="button" class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}">
       <span>${escapeHtml(smetReferenceLabel(item))}</span>
-      <strong>${escapeHtml(item.title || "Без названия")}</strong>
+      <strong>${escapeHtml(item.material_name || item.title || "Без названия")}</strong>
       <small>${escapeHtml([item.code, item.section, item.unit].filter(Boolean).join(" · "))}</small>
       <em>${escapeHtml(smetReferencePrice(item))}</em>
     </button>
@@ -1992,11 +2013,30 @@ function renderSmetReferenceCard() {
         <div><span>Материал</span><strong>${escapeHtml(formatMoney(item.material || 0))}</strong><small>руб.</small></div>
       </div>
     `;
+  const kvrMedian = item.kvr_median && Number(item.kvr_median.median || 0) > 0
+    ? `<div><dt>Медиана ФСК</dt><dd>${escapeHtml([
+        item.kvr_median.min ? formatMoney(item.kvr_median.min) : "",
+        item.kvr_median.median ? formatMoney(item.kvr_median.median) : "",
+        item.kvr_median.max ? formatMoney(item.kvr_median.max) : "",
+      ].filter(Boolean).join(" / "))} руб.${item.kvr_median.ot_count ? ` (${escapeHtml(String(item.kvr_median.ot_count))} ОТ)` : ""}</dd></div>`
+    : "";
   const materials = Array.isArray(item.materials) && item.materials.length
     ? `<div class="smet-card-list"><span>Материалы</span>${item.materials.map((row) => `<em>${escapeHtml(row)}</em>`).join("")}</div>`
     : "";
   const machines = Array.isArray(item.machines) && item.machines.length
     ? `<div class="smet-card-list"><span>Механизмы</span>${item.machines.map((row) => `<em>${escapeHtml(row)}</em>`).join("")}</div>`
+    : "";
+  const linkedMaterials = Array.isArray(item.linked_materials) && item.linked_materials.length
+    ? `<div class="smet-card-list"><span>Связанные материалы Л7</span>${item.linked_materials.map((row) => {
+        const price = row.price
+          ? row.price.median
+            ? ` · ФСК ${formatMoney(row.price.median)} руб.`
+            : row.price.total
+              ? ` · ${formatMoney(row.price.total)} руб.`
+              : ""
+          : "";
+        return `<em>${escapeHtml([row.code, row.title, row.unit].filter(Boolean).join(" · "))}${escapeHtml(price)}</em>`;
+      }).join("")}</div>`
     : "";
   card.innerHTML = `
     <article>
@@ -2004,16 +2044,20 @@ function renderSmetReferenceCard() {
         <span>${escapeHtml(smetReferenceLabel(item))}</span>
         <em>${escapeHtml(item.code || item.section || "")}</em>
       </div>
-      <h3>${escapeHtml(item.title || "Без названия")}</h3>
+      <h3>${escapeHtml(item.material_name || item.title || "Без названия")}</h3>
       ${priceBlock}
       <dl>
         <div><dt>Ед. изм.</dt><dd>${escapeHtml(item.unit || "-")}</dd></div>
         <div><dt>Раздел</dt><dd>${escapeHtml(item.section || "-")}</dd></div>
+        ${item.code ? `<div><dt>КВР</dt><dd>${escapeHtml([item.code, item.kvr_name].filter(Boolean).join(" · "))}</dd></div>` : ""}
+        ${item.material_name ? `<div><dt>Полная расценка</dt><dd>${escapeHtml(item.title || "-")}</dd></div>` : ""}
+        ${kvrMedian}
         <div><dt>Основание</dt><dd>${escapeHtml(item.basis || "-")}</dd></div>
         <div><dt>Объект</dt><dd>${escapeHtml(item.object || "-")}</dd></div>
       </dl>
       ${materials}
       ${machines}
+      ${linkedMaterials}
     </article>
   `;
 }
@@ -2084,6 +2128,11 @@ function smetReferenceRequestText(item) {
     item.type === "gesn"
       ? `Трудозатраты: ${formatMoney(item.labor_hours || 0)} чел-ч`
       : `Цена: всего ${formatMoney(item.total || 0)} руб., работа ${formatMoney(item.work || 0)} руб., материал ${formatMoney(item.material || 0)} руб.`,
+    item.code ? `КВР: ${item.code}${item.kvr_name ? ` - ${item.kvr_name}` : ""}` : "",
+    item.kvr_median && item.kvr_median.median ? `Медиана ФСК: ${formatMoney(item.kvr_median.median)} руб.` : "",
+    Array.isArray(item.linked_materials) && item.linked_materials.length
+      ? `Связанные материалы Л7: ${item.linked_materials.map((row) => [row.code, row.title, row.unit].filter(Boolean).join(" / ")).join("; ")}`
+      : "",
     item.basis ? `Основание: ${item.basis}` : "",
     item.object ? `Объект: ${item.object}` : "",
   ].filter(Boolean);

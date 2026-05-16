@@ -217,8 +217,8 @@ Version v44 adds checkpoint-based resume/retry:
 Version v46 adds the interactive smet reference tool:
 
 - the `Инструменты` card `Сметный справочник` opens a dedicated frontend search screen instead of a plain intake form
-- public snapshot `data/smet-reference.json` contains safe compact fields from the unified smet database: rates, sections, GESN labor, materials and machines
-- `scripts/build_smet_reference_data.py` rebuilds the snapshot from `/home/ClawdLangust/data/unified_smet_db.json`
+- public snapshot `data/smet-reference.json` contains safe compact fields from the operational bot stores: `rates_store`, KVR medians, L6→L7 material links, sections, GESN labor, materials and machines
+- `scripts/build_smet_reference_data.py` rebuilds the snapshot from `/home/ClawdLangust/data/rates_store.json`, `gesn_all_labor_v3.json`, `kvr_rates.json`, `median_prices.json` and `kvr_materials.json`
 - users can filter by source and section, inspect a work card, then send the selected position into the normal `smet_reference` CostIQ request
 - the source databases remain read-only; the panel snapshot does not expose secrets or write to `/home/ClawdLangust/data`
 
