@@ -1036,6 +1036,71 @@ h2 {
   font-style: normal;
 }
 
+.smet-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.smet-card-actions .compact {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.smet-variants {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.smet-variants > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.smet-variant-table {
+  display: grid;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.smet-variant-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.18fr) minmax(130px, 0.26fr) minmax(0, 0.56fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+  cursor: pointer;
+}
+
+.smet-variant-row:hover,
+.smet-variant-row.active {
+  border-color: rgba(88, 210, 196, 0.58);
+  background: rgba(88, 210, 196, 0.08);
+}
+
+.smet-variant-row strong,
+.smet-variant-row em,
+.smet-variant-row small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.3;
+}
+
+.smet-variant-row em,
+.smet-variant-row small {
+  color: var(--muted);
+}
+
 .factory-steps {
   display: flex;
   gap: 8px;
@@ -2942,6 +3007,10 @@ h2 {
 
   .form-actions {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .smet-variant-row {
     grid-template-columns: 1fr;
   }
 

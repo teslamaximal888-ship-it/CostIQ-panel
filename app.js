@@ -950,6 +950,7 @@ const state = {
   smetReferenceSection: "all",
   smetReferenceSelectedId: "",
   smetReferenceResults: [],
+  smetReferenceExpandedVariantsFor: "",
   appViewHistory: [],
   agentFactoryStep: "request",
   restoringState: false,
@@ -1997,6 +1998,55 @@ function smetReferenceGesnAnalytics(rate) {
     .slice(0, 5);
 }
 
+function smetReferenceWorkTitle(item) {
+  return String(item && item.title ? item.title : "")
+    .split(":")[0]
+    .replace(/[;,.]+$/g, " ")
+    .trim();
+}
+
+function smetReferenceVariantKey(item) {
+  return normalizeSearchText(smetReferenceWorkTitle(item));
+}
+
+function smetReferenceRateVariants(item) {
+  if (!item || item.type !== "rate") {
+    return [];
+  }
+  const key = smetReferenceVariantKey(item);
+  if (!key) {
+    return [];
+  }
+  const unit = normalizeSearchText(item.unit || "");
+  const code = normalizeSearchText(item.code || "");
+  const section = item.section || "";
+  const items = currentSmetReferenceItems().filter((candidate) => {
+    if (!candidate || candidate.type !== "rate" || candidate.rate_kind !== item.rate_kind) {
+      return false;
+    }
+    if (candidate.section !== section) {
+      return false;
+    }
+    const candidateUnit = normalizeSearchText(candidate.unit || "");
+    if (unit && candidateUnit && candidateUnit !== unit) {
+      return false;
+    }
+    const candidateKey = smetReferenceVariantKey(candidate);
+    if (candidateKey === key) {
+      return true;
+    }
+    const candidateCode = normalizeSearchText(candidate.code || "");
+    return Boolean(code && candidateCode && candidateCode === code && candidateKey.includes(key.slice(0, 24)));
+  });
+  return items.sort((a, b) => {
+    const otDiff = extractSmetReferenceOt(b) - extractSmetReferenceOt(a);
+    if (otDiff) {
+      return otDiff;
+    }
+    return Number(a.total || 0) - Number(b.total || 0);
+  });
+}
+
 function currentSmetReferenceItems() {
   const data = state.smetReferenceData;
   if (!data || !Array.isArray(data.items)) {
@@ -2202,20 +2252,31 @@ function renderSmetReferenceCard() {
         return `<em>${escapeHtml([row.code, row.title, row.unit].filter(Boolean).join(" · "))}${escapeHtml(price)}</em>`;
       }).join("")}</div>`
     : "";
-  const gesnAnalytics = smetReferenceGesnAnalytics(item);
-  const gesnAnalyticsBlock = gesnAnalytics.length
-    ? `<div class="smet-card-list"><span>Похожие нормы ГЭСН</span>${gesnAnalytics.map((row) => {
-        const details = [
-          row.code,
-          row.labor_hours ? `${formatMoney(row.labor_hours)} чел-ч` : "",
-          row.unit,
-          row._score ? `${row._score}%` : "",
-        ].filter(Boolean).join(" · ");
-        return `<em>${escapeHtml(details)}<br>${escapeHtml(row.title || "")}</em>`;
-      }).join("")}</div>`
-    : item.type === "rate"
-      ? `<div class="smet-card-list muted"><span>ГЭСН-аналитика</span><em>Прямой связки с нормой нет. Можно искать похожие нормы по наименованию работы.</em></div>`
-      : "";
+  const rateVariants = smetReferenceRateVariants(item);
+  const variantsExpanded = state.smetReferenceExpandedVariantsFor === item.id;
+  const variantsButton = item.type === "rate" && rateVariants.length > 1
+    ? `<button type="button" class="ghost-button compact" data-smet-reference-action="toggle-variants">${variantsExpanded ? "Скрыть расценки" : `Все расценки (${rateVariants.length})`}</button>`
+    : "";
+  const gesnAiButton = item.type === "rate"
+    ? `<button type="button" class="ghost-button compact" data-smet-reference-action="gesn-ai">Подобрать ГЭСН через AI</button>`
+    : "";
+  const cardActions = variantsButton || gesnAiButton
+    ? `<div class="smet-card-actions">${variantsButton}${gesnAiButton}</div>`
+    : "";
+  const variantsBlock = variantsExpanded && rateVariants.length > 1
+    ? `<div class="smet-variants">
+        <span>Все расценки по этой работе</span>
+        <div class="smet-variant-table">
+          ${rateVariants.map((row) => `
+            <div class="smet-variant-row ${row.id === item.id ? "active" : ""}" data-smet-reference-id="${escapeHtml(row.id)}">
+              <strong>${escapeHtml(formatMoney(row.total || 0))}</strong>
+              <em>${escapeHtml([`раб. ${formatMoney(row.work || 0)}`, `мат. ${formatMoney(row.material || 0)}`].join(" · "))}</em>
+              <small>${escapeHtml([row.basis, row.object].filter(Boolean).join(" · ") || "-")}</small>
+            </div>
+          `).join("")}
+        </div>
+      </div>`
+    : "";
   card.innerHTML = `
     <article>
       <div class="smet-card-head">
@@ -2236,7 +2297,8 @@ function renderSmetReferenceCard() {
       ${materials}
       ${machines}
       ${linkedMaterials}
-      ${gesnAnalyticsBlock}
+      ${cardActions}
+      ${variantsBlock}
     </article>
   `;
 }
@@ -2347,6 +2409,39 @@ function smetReferenceRequestText(item) {
     item.object ? `Объект: ${item.object}` : "",
   ].filter(Boolean);
   return lines.join("\n");
+}
+
+function smetReferenceGesnAiRequestText(item) {
+  const candidates = smetReferenceGesnAnalytics(item).slice(0, 15);
+  const candidateLines = candidates.length
+    ? candidates.map((row, index) => {
+        const details = [
+          row.code,
+          row.unit,
+          row.labor_hours ? `${formatMoney(row.labor_hours)} чел-ч` : "",
+          row.rank ? `разряд ${row.rank}` : "",
+        ].filter(Boolean).join(" / ");
+        return `${index + 1}. ${details} - ${row.title || ""}`;
+      })
+    : ["Текстовый предвыбор кандидатов не дал уверенных совпадений. Нужен ручной AI-анализ по смыслу работы."];
+  return [
+    "Нужно подобрать ГЭСН к расценке через AI-анализ.",
+    "",
+    "Расценка:",
+    `Наименование: ${item.title || ""}`,
+    item.material_name ? `Материал из составной позиции: ${item.material_name}` : "",
+    item.unit ? `Ед. изм.: ${item.unit}` : "",
+    item.section ? `Раздел: ${item.section}` : "",
+    item.code ? `КВР: ${item.code}${item.kvr_name ? ` - ${item.kvr_name}` : ""}` : "",
+    `Цена: всего ${formatMoney(item.total || 0)} руб., работа ${formatMoney(item.work || 0)} руб., материал ${formatMoney(item.material || 0)} руб.`,
+    item.basis ? `Основание: ${item.basis}` : "",
+    item.object ? `Объект: ${item.object}` : "",
+    "",
+    "Кандидаты ГЭСН для ранжирования:",
+    ...candidateLines,
+    "",
+    "Нужно вернуть: рекомендуемый ГЭСН, уверенность, почему подходит, что не совпадает. Если прямого аналога нет - так и написать.",
+  ].filter((line) => line !== "").join("\n");
 }
 
 function sendSmetReferenceToCostIQ() {
@@ -3905,6 +4000,35 @@ function selectWebSkill(skillId, options = {}) {
   }
   saveMiniAppState();
   updateTelegramControls();
+}
+
+function sendSmetReferenceGesnAiRequest() {
+  const item = findSmetReferenceItem(state.smetReferenceSelectedId);
+  if (!item || item.type !== "rate") {
+    showToast("Выберите расценку");
+    return;
+  }
+  setAppView("skills");
+  selectWebSkill("smet_reference", { renderCards: true });
+  const query = document.querySelector("#web-dynamic-fields [name='query']");
+  const unit = document.querySelector("#web-dynamic-fields [name='unit']");
+  const section = document.querySelector("#web-dynamic-fields [name='section']");
+  const comment = document.querySelector("#web-dynamic-fields [name='comment']");
+  if (query) {
+    query.value = `Подобрать ГЭСН: ${smetReferenceWorkTitle(item) || item.title || ""}`;
+  }
+  if (unit) {
+    unit.value = item.unit || "";
+  }
+  if (section) {
+    section.value = item.section || "";
+  }
+  if (comment) {
+    comment.value = smetReferenceGesnAiRequestText(item);
+  }
+  saveWebIntakeDraft();
+  updateTelegramControls();
+  showToast("Заявка на AI-подбор ГЭСН подготовлена");
 }
 
 function renderWebSkillTabs() {
@@ -5480,10 +5604,20 @@ document.addEventListener("click", (event) => {
       state.smetReferenceScope = "all";
       state.smetReferenceSection = "all";
       state.smetReferenceSelectedId = "";
+      state.smetReferenceExpandedVariantsFor = "";
       renderSmetReferenceTool();
     }
     if (action === "send") {
       sendSmetReferenceToCostIQ();
+    }
+    if (action === "toggle-variants") {
+      state.smetReferenceExpandedVariantsFor = state.smetReferenceExpandedVariantsFor === state.smetReferenceSelectedId
+        ? ""
+        : state.smetReferenceSelectedId;
+      renderSmetReferenceCard();
+    }
+    if (action === "gesn-ai") {
+      sendSmetReferenceGesnAiRequest();
     }
     return;
   }
