@@ -17,6 +17,7 @@ const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
 const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
+const SMET_REFERENCE_RESULT_LIMIT = 10;
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
 const AGENT_FACTORY_SUPPORT_CHAT = "-1003923170152";
 const OFFICE_FITOUT_RATES = {
@@ -942,6 +943,8 @@ const state = {
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
   smetReferenceData: null,
+  smetReferenceSectionCache: {},
+  smetReferenceLoadingSection: "",
   smetReferenceQuery: "",
   smetReferenceScope: "all",
   smetReferenceSection: "all",
@@ -1833,6 +1836,10 @@ function normalizeSearchText(value) {
     .trim();
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function smetReferenceLabel(item) {
   if (!item) {
     return "";
@@ -1869,48 +1876,107 @@ function smetReferenceSearchBlob(item) {
   ].join(" "));
 }
 
-function scoreSmetReferenceItem(item, queryTokens, rawQuery) {
-  const blob = item._search || smetReferenceSearchBlob(item);
-  if (queryTokens.length && !queryTokens.every((token) => blob.includes(token) || normalizeSearchText(item.code).includes(token))) {
+function smetReferenceQueryParts(rawQuery) {
+  const query = normalizeSearchText(rawQuery);
+  const words = query.split(" ").filter((word) => word.length >= 3 || /^\d+$/.test(word));
+  const stems = words
+    .filter((word) => !/^\d+$/.test(word))
+    .map((word) => word.slice(0, Math.max(word.length - 2, 5)));
+  const numbers = words.filter((word) => /^\d+$/.test(word));
+  return { query, words, stems, numbers };
+}
+
+function smetReferenceNumberMatch(desc, numbers) {
+  return numbers.every((number) => {
+    const pattern = new RegExp(`(^|\\D)${escapeRegExp(number)}(?!\\d)`);
+    return pattern.test(desc);
+  });
+}
+
+function smetReferenceWordMatch(desc, stems, numbers) {
+  const descStems = new Set(desc.split(" ").filter((word) => word.length >= 3).map((word) => word.slice(0, Math.max(word.length - 2, 4))));
+  return stems.every((stem) => descStems.has(stem)) && smetReferenceNumberMatch(desc, numbers);
+}
+
+function smetReferenceStemMatch(desc, stems, numbers) {
+  return stems.every((stem) => desc.includes(stem)) && smetReferenceNumberMatch(desc, numbers);
+}
+
+function tokenSetRatio(query, text) {
+  const a = new Set(query.split(" ").filter(Boolean));
+  const b = new Set(text.split(" ").filter(Boolean));
+  if (!a.size || !b.size) {
     return 0;
   }
-  let score = 0;
-  if (rawQuery && item.code && normalizeSearchText(item.code).includes(rawQuery)) {
-    score += 120;
-  }
-  if (rawQuery && normalizeSearchText(item.title).includes(rawQuery)) {
-    score += 100;
-  }
-  if (rawQuery && item.material_name && normalizeSearchText(item.material_name).includes(rawQuery)) {
-    score += 80;
-  }
-  for (const token of queryTokens) {
-    if (!token) {
-      continue;
-    }
-    if (normalizeSearchText(item.code).includes(token)) {
-      score += 45;
-    }
-    if (normalizeSearchText(item.title).includes(token)) {
-      score += 25;
-    }
-    if (blob.includes(token)) {
-      score += 10;
+  let overlap = 0;
+  for (const token of a) {
+    if (b.has(token)) {
+      overlap += 1;
     }
   }
-  if (item.type === "rate" && item.rate_kind === "work") {
-    score += 8;
+  const precision = overlap / b.size;
+  const recall = overlap / a.size;
+  const base = precision + recall ? (2 * precision * recall) / (precision + recall) : 0;
+  const substringBoost = text.includes(query) || query.includes(text) ? 0.18 : 0;
+  return Math.round(Math.min(1, base + substringBoost) * 100);
+}
+
+function extractSmetReferenceOt(item) {
+  const match = String(item.basis || "").match(/ОТ\s*(\d+)/i);
+  return match ? Number(match[1]) || 0 : 0;
+}
+
+function dedupeSmetReferenceLatest(items) {
+  const byKey = new Map();
+  for (const item of items) {
+    const key = `${normalizeSearchText(item.title)}|${item.section || ""}`;
+    const current = byKey.get(key);
+    if (!current || extractSmetReferenceOt(item) > extractSmetReferenceOt(current)) {
+      byKey.set(key, item);
+    }
   }
-  if (item.type === "rate" && item.total) {
-    score += 4;
+  return Array.from(byKey.values());
+}
+
+function smetReferenceOrder(item) {
+  const match = String(item.id || "").match(/(\d+)$/);
+  return match ? Number(match[1]) || 0 : 0;
+}
+
+function scoreSmetReferenceRate(item, parts) {
+  const desc = normalizeSearchText(item.title);
+  if (!parts.query) {
+    return 0;
   }
-  if (item.kvr_median) {
-    score += 3;
+  if (desc.includes(parts.query)) {
+    return 100;
   }
-  if (item.basis) {
-    score += 2;
+  if (parts.stems.length && smetReferenceWordMatch(desc, parts.stems, parts.numbers)) {
+    return 97;
   }
-  return score;
+  if (parts.stems.length && smetReferenceStemMatch(desc, parts.stems, parts.numbers)) {
+    return 95;
+  }
+  const fuzzyScore = tokenSetRatio(parts.query, desc);
+  return fuzzyScore >= 85 ? fuzzyScore : 0;
+}
+
+function scoreSmetReferenceGesn(item, parts) {
+  if (!parts.query) {
+    return 0;
+  }
+  const code = normalizeSearchText(item.code);
+  const title = normalizeSearchText(item.title);
+  if (code.includes(parts.query)) {
+    return 120;
+  }
+  if (title.includes(parts.query)) {
+    return 100;
+  }
+  if (parts.stems.length && smetReferenceStemMatch(title, parts.stems, parts.numbers)) {
+    return 90;
+  }
+  return tokenSetRatio(parts.query, `${code} ${title}`);
 }
 
 function currentSmetReferenceItems() {
@@ -1918,7 +1984,13 @@ function currentSmetReferenceItems() {
   if (!data || !Array.isArray(data.items)) {
     return [];
   }
-  return data.items;
+  const baseItems = data.items;
+  const section = state.smetReferenceSection;
+  if (section === "all") {
+    return baseItems;
+  }
+  const sectionItems = state.smetReferenceSectionCache[section];
+  return Array.isArray(sectionItems) ? baseItems.concat(sectionItems) : baseItems;
 }
 
 function findSmetReferenceItem(id) {
@@ -1927,28 +1999,87 @@ function findSmetReferenceItem(id) {
 
 function searchSmetReference() {
   const items = currentSmetReferenceItems();
-  const rawQuery = normalizeSearchText(state.smetReferenceQuery);
-  const tokens = rawQuery.split(" ").filter((token) => token.length >= 2);
-  const hasQuery = tokens.length > 0;
+  const parts = smetReferenceQueryParts(state.smetReferenceQuery);
+  const hasQuery = parts.query.length > 0;
   const section = state.smetReferenceSection;
   const scope = state.smetReferenceScope;
-  const filtered = items.filter((item) => {
-    if (scope !== "all" && item.type !== scope) {
+  if (section === "all" && ["all", "rate", "work", "material"].includes(scope) && hasQuery) {
+    const gesn = items
+      .filter((item) => item.type === "gesn" && (scope === "all" || scope === "gesn"))
+      .map((item) => ({ ...item, _score: scoreSmetReferenceGesn(item, parts) }))
+      .filter((item) => item._score > 0)
+      .sort((a, b) => b._score - a._score || String(a.title || "").localeCompare(String(b.title || ""), "ru"))
+      .slice(0, SMET_REFERENCE_RESULT_LIMIT);
+    state.smetReferenceResults = gesn;
+    if (!gesn.some((item) => item.id === state.smetReferenceSelectedId)) {
+      state.smetReferenceSelectedId = gesn[0] ? gesn[0].id : "";
+    }
+    return;
+  }
+  const sectionFiltered = items.filter((item) => {
+    if (scope === "rate" && item.type !== "rate") {
+      return false;
+    }
+    if (scope === "work" && (item.type !== "rate" || item.rate_kind !== "work")) {
+      return false;
+    }
+    if (scope === "material" && (item.type !== "rate" || item.rate_kind !== "material")) {
+      return false;
+    }
+    if (scope === "gesn" && item.type !== "gesn") {
       return false;
     }
     if (section !== "all" && item.section !== section) {
       return false;
     }
-    if (!hasQuery) {
-      return item.type === "rate" && Number(item.total || 0) > 0;
-    }
-    return scoreSmetReferenceItem(item, tokens, rawQuery) > 0;
+    return true;
   });
-  const scored = filtered
-    .map((item) => ({ item, score: hasQuery ? scoreSmetReferenceItem(item, tokens, rawQuery) : Number(item.total || 0) }))
-    .sort((a, b) => b.score - a.score || String(a.item.title || "").localeCompare(String(b.item.title || ""), "ru"))
-    .slice(0, 40)
-    .map((row) => row.item);
+
+  if (!hasQuery) {
+    const scored = sectionFiltered
+      .filter((item) => item.type === "rate" && Number(item.total || 0) > 0)
+      .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
+      .slice(0, 40);
+    state.smetReferenceResults = scored;
+    if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
+      state.smetReferenceSelectedId = scored[0] ? scored[0].id : "";
+    }
+    return;
+  }
+
+  const rateResults = dedupeSmetReferenceLatest(sectionFiltered
+    .filter((item) => item.type === "rate")
+    .map((item) => {
+      let score = scoreSmetReferenceRate(item, parts);
+      const firstWord = parts.words[0] || "";
+      if (firstWord && normalizeSearchText(item.title).startsWith(firstWord)) {
+        score += 5;
+      }
+      return { ...item, _score: score };
+    })
+    .filter((item) => item._score > 0));
+  const works = rateResults
+    .filter((item) => item.rate_kind === "work")
+    .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b));
+  const materials = rateResults
+    .filter((item) => item.rate_kind === "material")
+    .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b));
+  const gesn = sectionFiltered
+    .filter((item) => item.type === "gesn")
+    .map((item) => ({ ...item, _score: scoreSmetReferenceGesn(item, parts) }))
+    .filter((item) => item._score > 0)
+    .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b))
+    .slice(0, SMET_REFERENCE_RESULT_LIMIT);
+
+  const half = Math.floor(SMET_REFERENCE_RESULT_LIMIT / 2);
+  let pageWorks = works.slice(0, half);
+  let pageMaterials = materials.slice(0, half);
+  if (pageWorks.length < half) {
+    pageMaterials = materials.slice(0, half + (half - pageWorks.length));
+  } else if (pageMaterials.length < half) {
+    pageWorks = works.slice(0, half + (half - pageMaterials.length));
+  }
+  const scored = scope === "gesn" ? gesn : [...pageWorks, ...pageMaterials, ...(scope === "all" ? gesn : [])];
   state.smetReferenceResults = scored;
   if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
     state.smetReferenceSelectedId = scored[0] ? scored[0].id : "";
@@ -1975,18 +2106,33 @@ function renderSmetReferenceResults() {
     return;
   }
   const results = state.smetReferenceResults || [];
+  if (state.smetReferenceLoadingSection) {
+    container.innerHTML = `<div class="empty">Загружаю раздел ${escapeHtml(state.smetReferenceLoadingSection)}</div>`;
+    return;
+  }
+  if (state.smetReferenceSection === "all" && ["all", "rate", "work", "material"].includes(state.smetReferenceScope)) {
+    container.innerHTML = `<div class="empty">Выберите раздел, как в боте. Поиск расценок выполняется внутри выбранного раздела.</div>`;
+    return;
+  }
   if (!results.length) {
     container.innerHTML = `<div class="empty">Введите запрос или выберите раздел</div>`;
     return;
   }
-  container.innerHTML = results.map((item) => `
+  let previousGroup = "";
+  container.innerHTML = results.map((item) => {
+    const group = item.type === "gesn" ? "ГЭСН" : item.rate_kind === "material" ? "Материалы" : "Работы";
+    const groupHeader = group !== previousGroup ? `<div class="smet-result-group">${escapeHtml(group)}</div>` : "";
+    previousGroup = group;
+    return `
+    ${groupHeader}
     <button type="button" class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}">
       <span>${escapeHtml(smetReferenceLabel(item))}</span>
       <strong>${escapeHtml(item.material_name || item.title || "Без названия")}</strong>
       <small>${escapeHtml([item.code, item.section, item.unit].filter(Boolean).join(" · "))}</small>
       <em>${escapeHtml(smetReferencePrice(item))}</em>
     </button>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderSmetReferenceCard() {
@@ -2084,6 +2230,7 @@ function renderSmetReferenceTool() {
   if (sectionSelect) {
     sectionSelect.value = state.smetReferenceSection;
   }
+  ensureSmetReferenceSectionLoaded(state.smetReferenceSection);
   searchSmetReference();
   const data = state.smetReferenceData;
   const stats = data && data.stats ? data.stats : null;
@@ -2111,6 +2258,36 @@ async function loadSmetReferenceData() {
     if (results) {
       results.innerHTML = `<div class="empty">Не удалось загрузить сметный справочник</div>`;
     }
+  }
+}
+
+async function ensureSmetReferenceSectionLoaded(section) {
+  const data = state.smetReferenceData;
+  if (!data || !section || section === "all" || state.smetReferenceSectionCache[section] || state.smetReferenceLoadingSection === section) {
+    return;
+  }
+  const fileUrl = data.section_files && data.section_files[section];
+  if (!fileUrl) {
+    return;
+  }
+  state.smetReferenceLoadingSection = section;
+  try {
+    const urls = Array.isArray(fileUrl) ? fileUrl : [fileUrl];
+    const loadedItems = [];
+    for (const url of urls) {
+      const response = await fetch(`${url}?ts=${Date.now()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(payload.items)) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      loadedItems.push(...payload.items);
+    }
+    state.smetReferenceSectionCache[section] = loadedItems.map((item) => ({ ...item, _search: smetReferenceSearchBlob(item) }));
+  } catch (error) {
+    showToast("Не удалось загрузить раздел справочника");
+  } finally {
+    state.smetReferenceLoadingSection = "";
+    renderSmetReferenceTool();
   }
 }
 

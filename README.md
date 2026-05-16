@@ -214,12 +214,12 @@ Version v44 adds checkpoint-based resume/retry:
 - the resume contract stores checkpoint, completed checkpoints, next checkpoints, attempt, requester and message
 - `/admin/` uses the resume endpoint instead of overwriting status through the result API, and shows resume context in operator-view
 
-Version v46 adds the interactive smet reference tool:
+Version v47 aligns the interactive smet reference tool with the Telegram bot search path:
 
 - the `Инструменты` card `Сметный справочник` opens a dedicated frontend search screen instead of a plain intake form
-- public snapshot `data/smet-reference.json` contains safe compact fields from the operational bot stores: `rates_store`, KVR medians, L6→L7 material links, sections, GESN labor, materials and machines
-- `scripts/build_smet_reference_data.py` rebuilds the snapshot from `/home/ClawdLangust/data/rates_store.json`, `gesn_all_labor_v3.json`, `kvr_rates.json`, `median_prices.json` and `kvr_materials.json`
-- users can filter by source and section, inspect a work card, then send the selected position into the normal `smet_reference` CostIQ request
+- public snapshot `data/smet-reference.json` contains metadata, GESN and a section file map; rate rows are split into `data/smet-reference/section-*.json` chunks so the panel can keep all 73k+ operational rates without a single oversized asset
+- `scripts/build_smet_reference_data.py` rebuilds the snapshot from `/home/ClawdLangust/data/rates_store.json`, `gesn_all_labor_v3.json` and the same KVR analytics files used by the bot: `rate_kvr_map.json`, `median_prices.json`, `kvr_materials.json`
+- rate search follows the bot contract: choose section first, search inside that section, split output into works/materials, dedupe by latest OT and show KVR median/material links when available
 - the source databases remain read-only; the panel snapshot does not expose secrets or write to `/home/ClawdLangust/data`
 
 Manual snapshot refresh:
