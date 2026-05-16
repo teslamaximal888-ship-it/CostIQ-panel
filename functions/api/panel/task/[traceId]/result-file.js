@@ -1,8 +1,14 @@
+import {
+  REVIEW_STATUSES,
+  appendLifecycleEvent,
+  isTaskFinished,
+  normalizeTaskStatus,
+  transitionTaskStatus,
+} from "../../_shared/task-lifecycle.js";
+
 const RESULT_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
-const REVIEW_STATUSES = new Set(["ready_for_review", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"]);
-const FINISHED_STATUSES = new Set(["done", "ready_for_review", "failed", "accepted", "closed", "closed_by_timeout"]);
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -193,10 +199,13 @@ export async function onRequestPost({ request, env, params }) {
     created_at: now,
     expires_at: new Date(Date.now() + RESULT_TTL_SECONDS * 1000).toISOString(),
   };
-  const status = cleanText(formData.get("status"), 40).toLowerCase() || "ready_for_review";
-  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done", ...REVIEW_STATUSES]);
-  if (!allowedStatuses.has(status)) {
-    return jsonResponse({ ok: false, error: "invalid_status" }, 400);
+  const status = normalizeTaskStatus(cleanText(formData.get("status"), 40), "ready_for_review");
+  const transition = transitionTaskStatus(task, status, now, {
+    by: "bridge",
+    source: "result_file_api",
+  });
+  if (!transition.ok) {
+    return jsonResponse(transition, 409);
   }
   const result = cleanText(formData.get("result"), RESULT_TEXT_LIMIT);
   const attempts = formData.get("attempts") === null ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(formData.get("attempts"), 0, 0, 99);
@@ -213,10 +222,11 @@ export async function onRequestPost({ request, env, params }) {
     review_hint: cleanText(formData.get("review_hint"), 1000) || task.review_hint || "",
     result_version: resultVersion,
     review: normalizeReview({ ...task, result_version: resultVersion }, status, now),
+    lifecycle: appendLifecycleEvent({ ...task, status }, transition.event),
     attempts,
     max_attempts: maxAttempts,
     error_text: cleanText(formData.get("error_text"), 1400),
-    processing_finished_at: FINISHED_STATUSES.has(status) ? now : task.processing_finished_at || "",
+    processing_finished_at: isTaskFinished(status) ? now : task.processing_finished_at || "",
     updated_at: now,
   };
   if (isArchive) {

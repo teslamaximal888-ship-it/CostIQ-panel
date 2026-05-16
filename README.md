@@ -183,6 +183,14 @@ Version v34 improves news and poll administration:
 - closed polls stay visible with aggregate results, but new votes are rejected by the API
 - admin content lists include hidden and closed records, while the public feed only shows published records and closed poll results
 
+Version v41 adds the task state machine:
+
+- shared lifecycle module defines allowed states and transitions for web/Mini App tasks
+- new tasks store `lifecycle.current_state`, `allowed_next`, and lifecycle events from creation
+- result, result-file, review, public task, my-tasks, and admin queue endpoints use the same lifecycle contract
+- invalid jumps such as `created -> accepted` and `failed -> accepted` are rejected with `invalid_status_transition`
+- legacy `done` remains supported for old results and review compatibility
+
 Manual snapshot refresh:
 
 ```bash

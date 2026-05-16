@@ -1,3 +1,11 @@
+import {
+  REVIEW_STATUSES,
+  appendLifecycleEvent,
+  isTaskFinished,
+  normalizeTaskStatus,
+  transitionTaskStatus,
+} from "../../_shared/task-lifecycle.js";
+
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -38,8 +46,6 @@ function cleanInteger(value, fallback = 0, min = 0, max = 99) {
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
-const REVIEW_STATUSES = new Set(["ready_for_review", "question_requested", "revision_requested", "reworking", "accepted", "closed", "closed_by_timeout"]);
-const FINISHED_STATUSES = new Set(["done", "ready_for_review", "failed", "accepted", "closed", "closed_by_timeout"]);
 
 async function parsePayload(request) {
   const contentType = request.headers.get("content-type") || "";
@@ -91,7 +97,7 @@ async function upsertTaskIndex(env, task) {
 }
 
 function cleanStatus(value, fallback = "done") {
-  return cleanText(value, 40).toLowerCase() || fallback;
+  return normalizeTaskStatus(cleanText(value, 40), fallback);
 }
 
 function cleanStringArray(value, limit = 8) {
@@ -177,9 +183,13 @@ export async function onRequestPost({ request, env, params }) {
   }
 
   const status = cleanStatus(payload.status, "done");
-  const allowedStatuses = new Set(["created", "queued", "in_progress", "retry", "failed", "done", ...REVIEW_STATUSES]);
-  if (!allowedStatuses.has(status)) {
-    return jsonResponse({ ok: false, error: "invalid_status" }, 400);
+  const now = new Date().toISOString();
+  const transition = transitionTaskStatus(task, status, now, {
+    by: "bridge",
+    source: "result_api",
+  });
+  if (!transition.ok) {
+    return jsonResponse(transition, 409);
   }
   const resultProvided = payload.result !== undefined;
   const result = cleanText(payload.result, RESULT_TEXT_LIMIT);
@@ -191,7 +201,6 @@ export async function onRequestPost({ request, env, params }) {
   const attempts = payload.attempts === undefined ? cleanInteger(task.attempts, 0, 0, 99) : cleanInteger(payload.attempts, 0, 0, 99);
   const maxAttempts = payload.max_attempts === undefined ? cleanInteger(task.max_attempts, 3, 1, 99) : cleanInteger(payload.max_attempts, 3, 1, 99);
   const resultVersion = payload.result_version === undefined ? cleanInteger(task.result_version, 1, 1, 99) : cleanInteger(payload.result_version, 1, 1, 99);
-  const now = new Date().toISOString();
 
   const updatedTask = {
     ...task,
@@ -203,6 +212,7 @@ export async function onRequestPost({ request, env, params }) {
     review_hint: cleanText(payload.review_hint, 1000) || task.review_hint || "",
     result_version: resultVersion,
     review: normalizeReview({ ...task, result_version: resultVersion }, status, now, payload.review_event),
+    lifecycle: appendLifecycleEvent({ ...task, status }, transition.event),
     attempts,
     max_attempts: maxAttempts,
     retry_after: retryAfter,
@@ -215,7 +225,7 @@ export async function onRequestPost({ request, env, params }) {
         : cleanText(payload.processing_started_at, 80),
     processing_finished_at:
       payload.processing_finished_at === undefined
-        ? FINISHED_STATUSES.has(status)
+        ? isTaskFinished(status)
           ? now
           : task.processing_finished_at || ""
         : cleanText(payload.processing_finished_at, 80),

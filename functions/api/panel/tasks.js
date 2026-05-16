@@ -1,3 +1,5 @@
+import { isTaskActive, isTaskBridgeDue, normalizeTaskStatus, taskLifecycleSnapshot } from "./_shared/task-lifecycle.js";
+
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -81,11 +83,11 @@ function averageProcessingSeconds(tasks) {
 }
 
 function queueState(task, now, staleMs) {
-  const status = String(task.status || "").toLowerCase();
+  const status = normalizeTaskStatus(task.status, "");
   const updated = parseEpoch(task.updated_at || task.created_at);
   const retryAfter = parseEpoch(task.retry_after);
-  const stale = Boolean(updated && now - updated > staleMs && ["created", "queued", "in_progress", "retry", "question_requested", "revision_requested", "reworking"].includes(status));
-  const due = status === "retry" ? !retryAfter || retryAfter <= now : ["created", "question_requested", "revision_requested"].includes(status);
+  const stale = Boolean(updated && now - updated > staleMs && isTaskActive(status));
+  const due = status === "retry" ? !retryAfter || retryAfter <= now : isTaskBridgeDue(status);
   return { status, stale, due, retryAfter };
 }
 
@@ -189,6 +191,7 @@ export async function onRequestGet({ request, env }) {
       const state = queueState(task, now, staleMs);
       return {
         ...task,
+        lifecycle: taskLifecycleSnapshot(task),
         queue_state: {
           stale: state.stale,
           due: state.due,

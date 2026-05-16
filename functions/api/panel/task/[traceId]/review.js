@@ -1,3 +1,9 @@
+import {
+  appendLifecycleEvent,
+  normalizeTaskStatus,
+  transitionTaskStatus,
+} from "../../_shared/task-lifecycle.js";
+
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
@@ -251,7 +257,7 @@ export async function onRequestPost({ request, env, params }) {
   if (!status) {
     return jsonResponse({ ok: false, error: "invalid_action" }, 400);
   }
-  const currentStatus = cleanText(task.status, 40).toLowerCase();
+  const currentStatus = normalizeTaskStatus(task.status, "");
   if (!["done", "ready_for_review", "question_requested", "revision_requested"].includes(currentStatus)) {
     return jsonResponse({ ok: false, error: "review_not_available" }, 409);
   }
@@ -261,6 +267,13 @@ export async function onRequestPost({ request, env, params }) {
   }
 
   const now = new Date().toISOString();
+  const transition = transitionTaskStatus(task, status, now, {
+    by: "user",
+    source: "review_api",
+  });
+  if (!transition.ok) {
+    return jsonResponse(transition, 409);
+  }
   const currentReview = task.review && typeof task.review === "object" && !Array.isArray(task.review) ? task.review : {};
   const version = cleanInteger(task.result_version || currentReview.current_version, 1, 1, 99);
   const event = {
@@ -281,6 +294,7 @@ export async function onRequestPost({ request, env, params }) {
   const updatedTask = {
     ...task,
     status,
+    lifecycle: appendLifecycleEvent({ ...task, status }, transition.event),
     review,
     review_action: action,
     review_comment: text,

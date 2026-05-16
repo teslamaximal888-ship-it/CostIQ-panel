@@ -1,3 +1,5 @@
+import { initialTaskLifecycle } from "./_shared/task-lifecycle.js";
+
 const MAX_FILE_BYTES = 45 * 1024 * 1024;
 const ATTACHMENT_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -372,10 +374,12 @@ export async function onRequestPost({ request, env }) {
   const telegramName = telegramUser
     ? [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(" ").trim() || telegramUser.username
     : "";
+  const now = new Date().toISOString();
   const task = {
     trace_id: makeTraceId(),
     source: "web_intake",
     status: "created",
+    lifecycle: initialTaskLifecycle(now),
     attempts: 0,
     max_attempts: 3,
     retry_after: "",
@@ -408,8 +412,8 @@ export async function onRequestPost({ request, env }) {
     telegram_auth_date: taskAuth.ok ? taskAuth.auth_date : "",
     file_name: hasFile ? cleanText(file.name, 220) : "",
     file_size: hasFile ? file.size : 0,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
     result: "",
   };
 
