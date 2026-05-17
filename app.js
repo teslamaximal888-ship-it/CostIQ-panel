@@ -2843,7 +2843,7 @@ function buildBenchmarkCards(data) {
       meta: `${type} · ${region}`,
       ...row,
     })))),
-  ];
+  ].filter((row) => Number(row.price || 0) > 0);
 }
 
 function benchmarkGroupTitle(group) {
@@ -2922,8 +2922,8 @@ function buildFinishingRows(data) {
     const prices = [
       ...predchistovaya.map(([name, price]) => ({ name, price, type: "Предчистовая" })),
       ...finishingPackages.map(([name, price]) => ({ name, price, type: "Пакет отделки" })),
-    ];
-    const numericPrices = prices.map((item) => Number(item.price || 0)).filter(Boolean);
+    ].filter((item) => Number(item.price || 0) > 0);
+    const numericPrices = prices.map((item) => Number(item.price || 0));
     const bestPrice = numericPrices.length ? Math.min(...numericPrices) : 0;
     return {
       sheetKey,
@@ -2932,11 +2932,10 @@ function buildFinishingRows(data) {
       prices,
       bestPrice,
     };
-  }));
+  })).filter((row) => row.bestPrice > 0);
 }
 
 function renderFinishingOverview(rows, activeGroup) {
-  const populated = rows.filter((row) => row.prices.length).length;
   const priceCount = rows.reduce((sum, row) => sum + row.prices.length, 0);
   const groups = [
     { id: "all", label: "Все", count: rows.length },
@@ -2954,8 +2953,8 @@ function renderFinishingOverview(rows, activeGroup) {
         <strong>${escapeHtml(formatMoney(rows.length))}</strong>
       </div>
       <div>
-        <span>Заполнено</span>
-        <strong>${escapeHtml(formatMoney(populated))} из ${escapeHtml(formatMoney(rows.length))} · ${escapeHtml(formatMoney(priceCount))} ставок</strong>
+        <span>Ставок</span>
+        <strong>${escapeHtml(formatMoney(priceCount))}</strong>
       </div>
     </div>
     <div class="benchmark-group-tabs finishing-group-tabs" aria-label="Группы отделки квартир">
