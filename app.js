@@ -968,6 +968,7 @@ const state = {
   tepProjectSelectedId: "",
   benchmarkTab: "benchmarks",
   benchmarkGroup: "all",
+  benchmarkFinishingGroup: "all",
   benchmarkCostQuery: "",
   benchmarkCostCode: "Итого",
   benchmarkCostSelectedId: "",
@@ -2913,6 +2914,101 @@ function renderBenchmarkOverview(cards, activeGroup) {
   `;
 }
 
+function buildFinishingRows(data) {
+  const sheets = data.finishing && data.finishing.sheets ? data.finishing.sheets : {};
+  return Object.entries(sheets).flatMap(([sheetKey, sheet]) => (sheet.data || []).map((row) => {
+    const predchistovaya = Object.entries((row.prices && row.prices.predchistovaya) || {});
+    const finishingPackages = Object.entries((row.prices && row.prices.finishing_packages) || {});
+    const prices = [
+      ...predchistovaya.map(([name, price]) => ({ name, price, type: "Предчистовая" })),
+      ...finishingPackages.map(([name, price]) => ({ name, price, type: "Пакет отделки" })),
+    ];
+    const numericPrices = prices.map((item) => Number(item.price || 0)).filter(Boolean);
+    const bestPrice = numericPrices.length ? Math.min(...numericPrices) : 0;
+    return {
+      sheetKey,
+      sheetName: sheet.name || sheetKey,
+      objectType: row.object_type || "Объект",
+      prices,
+      bestPrice,
+    };
+  }));
+}
+
+function renderFinishingOverview(rows, activeGroup) {
+  const populated = rows.filter((row) => row.prices.length).length;
+  const priceCount = rows.reduce((sum, row) => sum + row.prices.length, 0);
+  const groups = [
+    { id: "all", label: "Все", count: rows.length },
+    { id: "projects_active", label: "В реализации", count: rows.filter((row) => row.sheetKey === "projects_active").length },
+    { id: "projects_prospective", label: "Перспективные", count: rows.filter((row) => row.sheetKey === "projects_prospective").length },
+  ];
+  return `
+    <div class="benchmark-overview">
+      <div>
+        <span>Раздел</span>
+        <strong>Отделка квартир</strong>
+      </div>
+      <div>
+        <span>Карточки</span>
+        <strong>${escapeHtml(formatMoney(rows.length))}</strong>
+      </div>
+      <div>
+        <span>Заполнено</span>
+        <strong>${escapeHtml(formatMoney(populated))} из ${escapeHtml(formatMoney(rows.length))} · ${escapeHtml(formatMoney(priceCount))} ставок</strong>
+      </div>
+    </div>
+    <div class="benchmark-group-tabs finishing-group-tabs" aria-label="Группы отделки квартир">
+      ${groups.map((group) => `
+        <button type="button" class="${group.id === activeGroup ? "active" : ""}" data-finishing-group="${escapeHtml(group.id)}">
+          <span>${escapeHtml(group.label)}</span>
+          <em>${escapeHtml(formatMoney(group.count))}</em>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFinishingCards(rows) {
+  if (!rows.length) {
+    return `<div class="empty">Нет данных по выбранной группе</div>`;
+  }
+  return `
+    <div class="finishing-card-grid">
+      ${rows.map((row) => {
+        const mainPrices = row.prices.slice(0, 5);
+        const hasRates = Boolean(row.prices.length);
+        return `
+          <article class="finishing-card ${hasRates ? "" : "muted"}">
+            <div class="benchmark-card-head">
+              <span>${escapeHtml(row.sheetName)}</span>
+              <em>${hasRates ? `${escapeHtml(formatMoney(row.prices.length))} ставок` : "нет ставок"}</em>
+            </div>
+            <strong>${escapeHtml(row.objectType)}</strong>
+            ${hasRates ? `
+              <div class="finishing-card-rate">
+                <span>от</span>
+                <b>${escapeHtml(formatMoney(row.bestPrice))}</b>
+                <small>руб./м2</small>
+              </div>
+              <div class="finishing-price-list">
+                ${mainPrices.map((item) => `
+                  <div>
+                    <span>${escapeHtml(item.type)}</span>
+                    <strong>${escapeHtml(formatMoney(item.price))} руб./м2</strong>
+                    <em>${escapeHtml(item.name)}</em>
+                  </div>
+                `).join("")}
+                ${row.prices.length > mainPrices.length ? `<small>ещё ${escapeHtml(formatMoney(row.prices.length - mainPrices.length))} ставок</small>` : ""}
+              </div>
+            ` : `<p>Ставки не заполнены</p>`}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderBenchmarksTool() {
   const section = document.getElementById("benchmarks-tool");
   const panel = document.getElementById("benchmarks-panel");
@@ -2928,12 +3024,20 @@ function renderBenchmarksTool() {
     panel.innerHTML = `<div class="empty">Загружаю показатели</div>`;
     return;
   }
-  setText("benchmarks-status", "удельные показатели");
+  const statusLabels = {
+    benchmarks: "удельные показатели",
+    finishing: "отделка квартир",
+    cost: "себестоимость",
+  };
+  setText("benchmarks-status", statusLabels[state.benchmarkTab] || "удельные показатели");
   const benchmarkCards = buildBenchmarkCards(data);
   const benchmarkGroups = ["all", "buildings", "parking", "dou", "school"];
   const activeGroup = benchmarkGroups.includes(state.benchmarkGroup) ? state.benchmarkGroup : "all";
   const filteredBenchmarkCards = activeGroup === "all" ? benchmarkCards : benchmarkCards.filter((row) => row.filter === activeGroup);
-  const finishingRows = Object.values(data.finishing.sheets || {}).flatMap((sheet) => (sheet.data || []).map((row) => ({ sheet: sheet.name, ...row })));
+  const finishingRows = buildFinishingRows(data);
+  const finishingGroups = ["all", "projects_active", "projects_prospective"];
+  const activeFinishingGroup = finishingGroups.includes(state.benchmarkFinishingGroup) ? state.benchmarkFinishingGroup : "all";
+  const filteredFinishingRows = activeFinishingGroup === "all" ? finishingRows : finishingRows.filter((row) => row.sheetKey === activeFinishingGroup);
   const costProjects = data.cost_changes && data.cost_changes.projects ? Object.values(data.cost_changes.projects).flat() : [];
   const costResults = costProjects
     .map((item) => ({ ...item, _score: toolSearchScore(item, state.benchmarkCostQuery, ["project", "object"]) }))
@@ -2947,7 +3051,7 @@ function renderBenchmarksTool() {
     <div class="reference-toolbar">
       <div class="view-toggle">
         <button type="button" class="${state.benchmarkTab === "benchmarks" ? "active" : ""}" data-benchmark-tab="benchmarks">Удельные показатели</button>
-        <button type="button" class="${state.benchmarkTab === "finishing" ? "active" : ""}" data-benchmark-tab="finishing">Отделка</button>
+        <button type="button" class="${state.benchmarkTab === "finishing" ? "active" : ""}" data-benchmark-tab="finishing">Отделка квартир</button>
         <button type="button" class="${state.benchmarkTab === "cost" ? "active" : ""}" data-benchmark-tab="cost">Себестоимость</button>
       </div>
     </div>
@@ -2955,10 +3059,10 @@ function renderBenchmarksTool() {
       ${renderBenchmarkOverview(benchmarkCards, activeGroup)}
       ${renderBenchmarkCards(filteredBenchmarkCards)}
     ` : ""}
-    ${state.benchmarkTab === "finishing" ? `<div class="reference-grid">${finishingRows.map((row) => {
-      const prices = Object.entries(row.prices.predchistovaya || {}).concat(Object.entries(row.prices.finishing_packages || {}));
-      return `<article class="reference-mini-card"><span>${escapeHtml(row.sheet)}</span><strong>${escapeHtml(row.object_type)}</strong>${prices.map(([name, price]) => `<em>${escapeHtml(name)} · ${escapeHtml(formatMoney(price))} руб./м2</em>`).join("") || "<em>ставки не заполнены</em>"}</article>`;
-    }).join("")}</div>` : ""}
+    ${state.benchmarkTab === "finishing" ? `
+      ${renderFinishingOverview(finishingRows, activeFinishingGroup)}
+      ${renderFinishingCards(filteredFinishingRows)}
+    ` : ""}
     ${state.benchmarkTab === "cost" ? `
       <div class="reference-toolbar">
         <input id="benchmark-cost-search" type="search" value="${escapeHtml(state.benchmarkCostQuery)}" placeholder="Проект | объект">
@@ -6113,6 +6217,13 @@ document.addEventListener("click", (event) => {
   const benchmarkGroupButton = event.target.closest("[data-benchmark-group]");
   if (benchmarkGroupButton) {
     state.benchmarkGroup = benchmarkGroupButton.dataset.benchmarkGroup || "all";
+    renderBenchmarksTool();
+    return;
+  }
+
+  const finishingGroupButton = event.target.closest("[data-finishing-group]");
+  if (finishingGroupButton) {
+    state.benchmarkFinishingGroup = finishingGroupButton.dataset.finishingGroup || "all";
     renderBenchmarksTool();
     return;
   }

@@ -1158,6 +1158,117 @@ h2 {
   line-height: 1.25;
 }
 
+.finishing-group-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.finishing-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finishing-card {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 12px;
+  min-width: 0;
+  min-height: 218px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.finishing-card.muted {
+  border-left-color: rgba(255, 255, 255, 0.18);
+}
+
+.finishing-card > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.finishing-card p {
+  align-self: end;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.finishing-card-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(88, 210, 196, 0.2);
+  border-radius: var(--radius-sm);
+  background: rgba(88, 210, 196, 0.07);
+}
+
+.finishing-card-rate span,
+.finishing-card-rate small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.finishing-card-rate b {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.finishing-price-list {
+  display: grid;
+  gap: 8px;
+}
+
+.finishing-price-list div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.finishing-price-list div:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.finishing-price-list span {
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.finishing-price-list strong,
+.finishing-price-list em,
+.finishing-price-list small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.finishing-price-list strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.finishing-price-list em,
+.finishing-price-list small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .support-layout {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
   align-items: start;
@@ -3258,6 +3369,7 @@ h2 {
   .reference-grid,
   .benchmark-overview,
   .benchmark-card-grid,
+  .finishing-card-grid,
   .factory-output-grid,
   .agent-visual-summary,
   .agent-checklist-preview,
@@ -3336,6 +3448,7 @@ h2 {
   .benchmark-overview,
   .benchmark-group-tabs,
   .benchmark-card-grid,
+  .finishing-card-grid,
   .reference-steps,
   .factory-output-grid,
   .agent-flow,
