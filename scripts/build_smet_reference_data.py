@@ -135,6 +135,42 @@ def build_median_index(medians: list[dict[str, Any]]) -> dict[str, dict[str, Any
     return result
 
 
+def build_public_kvr_items(directory: Any, rate_kvr_map: Any, medians: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    median_by_code = build_median_index(medians)
+    rate_counts: dict[str, int] = {}
+    rows: list[dict[str, Any]] = []
+    if isinstance(rate_kvr_map, dict):
+        rows = [{"kvr_code": code} for code in rate_kvr_map.values()]
+    elif isinstance(rate_kvr_map, list):
+        rows = [row for row in rate_kvr_map if isinstance(row, dict)]
+    for row in rows:
+        code = clean_text(row.get("kvr_code") or row.get("code"), 80)
+        if code:
+            rate_counts[code] = rate_counts.get(code, 0) + 1
+
+    result: list[dict[str, Any]] = []
+    if not isinstance(directory, list):
+        return result
+    for index, row in enumerate(directory, start=1):
+        if not isinstance(row, dict):
+            continue
+        code = clean_text(row.get("kvr_code") or row.get("code"), 80)
+        title = clean_text(row.get("desc") or row.get("name"), 260)
+        if not code or not title:
+            continue
+        result.append({
+            "id": f"kvr-{index}",
+            "type": "kvr",
+            "code": code,
+            "title": title,
+            "section": canonical_section(row.get("section") or row.get("l1") or row.get("root")),
+            "level": clean_text(row.get("level") or row.get("lvl"), 40),
+            "rate_count": rate_counts.get(code, 0),
+            "kvr_median": median_by_code.get(normalize_key(code)),
+        })
+    return result
+
+
 def build_kvr_index(rate_kvr_map: Any, medians: list[dict[str, Any]], kvr_names: dict[str, str]) -> dict[tuple[str, str], dict[str, Any]]:
     median_by_code = build_median_index(medians)
     index: dict[tuple[str, str], dict[str, Any]] = {}
@@ -368,6 +404,7 @@ def main() -> None:
     source_rates = rates_source.get("rates", []) if isinstance(rates_source, dict) else []
     source_gesn = gesn_source.get("norms", []) if isinstance(gesn_source, dict) else []
     kvr_names = build_kvr_name_index(kvr_directory)
+    kvr_items = build_public_kvr_items(kvr_directory, rate_kvr_map, medians if isinstance(medians, list) else [])
     kvr_index = build_kvr_index(rate_kvr_map, medians if isinstance(medians, list) else [], kvr_names)
     price_by_desc, price_by_code = build_material_price_index(source_rates, medians if isinstance(medians, list) else [])
     linked_materials = build_linked_materials(kvr_materials, price_by_desc, price_by_code)
@@ -428,6 +465,7 @@ def main() -> None:
         },
         "sections": sections,
         "section_files": section_files,
+        "kvr_items": kvr_items,
         "items": gesn,
     }
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)

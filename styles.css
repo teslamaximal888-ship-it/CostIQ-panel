@@ -820,6 +820,198 @@ h2 {
   margin-top: 14px;
 }
 
+.reference-tool-section,
+.support-section {
+  margin-top: 14px;
+}
+
+.reference-tool,
+.support-layout {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.reference-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reference-toolbar input,
+.reference-toolbar select {
+  min-width: min(100%, 280px);
+  flex: 1 1 280px;
+}
+
+.reference-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reference-steps label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.reference-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.reference-results {
+  display: grid;
+  gap: 8px;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.reference-results button {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.reference-results button.active,
+.reference-results button:hover {
+  border-color: rgba(88, 210, 196, 0.55);
+  background: rgba(88, 210, 196, 0.08);
+}
+
+.reference-results span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.reference-results strong,
+.reference-results small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.28;
+}
+
+.reference-results small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reference-card,
+.support-form,
+.support-list {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reference-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.reference-card dl div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.reference-card dt,
+.reference-card dd {
+  margin: 0;
+}
+
+.reference-card dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reference-card dd {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.reference-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reference-mini-card,
+.support-ticket {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.reference-mini-card span,
+.support-ticket span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.reference-mini-card strong,
+.support-ticket strong {
+  line-height: 1.25;
+}
+
+.reference-mini-card em,
+.support-ticket small,
+.support-ticket p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.support-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  align-items: start;
+}
+
+.support-list {
+  display: grid;
+  gap: 8px;
+}
+
 .smet-reference-tool {
   display: grid;
   gap: 12px;
@@ -2905,6 +3097,9 @@ h2 {
   .content-admin-layout,
   .tool-grid,
   .tool-detail-card,
+  .reference-layout,
+  .support-layout,
+  .reference-grid,
   .factory-output-grid,
   .agent-visual-summary,
   .agent-checklist-preview,
@@ -2924,6 +3119,10 @@ h2 {
   }
 
   .smet-search-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reference-steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2969,6 +3168,10 @@ h2 {
   .tool-grid,
   .tool-grid.enhanced,
   .tool-detail-card,
+  .reference-layout,
+  .support-layout,
+  .reference-grid,
+  .reference-steps,
   .factory-output-grid,
   .agent-flow,
   .agent-visual-summary,

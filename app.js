@@ -17,7 +17,9 @@ const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
 const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
+const PANEL_TOOLS_DATA_URL = "/data/panel-tools.json";
 const SMET_REFERENCE_RESULT_LIMIT = 10;
+const SUPPORT_TICKETS_STORAGE_KEY = "costiq_support_tickets";
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
 const AGENT_FACTORY_SUPPORT_CHAT = "-1003923170152";
 const OFFICE_FITOUT_RATES = {
@@ -31,6 +33,7 @@ const APP_VIEW_TITLES = {
   skills: "Навыки",
   calculators: "Калькуляторы",
   tools: "Инструменты",
+  support: "Поддержка",
   tasks: "Мои заявки",
 };
 
@@ -60,43 +63,25 @@ const PANEL_VISUAL_DIGEST = [
 
 const PANEL_TOOLS = [
   {
-    id: "tep_calc",
-    title: "ТЭП-калькулятор",
-    subtitle: "ТЭП, население, соцобъекты, парковки",
-    status: "рабочий экран",
-    access: "public/admin",
-    input: "площадь, жильё, сценарии",
-    output: "расчёт и структура проекта",
-    tone: "blue",
-    skillId: "tep_calc",
-    visibility: "public",
-    primaryLabel: "Открыть ТЭП",
-    summary: "Быстрый вход в сценарий ТЭП: СПП, НП, население, социальные объекты, парковки, услуги и спорт. Сейчас работает как структурированная заявка, следующий шаг - интерактивный frontend-расчёт.",
-    steps: ["Исходные параметры", "Расчёт ТЭП", "Проверка нормативов", "Результат в заявке"],
-    metrics: ["СПП/НП", "население", "соцобъекты"],
-  },
-  {
     id: "ncs_upss",
     title: "НЦС / УПСС",
-    subtitle: "Справочные расчёты по нормативам",
-    status: "рабочий вход",
+    subtitle: "Пошаговый подбор и расчёт нормативов",
+    status: "интерактивно",
     access: "public/admin",
-    input: "код, параметры, коэффициенты",
-    output: "стоимость и пояснения",
+    input: "сборник, раздел, таблица, позиция",
+    output: "карточка, стоимость, состав",
     tone: "copper",
-    skillId: "ncs",
-    secondarySkillId: "upss",
     visibility: "public",
-    primaryLabel: "Открыть НЦС",
-    secondaryLabel: "Открыть УПСС",
-    summary: "Единая карточка для укрупнённых нормативов. НЦС используется для федеральных нормативов цены строительства, УПСС - для московских укрупнённых показателей и коэффициентов.",
-    steps: ["Код или описание", "Параметры объекта", "Коэффициенты", "Стоимость с пояснением"],
-    metrics: ["НЦС 2025", "УПСС Москва", "коэффициенты"],
+    primaryLabel: "Открыть справочник",
+    summary: "Интерактивный экран НЦС 2025 и УПСС Москвы: выбор по сборнику и описанию, пошаговая навигация до позиции, карточка с измерителем, стоимостью и составом работ.",
+    steps: ["НЦС или УПСС", "Сборник и раздел", "Таблица / группа", "Позиция и расчёт"],
+    metrics: ["НЦС 2025", "УПСС Москва", "состав работ"],
+    anchor: "ncs-upss-tool",
   },
   {
     id: "smet_reference",
     title: "Сметный справочник",
-    subtitle: "Расценки, ГЭСН, материалы и механизмы",
+    subtitle: "СМР, МТР и справочник КВР",
     status: "рабочий вход",
     access: "public/admin",
     input: "описание работы или код",
@@ -104,26 +89,58 @@ const PANEL_TOOLS = [
     tone: "teal",
     visibility: "public",
     primaryLabel: "Открыть поиск",
-    summary: "Интерактивный поиск по базе расценок и ГЭСН прямо в панели: ставка, материал/работа, основание, объект, трудозатраты, механизмы и материалы. Выбранную позицию можно сразу отправить в CostIQ как заявку.",
+    summary: "Интерактивный поиск по базе расценок прямо в панели по логике Telegram-бота: СМР по выбранному разделу, МТР по материалам, КВР как отдельный справочник.",
     steps: ["Запрос", "Поиск в базе", "Карточка работы", "Заявка из позиции"],
-    metrics: ["73k+ расценок", "8k+ ГЭСН", "карточка работы"],
+    metrics: ["СМР", "МТР", "КВР"],
     anchor: "smet-reference-tool",
   },
   {
-    id: "office_calc",
-    title: "Офисный калькулятор",
-    subtitle: "CAPEX офисов и fit-out",
+    id: "tep_project",
+    title: "ТЭП проекта",
+    subtitle: "Поиск проекта и объекта ФСК",
     status: "интерактивно",
     access: "public/admin",
-    input: "класс, площадь, опции",
-    output: "стоимость и сохранённый расчёт",
+    input: "проект или проект | объект",
+    output: "даты, площади, недвижимость",
+    tone: "blue",
+    visibility: "public",
+    primaryLabel: "Открыть ТЭП",
+    summary: "Просмотр фактической базы ТЭП ФСК: проект, объект, класс, очередь, даты РС/РВЭ/передачи, площади и структура недвижимости.",
+    steps: ["Запрос", "Выбор объекта", "Обзор", "Даты и площади"],
+    metrics: ["39 проектов", "409 объектов", "1 149 строк"],
+    anchor: "tep-project-tool",
+  },
+  {
+    id: "benchmarks",
+    title: "Удельные показатели",
+    subtitle: "Бенчмарки, отделка, себестоимость",
+    status: "интерактивно",
+    access: "public/admin",
+    input: "тип показателя, проект, объект",
+    output: "ставки, отделка, изменение",
     tone: "green",
     visibility: "public",
-    primaryLabel: "Открыть калькулятор",
-    summary: "Уже подключён как интерактивный frontend-калькулятор: класс офиса, площадь, fit-out, эталон сравнения и опции панели.",
-    steps: ["Класс и площадь", "Опции", "Итог CAPEX", "Сохранение/заявка"],
-    metrics: ["руб./м²", "fit-out", "опции"],
-    appView: "calculators",
+    primaryLabel: "Открыть показатели",
+    summary: "Инструмент повторяет ветки бота: бенчмарки корпусов/паркингов/соцобъектов, отделка квартир и изменение себестоимости по кодам 35/40/45/48/49.",
+    steps: ["Бенчмарк", "Отделка", "Код затрат", "Карточка"],
+    metrics: ["корпуса", "паркинги", "себестоимость"],
+    anchor: "benchmarks-tool",
+  },
+  {
+    id: "support",
+    title: "Поддержка",
+    subtitle: "Обращение, предложение, проблема",
+    status: "рабочий вход",
+    access: "public/admin",
+    input: "тема и описание",
+    output: "статус обращения",
+    tone: "teal",
+    visibility: "public",
+    primaryLabel: "Открыть поддержку",
+    summary: "Отдельный раздел для обратной связи по панели: пользователь оставляет обращение и видит локальный статус, задача уходит в контур CostIQ.",
+    steps: ["Тип", "Описание", "Статус", "Ответ"],
+    metrics: ["проблемы", "предложения", "вопросы"],
+    appView: "support",
   },
   {
     id: "agent_factory",
@@ -934,7 +951,7 @@ const state = {
   webSkillGroup: "все",
   webSkillQuery: "",
   webSelectedSkillId: "",
-  panelToolId: "tep_calc",
+  panelToolId: "smet_reference",
   webRecentFilter: "all",
   webReviewDraft: null,
   webCurrentTask: null,
@@ -946,11 +963,29 @@ const state = {
   smetReferenceSectionCache: {},
   smetReferenceLoadingSection: "",
   smetReferenceQuery: "",
-  smetReferenceScope: "all",
+  smetReferenceScope: "smr",
   smetReferenceSection: "all",
   smetReferenceSelectedId: "",
   smetReferenceResults: [],
   smetReferenceExpandedVariantsFor: "",
+  panelToolsData: null,
+  ncsUpSsMode: "ncs",
+  ncsQuery: "",
+  ncsCollectionId: "",
+  ncsSectionId: "",
+  ncsTableCode: "",
+  ncsSelectedId: "",
+  ncsQuantity: 1,
+  upssCollectionId: "",
+  upssGroupId: "",
+  upssSelectedId: "",
+  upssQuantity: 1,
+  tepProjectQuery: "",
+  tepProjectSelectedId: "",
+  benchmarkTab: "benchmarks",
+  benchmarkCostQuery: "",
+  benchmarkCostCode: "Итого",
+  benchmarkCostSelectedId: "",
   appViewHistory: [],
   agentFactoryStep: "request",
   restoringState: false,
@@ -1018,6 +1053,9 @@ function restoreMiniAppState() {
   state.webSkillQuery = saved.webSkillQuery || state.webSkillQuery;
   state.webSelectedSkillId = saved.webSelectedSkillId || state.webSelectedSkillId;
   state.panelToolId = PANEL_TOOLS.some((tool) => tool.id === saved.panelToolId) ? saved.panelToolId : state.panelToolId;
+  if (!["smr", "mtr", "kvr"].includes(state.smetReferenceScope)) {
+    state.smetReferenceScope = "smr";
+  }
   state.webRecentFilter = WEB_RECENT_FILTERS.includes(saved.webRecentFilter) ? saved.webRecentFilter : state.webRecentFilter;
   state.restoringState = false;
 }
@@ -1047,8 +1085,15 @@ function setAppView(view, options = {}) {
   }
   if (nextView === "tools") {
     renderAgentFactory();
+    loadPanelToolsData();
     loadSmetReferenceData();
     renderSmetReferenceTool();
+    renderNcsUpSsTool();
+    renderTepProjectTool();
+    renderBenchmarksTool();
+  }
+  if (nextView === "support") {
+    renderSupportTickets();
   }
   saveMiniAppState();
   updateProfileNotice();
@@ -1848,6 +1893,9 @@ function smetReferenceLabel(item) {
   if (item.type === "gesn") {
     return "ГЭСН";
   }
+  if (item.type === "kvr") {
+    return "КВР";
+  }
   return item.rate_kind === "material" ? "материал" : "работа";
 }
 
@@ -1857,6 +1905,9 @@ function smetReferencePrice(item) {
   }
   if (item.type === "gesn") {
     return item.labor_hours ? `${formatMoney(item.labor_hours)} чел-ч` : "норма";
+  }
+  if (item.type === "kvr") {
+    return item.rate_count ? `${formatMoney(item.rate_count)} связок` : "справочник";
   }
   return item.total ? `${formatMoney(item.total)} руб./${item.unit || "ед."}` : "без цены";
 }
@@ -2052,6 +2103,9 @@ function currentSmetReferenceItems() {
   if (!data || !Array.isArray(data.items)) {
     return [];
   }
+  if (state.smetReferenceScope === "kvr") {
+    return Array.isArray(data.kvr_items) ? data.kvr_items : [];
+  }
   const baseItems = data.items;
   const section = state.smetReferenceSection;
   if (section === "all") {
@@ -2071,30 +2125,29 @@ function searchSmetReference() {
   const hasQuery = parts.query.length > 0;
   const section = state.smetReferenceSection;
   const scope = state.smetReferenceScope;
-  if (section === "all" && ["all", "rate", "work", "material"].includes(scope) && hasQuery) {
-    const gesn = items
-      .filter((item) => item.type === "gesn" && (scope === "all" || scope === "gesn"))
-      .map((item) => ({ ...item, _score: scoreSmetReferenceGesn(item, parts) }))
+  if (scope === "kvr") {
+    const kvrItems = items
+      .map((item) => {
+        const haystack = normalizeSearchText([item.code, item.title, item.section].filter(Boolean).join(" "));
+        const score = hasQuery
+          ? parts.words.reduce((total, word) => total + (haystack.includes(word) ? 30 : 0), 0)
+          : 1;
+        return { ...item, _score: score };
+      })
       .filter((item) => item._score > 0)
-      .sort((a, b) => b._score - a._score || String(a.title || "").localeCompare(String(b.title || ""), "ru"))
-      .slice(0, SMET_REFERENCE_RESULT_LIMIT);
-    state.smetReferenceResults = gesn;
-    if (!gesn.some((item) => item.id === state.smetReferenceSelectedId)) {
-      state.smetReferenceSelectedId = gesn[0] ? gesn[0].id : "";
+      .sort((a, b) => b._score - a._score || String(a.code || "").localeCompare(String(b.code || ""), "ru"))
+      .slice(0, 40);
+    state.smetReferenceResults = kvrItems;
+    if (!kvrItems.some((item) => item.id === state.smetReferenceSelectedId)) {
+      state.smetReferenceSelectedId = kvrItems[0] ? kvrItems[0].id : "";
     }
     return;
   }
   const sectionFiltered = items.filter((item) => {
-    if (scope === "rate" && item.type !== "rate") {
+    if (scope === "smr" && (item.type !== "rate" || item.rate_kind !== "work")) {
       return false;
     }
-    if (scope === "work" && (item.type !== "rate" || item.rate_kind !== "work")) {
-      return false;
-    }
-    if (scope === "material" && (item.type !== "rate" || item.rate_kind !== "material")) {
-      return false;
-    }
-    if (scope === "gesn" && item.type !== "gesn") {
+    if (scope === "mtr" && (item.type !== "rate" || item.rate_kind !== "material")) {
       return false;
     }
     if (section !== "all" && item.section !== section) {
@@ -2132,13 +2185,6 @@ function searchSmetReference() {
   const materials = rateResults
     .filter((item) => item.rate_kind === "material")
     .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b));
-  const gesn = sectionFiltered
-    .filter((item) => item.type === "gesn")
-    .map((item) => ({ ...item, _score: scoreSmetReferenceGesn(item, parts) }))
-    .filter((item) => item._score > 0)
-    .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b))
-    .slice(0, SMET_REFERENCE_RESULT_LIMIT);
-
   const half = Math.floor(SMET_REFERENCE_RESULT_LIMIT / 2);
   let pageWorks = works.slice(0, half);
   let pageMaterials = materials.slice(0, half);
@@ -2147,7 +2193,7 @@ function searchSmetReference() {
   } else if (pageMaterials.length < half) {
     pageWorks = works.slice(0, half + (half - pageMaterials.length));
   }
-  const scored = scope === "gesn" ? gesn : [...pageWorks, ...pageMaterials, ...(scope === "all" ? gesn : [])];
+  const scored = scope === "mtr" ? materials.slice(0, SMET_REFERENCE_RESULT_LIMIT) : scope === "smr" ? works.slice(0, SMET_REFERENCE_RESULT_LIMIT) : [...pageWorks, ...pageMaterials];
   state.smetReferenceResults = scored;
   if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
     state.smetReferenceSelectedId = scored[0] ? scored[0].id : "";
@@ -2162,7 +2208,7 @@ function renderSmetReferenceFilters() {
   }
   const sections = Array.isArray(data.sections) ? data.sections : [];
   sectionSelect.innerHTML = [
-    `<option value="all">Все разделы</option>`,
+    `<option value="all">Выберите раздел</option>`,
     ...sections.map((section) => `<option value="${escapeHtml(section)}">${escapeHtml(section)}</option>`),
   ].join("");
   sectionSelect.dataset.ready = "1";
@@ -2178,7 +2224,7 @@ function renderSmetReferenceResults() {
     container.innerHTML = `<div class="empty">Загружаю раздел ${escapeHtml(state.smetReferenceLoadingSection)}</div>`;
     return;
   }
-  if (state.smetReferenceSection === "all" && ["all", "rate", "work", "material"].includes(state.smetReferenceScope)) {
+  if (state.smetReferenceScope === "smr" && state.smetReferenceSection === "all") {
     container.innerHTML = `<div class="empty">Выберите раздел, как в боте. Поиск расценок выполняется внутри выбранного раздела.</div>`;
     return;
   }
@@ -2188,7 +2234,7 @@ function renderSmetReferenceResults() {
   }
   let previousGroup = "";
   container.innerHTML = results.map((item) => {
-    const group = item.type === "gesn" ? "ГЭСН" : item.rate_kind === "material" ? "Материалы" : "Работы";
+    const group = item.type === "kvr" ? "КВР" : item.rate_kind === "material" ? "Материалы" : "Работы";
     const groupHeader = group !== previousGroup ? `<div class="smet-result-group">${escapeHtml(group)}</div>` : "";
     previousGroup = group;
     return `
@@ -2211,6 +2257,25 @@ function renderSmetReferenceCard() {
   const item = findSmetReferenceItem(state.smetReferenceSelectedId);
   if (!item) {
     card.innerHTML = `<div class="empty">Выберите позицию из результатов</div>`;
+    return;
+  }
+  if (item.type === "kvr") {
+    card.innerHTML = `
+      <article>
+        <div class="smet-card-head">
+          <span>КВР</span>
+          <em>${escapeHtml(item.code || "")}</em>
+        </div>
+        <h3>${escapeHtml(item.title || "Без названия")}</h3>
+        <dl>
+          <div><dt>Код</dt><dd>${escapeHtml(item.code || "-")}</dd></div>
+          <div><dt>Раздел</dt><dd>${escapeHtml(item.section || "-")}</dd></div>
+          <div><dt>Уровень</dt><dd>${escapeHtml(item.level || "-")}</dd></div>
+          <div><dt>Связанные расценки</dt><dd>${escapeHtml(formatMoney(item.rate_count || 0))}</dd></div>
+          ${item.kvr_median && item.kvr_median.median ? `<div><dt>Медиана ФСК</dt><dd>${escapeHtml(formatMoney(item.kvr_median.median))} руб.</dd></div>` : ""}
+        </dl>
+      </article>
+    `;
     return;
   }
   const priceBlock = item.type === "gesn"
@@ -2323,13 +2388,25 @@ function renderSmetReferenceTool() {
     scope.value = state.smetReferenceScope;
   }
   if (sectionSelect) {
+    const isMaterialMode = state.smetReferenceScope === "mtr";
+    const isKvrMode = state.smetReferenceScope === "kvr";
+    sectionSelect.closest(".field").hidden = isMaterialMode || isKvrMode;
+    if (isMaterialMode) {
+      state.smetReferenceSection = "Материалы";
+    }
+    if (isKvrMode) {
+      state.smetReferenceSection = "all";
+    }
     sectionSelect.value = state.smetReferenceSection;
   }
   ensureSmetReferenceSectionLoaded(state.smetReferenceSection);
   searchSmetReference();
   const data = state.smetReferenceData;
   const stats = data && data.stats ? data.stats : null;
-  setText("smet-reference-status", stats ? `${formatMoney(stats.rates)} расценок · ${formatMoney(stats.gesn)} ГЭСН` : "загрузка");
+  const statusText = state.smetReferenceScope === "kvr" && data && Array.isArray(data.kvr_items)
+    ? `${formatMoney(data.kvr_items.length)} КВР`
+    : stats ? `${formatMoney(stats.rates)} расценок` : "загрузка";
+  setText("smet-reference-status", statusText);
   renderSmetReferenceResults();
   renderSmetReferenceCard();
 }
@@ -2485,6 +2562,423 @@ function openPanelToolSkill(skillId) {
   const intake = document.getElementById("web-intake");
   if (intake) {
     intake.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+async function loadPanelToolsData() {
+  if (state.panelToolsData) {
+    return;
+  }
+  try {
+    const response = await fetch(`${PANEL_TOOLS_DATA_URL}?ts=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.version) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    state.panelToolsData = data;
+    renderNcsUpSsTool();
+    renderTepProjectTool();
+    renderBenchmarksTool();
+  } catch (error) {
+    setText("ncs-upss-status", "ошибка");
+    setText("tep-project-status", "ошибка");
+    setText("benchmarks-status", "ошибка");
+  }
+}
+
+function toolSearchScore(row, query, fields) {
+  const words = normalizeSearchText(query).split(" ").filter(Boolean);
+  if (!words.length) {
+    return 1;
+  }
+  const haystack = normalizeSearchText(fields.map((field) => row[field]).join(" "));
+  return words.reduce((total, word) => total + (haystack.includes(word) ? 20 : 0), 0);
+}
+
+function selectedNcsCollection() {
+  const data = state.panelToolsData && state.panelToolsData.ncs;
+  const collections = data && Array.isArray(data.collections) ? data.collections : [];
+  return collections.find((item) => item.id === state.ncsCollectionId) || collections[0] || null;
+}
+
+function selectedNcsSection(collection) {
+  const sections = collection && Array.isArray(collection.sections) ? collection.sections : [];
+  return sections.find((item) => item.id === state.ncsSectionId) || sections[0] || null;
+}
+
+function selectedNcsTable(section) {
+  const tables = section && Array.isArray(section.tables) ? section.tables : [];
+  return tables.find((item) => item.code === state.ncsTableCode) || tables[0] || null;
+}
+
+function ncsItemById(id) {
+  const items = state.panelToolsData && state.panelToolsData.ncs && Array.isArray(state.panelToolsData.ncs.items)
+    ? state.panelToolsData.ncs.items
+    : [];
+  return items.find((item) => item.id === id) || null;
+}
+
+function upssItemById(id) {
+  const items = state.panelToolsData && state.panelToolsData.upss && Array.isArray(state.panelToolsData.upss.items)
+    ? state.panelToolsData.upss.items
+    : [];
+  return items.find((item) => item.id === id) || null;
+}
+
+function renderNcsUpSsTool() {
+  const section = document.getElementById("ncs-upss-tool");
+  const panel = document.getElementById("ncs-upss-panel");
+  if (!section || !panel) {
+    return;
+  }
+  section.hidden = state.appView !== "tools" || state.panelToolId !== "ncs_upss";
+  if (section.hidden) {
+    return;
+  }
+  const data = state.panelToolsData;
+  if (!data) {
+    panel.innerHTML = `<div class="empty">Загружаю справочники</div>`;
+    return;
+  }
+  setText("ncs-upss-status", `${formatMoney(data.ncs.count)} НЦС · ${formatMoney(data.upss.count)} УПСС`);
+  panel.innerHTML = state.ncsUpSsMode === "upss" ? renderUpSsPanel(data.upss) : renderNcsPanel(data.ncs);
+}
+
+function renderNcsPanel(ncs) {
+  const collections = Array.isArray(ncs.collections) ? ncs.collections : [];
+  const collection = selectedNcsCollection();
+  if (collection && state.ncsCollectionId !== collection.id) {
+    state.ncsCollectionId = collection.id;
+  }
+  const currentSection = selectedNcsSection(collection);
+  if (currentSection && state.ncsSectionId !== currentSection.id) {
+    state.ncsSectionId = currentSection.id;
+  }
+  const currentTable = selectedNcsTable(currentSection);
+  if (currentTable && state.ncsTableCode !== currentTable.code) {
+    state.ncsTableCode = currentTable.code;
+  }
+  const allItems = Array.isArray(ncs.items) ? ncs.items : [];
+  const tableItemIds = new Set((currentTable && currentTable.items) || []);
+  const query = state.ncsQuery;
+  const results = (query
+    ? allItems
+        .map((item) => ({ ...item, _score: toolSearchScore(item, query, ["code", "name", "table", "section", "collection"]) }))
+        .filter((item) => item._score > 0)
+        .sort((a, b) => b._score - a._score || String(a.code).localeCompare(String(b.code), "ru"))
+    : allItems.filter((item) => tableItemIds.has(item.id))).slice(0, 50);
+  const selected = ncsItemById(state.ncsSelectedId) || results[0] || null;
+  if (selected) {
+    state.ncsSelectedId = selected.id;
+  }
+  const total = selected ? Number(selected.price || 0) * Number(state.ncsQuantity || 1) : 0;
+  return `
+    <div class="reference-toolbar">
+      <div class="view-toggle">
+        <button type="button" class="active" data-ncs-mode="ncs">НЦС 2025</button>
+        <button type="button" data-ncs-mode="upss">УПСС Москва</button>
+      </div>
+      <input id="ncs-search" type="search" value="${escapeHtml(state.ncsQuery)}" placeholder="Поиск по коду или описанию НЦС">
+    </div>
+    <div class="reference-steps">
+      <label>Сборник<select id="ncs-collection">${collections.map((row) => `<option value="${escapeHtml(row.id)}" ${row.id === state.ncsCollectionId ? "selected" : ""}>${escapeHtml(`${row.id}. ${row.name}`)}</option>`).join("")}</select></label>
+      <label>Раздел<select id="ncs-section">${(collection && collection.sections || []).map((row) => `<option value="${escapeHtml(row.id)}" ${row.id === state.ncsSectionId ? "selected" : ""}>${escapeHtml(row.name)}</option>`).join("")}</select></label>
+      <label>Таблица<select id="ncs-table">${(currentSection && currentSection.tables || []).map((row) => `<option value="${escapeHtml(row.code)}" ${row.code === state.ncsTableCode ? "selected" : ""}>${escapeHtml(`${row.code} · ${row.name}`)}</option>`).join("")}</select></label>
+      <label>Количество<input id="ncs-quantity" type="number" min="0" step="1" value="${escapeHtml(state.ncsQuantity)}"></label>
+    </div>
+    <div class="reference-layout">
+      <div class="reference-results">${results.map((item) => `<button type="button" class="${item.id === state.ncsSelectedId ? "active" : ""}" data-ncs-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.code)}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([item.table, item.unit].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Позиции не найдены</div>`}</div>
+      <article class="reference-card">
+        ${selected ? `
+          <div class="smet-card-head"><span>НЦС</span><em>${escapeHtml(selected.code)}</em></div>
+          <h3>${escapeHtml(selected.name)}</h3>
+          <div class="smet-card-metrics">
+            <div><span>Стоимость</span><strong>${escapeHtml(formatMoney(selected.price || 0))}</strong><small>тыс. руб. / ${escapeHtml(selected.unit || "ед.")}</small></div>
+            <div><span>Количество</span><strong>${escapeHtml(formatMoney(state.ncsQuantity || 1))}</strong><small>${escapeHtml(selected.unit || "ед.")}</small></div>
+            <div><span>Итого</span><strong>${escapeHtml(formatMoney(total))}</strong><small>тыс. руб.</small></div>
+          </div>
+          <dl>
+            <div><dt>Сборник</dt><dd>${escapeHtml(selected.collection)}</dd></div>
+            <div><dt>Раздел</dt><dd>${escapeHtml(selected.section)}</dd></div>
+            <div><dt>Таблица</dt><dd>${escapeHtml(selected.table)}</dd></div>
+            <div><dt>Параметр</dt><dd>${escapeHtml([selected.power ? `${formatMoney(selected.power)} мощность` : "", selected.diameter_mm ? `D ${formatMoney(selected.diameter_mm)} мм` : "", selected.depth_m ? `глубина ${formatMoney(selected.depth_m)} м` : "", selected.material].filter(Boolean).join(" · ") || "-")}</dd></div>
+          </dl>
+        ` : `<div class="empty">Выберите позицию</div>`}
+      </article>
+    </div>
+  `;
+}
+
+function renderUpSsPanel(upss) {
+  const collections = Array.isArray(upss.collections) ? upss.collections : [];
+  const collection = collections.find((item) => String(item.id) === String(state.upssCollectionId)) || collections[0] || null;
+  if (collection && String(state.upssCollectionId) !== String(collection.id)) {
+    state.upssCollectionId = String(collection.id);
+  }
+  const groups = collection && Array.isArray(collection.groups) ? collection.groups : [];
+  const group = groups.find((item) => item.id === state.upssGroupId) || groups[0] || null;
+  if (group && state.upssGroupId !== group.id) {
+    state.upssGroupId = group.id;
+  }
+  const items = Array.isArray(upss.items) ? upss.items : [];
+  const groupIds = new Set((group && group.items) || []);
+  const query = state.ncsQuery;
+  const results = (query
+    ? items
+        .map((item) => ({ ...item, _score: toolSearchScore(item, query, ["code", "name", "collection"]) }))
+        .filter((item) => item._score > 0)
+        .sort((a, b) => b._score - a._score || String(a.code).localeCompare(String(b.code), "ru"))
+    : items.filter((item) => groupIds.has(item.id))).slice(0, 50);
+  const selected = upssItemById(state.upssSelectedId) || results[0] || null;
+  if (selected) {
+    state.upssSelectedId = selected.id;
+  }
+  const total = selected ? Number(selected.cost || 0) * Number(state.upssQuantity || 1) : 0;
+  const structure = selected && Array.isArray(selected.cost_groups)
+    ? selected.cost_groups.slice(0, 8).map((row) => `<em>${escapeHtml([row.num, row.name, row.pct ? `${row.pct}%` : ""].filter(Boolean).join(" · "))}</em>`).join("")
+    : "";
+  return `
+    <div class="reference-toolbar">
+      <div class="view-toggle">
+        <button type="button" data-ncs-mode="ncs">НЦС 2025</button>
+        <button type="button" class="active" data-ncs-mode="upss">УПСС Москва</button>
+      </div>
+      <input id="ncs-search" type="search" value="${escapeHtml(state.ncsQuery)}" placeholder="Поиск по шифру или описанию УПСС">
+    </div>
+    <div class="reference-steps">
+      <label>Сборник<select id="upss-collection">${collections.map((row) => `<option value="${escapeHtml(row.id)}" ${String(row.id) === String(state.upssCollectionId) ? "selected" : ""}>${escapeHtml(`${row.id}. ${row.name}`)}</option>`).join("")}</select></label>
+      <label>Группа<select id="upss-group">${groups.map((row) => `<option value="${escapeHtml(row.id)}" ${row.id === state.upssGroupId ? "selected" : ""}>${escapeHtml(`${row.id} · ${row.name}`)}</option>`).join("")}</select></label>
+      <label>Количество<input id="upss-quantity" type="number" min="0" step="1" value="${escapeHtml(state.upssQuantity)}"></label>
+    </div>
+    <div class="reference-layout">
+      <div class="reference-results">${results.map((item) => `<button type="button" class="${item.id === state.upssSelectedId ? "active" : ""}" data-upss-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.code)}</span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([item.collection, item.unit].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Позиции не найдены</div>`}</div>
+      <article class="reference-card">
+        ${selected ? `
+          <div class="smet-card-head"><span>УПСС</span><em>${escapeHtml(selected.code)}</em></div>
+          <h3>${escapeHtml(selected.name)}</h3>
+          <div class="smet-card-metrics">
+            <div><span>Стоимость</span><strong>${escapeHtml(formatMoney(selected.cost || 0))}</strong><small>руб. / ${escapeHtml(selected.unit || "ед.")}</small></div>
+            <div><span>Количество</span><strong>${escapeHtml(formatMoney(state.upssQuantity || 1))}</strong><small>${escapeHtml(selected.unit || "ед.")}</small></div>
+            <div><span>Итого</span><strong>${escapeHtml(formatMoney(total))}</strong><small>руб.</small></div>
+          </div>
+          <dl>
+            <div><dt>Сборник</dt><dd>${escapeHtml(selected.collection)}</dd></div>
+            <div><dt>Дата цен</dt><dd>${escapeHtml(upss.meta && upss.meta.price_date || "-")}</dd></div>
+            <div><dt>ТЭП</dt><dd>${escapeHtml(selected.tep && Object.keys(selected.tep).length ? Object.entries(selected.tep).map(([key, value]) => `${key}: ${value}`).join(" · ") : "-")}</dd></div>
+            <div><dt>Отделка фасадов</dt><dd>${escapeHtml(selected.finishing || "-")}</dd></div>
+          </dl>
+          ${structure ? `<div class="smet-card-list"><span>Структура стоимости</span>${structure}</div>` : ""}
+        ` : `<div class="empty">Выберите позицию</div>`}
+      </article>
+    </div>
+  `;
+}
+
+function renderTepProjectTool() {
+  const section = document.getElementById("tep-project-tool");
+  const panel = document.getElementById("tep-project-panel");
+  if (!section || !panel) {
+    return;
+  }
+  section.hidden = state.appView !== "tools" || state.panelToolId !== "tep_project";
+  if (section.hidden) {
+    return;
+  }
+  const tep = state.panelToolsData && state.panelToolsData.tep;
+  if (!tep) {
+    panel.innerHTML = `<div class="empty">Загружаю базу ТЭП</div>`;
+    return;
+  }
+  setText("tep-project-status", `${formatMoney(tep.projects.length)} проектов · ${formatMoney(tep.objects.length)} объектов`);
+  const results = tep.objects
+    .map((item) => ({ ...item, _score: toolSearchScore(item, state.tepProjectQuery, ["project", "object", "type", "class", "queue"]) }))
+    .filter((item) => !state.tepProjectQuery || item._score > 0)
+    .sort((a, b) => b._score - a._score || String(a.project).localeCompare(String(b.project), "ru"))
+    .slice(0, 60);
+  const selected = tep.objects.find((item) => item.id === state.tepProjectSelectedId) || results[0] || null;
+  if (selected) {
+    state.tepProjectSelectedId = selected.id;
+  }
+  const realty = selected && Array.isArray(selected.realty) ? selected.realty : [];
+  panel.innerHTML = `
+    <div class="reference-toolbar">
+      <input id="tep-project-search" type="search" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Формат как в боте: проект | объект">
+    </div>
+    <div class="reference-layout">
+      <div class="reference-results">${results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
+      <article class="reference-card">
+        ${selected ? `
+          <div class="smet-card-head"><span>ТЭП</span><em>${escapeHtml(selected.type || "")}</em></div>
+          <h3>${escapeHtml([selected.project, selected.object].filter(Boolean).join(" · "))}</h3>
+          <div class="smet-card-metrics">
+            <div><span>Надземная</span><strong>${escapeHtml(formatMoney(selected.areas_total.above_ground || 0))}</strong><small>м2</small></div>
+            <div><span>Подземная</span><strong>${escapeHtml(formatMoney(selected.areas_total.underground || 0))}</strong><small>м2</small></div>
+            <div><span>Благоустройство</span><strong>${escapeHtml(formatMoney(selected.areas_total.landscape || 0))}</strong><small>м2</small></div>
+          </div>
+          <dl>
+            <div><dt>Класс</dt><dd>${escapeHtml(selected.class || "-")}</dd></div>
+            <div><dt>Очередь</dt><dd>${escapeHtml(selected.queue || "-")}</dd></div>
+            <div><dt>РС план / прогноз</dt><dd>${escapeHtml([selected.dates.rs_plan, selected.dates.rs_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+            <div><dt>РВЭ план / прогноз</dt><dd>${escapeHtml([selected.dates.rve_plan, selected.dates.rve_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+            <div><dt>Передача</dt><dd>${escapeHtml([selected.dates.transfer_plan, selected.dates.transfer_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+            <div><dt>СМР</dt><dd>${escapeHtml([selected.dates.smr_start, selected.dates.smr_finish].filter(Boolean).join(" / ") || "-")}</dd></div>
+          </dl>
+          <div class="smet-card-list"><span>Недвижимость</span>${realty.slice(0, 12).map((row) => `<em>${escapeHtml([row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))}</em>`).join("")}</div>
+        ` : `<div class="empty">Выберите объект</div>`}
+      </article>
+    </div>
+  `;
+}
+
+function renderBenchmarksTool() {
+  const section = document.getElementById("benchmarks-tool");
+  const panel = document.getElementById("benchmarks-panel");
+  if (!section || !panel) {
+    return;
+  }
+  section.hidden = state.appView !== "tools" || state.panelToolId !== "benchmarks";
+  if (section.hidden) {
+    return;
+  }
+  const data = state.panelToolsData;
+  if (!data) {
+    panel.innerHTML = `<div class="empty">Загружаю показатели</div>`;
+    return;
+  }
+  setText("benchmarks-status", "бенчмарки");
+  const benchmarkCards = [
+    ...(data.benchmarks.buildings.items || []).map((row) => ({ group: "Корпуса", unit: data.benchmarks.buildings.unit, ...row })),
+    ...(data.benchmarks.parking.items || []).map((row) => ({ group: "Паркинги", unit: data.benchmarks.parking.unit, ...row })),
+    ...Object.entries(data.benchmarks.social.regions || {}).flatMap(([region, types]) => Object.entries(types).flatMap(([type, rows]) => (rows || []).map((row) => ({ group: `${type} · ${region}`, unit: data.benchmarks.social.unit, ...row })))),
+  ];
+  const finishingRows = Object.values(data.finishing.sheets || {}).flatMap((sheet) => (sheet.data || []).map((row) => ({ sheet: sheet.name, ...row })));
+  const costProjects = data.cost_changes && data.cost_changes.projects ? Object.values(data.cost_changes.projects).flat() : [];
+  const costResults = costProjects
+    .map((item) => ({ ...item, _score: toolSearchScore(item, state.benchmarkCostQuery, ["project", "object"]) }))
+    .filter((item) => !state.benchmarkCostQuery || item._score > 0)
+    .slice(0, 40);
+  const costSelected = costProjects.find((item) => `${item.project}|${item.object}` === state.benchmarkCostSelectedId) || costResults[0] || null;
+  if (costSelected) {
+    state.benchmarkCostSelectedId = `${costSelected.project}|${costSelected.object}`;
+  }
+  panel.innerHTML = `
+    <div class="reference-toolbar">
+      <div class="view-toggle">
+        <button type="button" class="${state.benchmarkTab === "benchmarks" ? "active" : ""}" data-benchmark-tab="benchmarks">Бенчмарки</button>
+        <button type="button" class="${state.benchmarkTab === "finishing" ? "active" : ""}" data-benchmark-tab="finishing">Отделка</button>
+        <button type="button" class="${state.benchmarkTab === "cost" ? "active" : ""}" data-benchmark-tab="cost">Себестоимость</button>
+      </div>
+    </div>
+    ${state.benchmarkTab === "benchmarks" ? `<div class="reference-grid">${benchmarkCards.map((row) => `<article class="reference-mini-card"><span>${escapeHtml(row.group)}</span><strong>${escapeHtml(row.name)}</strong><em>${row.price ? `${escapeHtml(formatMoney(row.price))} ${escapeHtml(row.unit)}` : "нет ставки"}</em></article>`).join("")}</div>` : ""}
+    ${state.benchmarkTab === "finishing" ? `<div class="reference-grid">${finishingRows.map((row) => {
+      const prices = Object.entries(row.prices.predchistovaya || {}).concat(Object.entries(row.prices.finishing_packages || {}));
+      return `<article class="reference-mini-card"><span>${escapeHtml(row.sheet)}</span><strong>${escapeHtml(row.object_type)}</strong>${prices.map(([name, price]) => `<em>${escapeHtml(name)} · ${escapeHtml(formatMoney(price))} руб./м2</em>`).join("") || "<em>ставки не заполнены</em>"}</article>`;
+    }).join("")}</div>` : ""}
+    ${state.benchmarkTab === "cost" ? `
+      <div class="reference-toolbar">
+        <input id="benchmark-cost-search" type="search" value="${escapeHtml(state.benchmarkCostQuery)}" placeholder="Проект | объект">
+        <select id="benchmark-cost-code">${["Итого", "35", "40", "45", "48", "49"].map((code) => `<option value="${code}" ${code === state.benchmarkCostCode ? "selected" : ""}>${code}</option>`).join("")}</select>
+      </div>
+      <div class="reference-layout">
+        <div class="reference-results">${costResults.map((item) => `<button type="button" class="${`${item.project}|${item.object}` === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(`${item.project}|${item.object}`)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object)}</strong><small>${escapeHtml(item.change && item.change.pct ? `${item.change.pct}%` : "")}</small></button>`).join("")}</div>
+        <article class="reference-card">${costSelected ? renderCostChangeCard(costSelected) : `<div class="empty">Выберите объект</div>`}</article>
+      </div>
+    ` : ""}
+  `;
+}
+
+function renderCostChangeCard(item) {
+  const code = state.benchmarkCostCode;
+  const details = code === "Итого" ? null : item.codes && item.codes[code];
+  const subcodes = details && details.subcodes ? Object.entries(details.subcodes).slice(0, 12) : [];
+  return `
+    <div class="smet-card-head"><span>Себестоимость</span><em>${escapeHtml(code)}</em></div>
+    <h3>${escapeHtml([item.project, item.object].filter(Boolean).join(" · "))}</h3>
+    <div class="smet-card-metrics">
+      <div><span>Начало</span><strong>${escapeHtml(formatMoney(details ? details.cost_start : item.period_start.cost || 0))}</strong><small>руб.</small></div>
+      <div><span>Конец</span><strong>${escapeHtml(formatMoney(details ? details.cost_end : item.period_end.cost || 0))}</strong><small>руб.</small></div>
+      <div><span>Изменение</span><strong>${escapeHtml(formatMoney(details ? (details.cost_end || 0) - (details.cost_start || 0) : item.change.rub || 0))}</strong><small>руб.</small></div>
+    </div>
+    ${subcodes.length ? `<div class="smet-card-list"><span>Подкоды</span>${subcodes.map(([name, row]) => `<em>${escapeHtml(name)} · ${escapeHtml(formatMoney(row.change || 0))} руб.</em>`).join("")}</div>` : ""}
+  `;
+}
+
+function readSupportTickets() {
+  return readJsonStorage(SUPPORT_TICKETS_STORAGE_KEY, [], window.localStorage);
+}
+
+function writeSupportTickets(items) {
+  writeJsonStorage(SUPPORT_TICKETS_STORAGE_KEY, items.slice(0, 30), window.localStorage);
+}
+
+function renderSupportTickets() {
+  const list = document.getElementById("support-list");
+  if (!list) {
+    return;
+  }
+  const tickets = readSupportTickets();
+  setText("support-status", tickets.length ? `${tickets.length} обращений` : "нет обращений");
+  list.innerHTML = tickets.length
+    ? tickets.map((ticket) => `<article class="support-ticket"><span>${escapeHtml(ticket.status)}</span><strong>${escapeHtml(ticket.title)}</strong><small>${escapeHtml([ticket.type, ticket.tool, ticket.trace_id, ticket.created_at].filter(Boolean).join(" · "))}</small><p>${escapeHtml(ticket.body)}</p></article>`).join("")
+    : `<div class="empty">Здесь появятся ваши обращения и их статусы</div>`;
+}
+
+async function submitSupportTicket(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  if (!title || !body) {
+    showToast("Заполните тему и описание");
+    return;
+  }
+  const ticket = {
+    id: `support-${Date.now()}`,
+    type: String(formData.get("type") || "problem"),
+    tool: String(formData.get("tool") || "panel"),
+    title,
+    body,
+    status: "создано локально",
+    trace_id: "",
+    created_at: new Date().toISOString().slice(0, 16).replace("T", " "),
+  };
+  const tickets = [ticket, ...readSupportTickets()];
+  writeSupportTickets(tickets);
+  renderSupportTickets();
+  if (!hasVerifiedTelegramProfile()) {
+    showIdentityRequired("Обращение сохранено локально. Чтобы отправить его в CostIQ, откройте панель через кнопку бота.");
+    form.reset();
+    return;
+  }
+  const payload = new FormData();
+  payload.set("name", state.telegramUser ? [state.telegramUser.first_name, state.telegramUser.last_name].filter(Boolean).join(" ") || state.telegramUser.username : "Пользователь панели");
+  payload.set("skill", "panel_support");
+  payload.set("skill_title", "Поддержка панели");
+  payload.set("command", "/panel_support");
+  payload.set("topic", title);
+  payload.set("query", body);
+  payload.set("comment", `Тип: ${ticket.type}\nРаздел: ${ticket.tool}\n\n${body}`);
+  if (state.telegramInitData) {
+    payload.set("telegram_init_data", state.telegramInitData);
+  }
+  if (state.panelAuth) {
+    payload.set("panel_auth", state.panelAuth);
+  }
+  try {
+    const response = await fetch("/api/panel/task", { method: "POST", body: payload });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    ticket.status = "отправлено";
+    ticket.trace_id = data.task && data.task.trace_id ? data.task.trace_id : "";
+    writeSupportTickets([ticket, ...readSupportTickets().filter((item) => item.id !== ticket.id)]);
+    renderSupportTickets();
+    showToast("Обращение отправлено");
+    form.reset();
+  } catch (error) {
+    showToast("Обращение сохранено локально, отправка не прошла");
   }
 }
 
@@ -5487,7 +5981,54 @@ document.addEventListener("click", (event) => {
     state.panelToolId = toolSelectButton.dataset.toolSelect;
     renderPanelTools();
     renderSmetReferenceTool();
+    renderNcsUpSsTool();
+    renderTepProjectTool();
+    renderBenchmarksTool();
     saveMiniAppState();
+    return;
+  }
+
+  const ncsModeButton = event.target.closest("[data-ncs-mode]");
+  if (ncsModeButton) {
+    state.ncsUpSsMode = ncsModeButton.dataset.ncsMode || "ncs";
+    state.ncsSelectedId = "";
+    state.upssSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+
+  const ncsResultButton = event.target.closest("[data-ncs-id]");
+  if (ncsResultButton) {
+    state.ncsSelectedId = ncsResultButton.dataset.ncsId || "";
+    renderNcsUpSsTool();
+    return;
+  }
+
+  const upssResultButton = event.target.closest("[data-upss-id]");
+  if (upssResultButton) {
+    state.upssSelectedId = upssResultButton.dataset.upssId || "";
+    renderNcsUpSsTool();
+    return;
+  }
+
+  const tepResultButton = event.target.closest("[data-tep-id]");
+  if (tepResultButton) {
+    state.tepProjectSelectedId = tepResultButton.dataset.tepId || "";
+    renderTepProjectTool();
+    return;
+  }
+
+  const benchmarkTabButton = event.target.closest("[data-benchmark-tab]");
+  if (benchmarkTabButton) {
+    state.benchmarkTab = benchmarkTabButton.dataset.benchmarkTab || "benchmarks";
+    renderBenchmarksTool();
+    return;
+  }
+
+  const costResultButton = event.target.closest("[data-cost-id]");
+  if (costResultButton) {
+    state.benchmarkCostSelectedId = costResultButton.dataset.costId || "";
+    renderBenchmarksTool();
     return;
   }
 
@@ -5601,7 +6142,7 @@ document.addEventListener("click", (event) => {
     const action = smetReferenceAction.dataset.smetReferenceAction;
     if (action === "clear") {
       state.smetReferenceQuery = "";
-      state.smetReferenceScope = "all";
+      state.smetReferenceScope = "smr";
       state.smetReferenceSection = "all";
       state.smetReferenceSelectedId = "";
       state.smetReferenceExpandedVariantsFor = "";
@@ -5655,6 +6196,35 @@ document.addEventListener("input", (event) => {
     renderSmetReferenceTool();
     return;
   }
+  if (field && field.id === "ncs-search") {
+    state.ncsQuery = field.value;
+    state.ncsSelectedId = "";
+    state.upssSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "ncs-quantity") {
+    state.ncsQuantity = Math.max(0, Number(field.value || 0));
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "upss-quantity") {
+    state.upssQuantity = Math.max(0, Number(field.value || 0));
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "tep-project-search") {
+    state.tepProjectQuery = field.value;
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "benchmark-cost-search") {
+    state.benchmarkCostQuery = field.value;
+    state.benchmarkCostSelectedId = "";
+    renderBenchmarksTool();
+    return;
+  }
   if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
     saveWebIntakeDraft();
     updateTelegramControls();
@@ -5683,13 +6253,59 @@ document.addEventListener("change", (event) => {
     return;
   }
   if (field && field.id === "smet-reference-scope") {
-    state.smetReferenceScope = field.value || "all";
+    state.smetReferenceScope = field.value || "smr";
+    state.smetReferenceSelectedId = "";
+    state.smetReferenceExpandedVariantsFor = "";
+    if (state.smetReferenceScope === "mtr") {
+      state.smetReferenceSection = "Материалы";
+    } else if (state.smetReferenceScope === "kvr") {
+      state.smetReferenceSection = "all";
+    }
     renderSmetReferenceTool();
     return;
   }
   if (field && field.id === "smet-reference-section") {
     state.smetReferenceSection = field.value || "all";
     renderSmetReferenceTool();
+    return;
+  }
+  if (field && field.id === "ncs-collection") {
+    state.ncsCollectionId = field.value || "";
+    state.ncsSectionId = "";
+    state.ncsTableCode = "";
+    state.ncsSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "ncs-section") {
+    state.ncsSectionId = field.value || "";
+    state.ncsTableCode = "";
+    state.ncsSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "ncs-table") {
+    state.ncsTableCode = field.value || "";
+    state.ncsSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "upss-collection") {
+    state.upssCollectionId = field.value || "";
+    state.upssGroupId = "";
+    state.upssSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "upss-group") {
+    state.upssGroupId = field.value || "";
+    state.upssSelectedId = "";
+    renderNcsUpSsTool();
+    return;
+  }
+  if (field && field.id === "benchmark-cost-code") {
+    state.benchmarkCostCode = field.value || "Итого";
+    renderBenchmarksTool();
     return;
   }
   if (field && field.closest && field.closest("#agent-factory-form")) {
@@ -5744,6 +6360,12 @@ if (webIntakeForm) {
       selectWebSkill(select ? select.value : "", { renderCards: true });
     }, 0);
   });
+}
+
+const supportForm = document.getElementById("support-form");
+if (supportForm) {
+  supportForm.addEventListener("submit", submitSupportTicket);
+  supportForm.addEventListener("reset", () => window.setTimeout(renderSupportTickets, 0));
 }
 
 document.querySelectorAll("[data-web-view]").forEach((button) => {
@@ -5922,6 +6544,7 @@ renderPanelVisualDigest();
 renderPanelTools();
 renderView();
 renderAgentFactory();
+renderSupportTickets();
 setAppView(state.appView || "home", { pushHistory: false });
 initTelegram();
 startHomeFeedRefresh();
