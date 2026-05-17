@@ -1594,7 +1594,7 @@ function renderUsageStatsCard(item) {
       </div>
       <div class="usage-top-hero">
         <div>
-          <h3>Топ-3 используемых навыков</h3>
+          <h3>Эффективность ИИ-инструментов</h3>
           <p>${escapeHtml(total ? `За день обработано ${total} обращений по навыкам панели.` : "За день пока нет обращений по навыкам панели.")}</p>
         </div>
         <strong>${escapeHtml(String(total))}</strong>

@@ -209,8 +209,8 @@ function defaultItems() {
     {
       id: "vote-next-tool",
       type: "news",
-      title: "Топ-3 используемых навыков",
-      body: "Ежедневная сводка по самым востребованным навыкам панели.",
+      title: "Эффективность ИИ-инструментов",
+      body: "Ежедневная сводка по активности и результативности навыков панели.",
       status: "published",
       pinned: false,
       created_at: created,
