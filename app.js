@@ -7100,6 +7100,7 @@ function collectContentAdminPayload(form) {
   return {
     type: String(formData.get("type") || "news"),
     title: String(formData.get("title") || "").trim(),
+    action: String(formData.get("action_label") || "").trim(),
     body: String(formData.get("body") || "").trim(),
     image_url: String(formData.get("image_url") || "").trim(),
     image_caption: String(formData.get("image_caption") || "").trim(),
