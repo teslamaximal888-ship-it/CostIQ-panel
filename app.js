@@ -41,9 +41,9 @@ const APP_VIEW_TITLES = {
 
 const PANEL_VISUAL_DIGEST = [
   {
-    label: "Готово",
-    title: "Ждём первые завершённые работы",
-    text: "Здесь появятся последние результаты по заявкам и доработкам панели.",
+    label: "обновления",
+    title: "Ждём записи по панели",
+    text: "Здесь будут только изменения панели, инструментов и баз данных.",
     tone: "green",
     meta: "обновляется автоматически",
   },
@@ -1520,7 +1520,13 @@ function safeErrorMessage(message) {
 }
 
 function contentTypeLabel(type) {
-  return type === "poll" ? "Голосование" : "Новость";
+  if (type === "poll") {
+    return "Голосование";
+  }
+  if (type === "panel_update") {
+    return "Обновление панели";
+  }
+  return "Новость";
 }
 
 function displayContentTitle(item, fallback = "Голосование") {
@@ -1807,7 +1813,7 @@ function renderHomeFeed(items) {
   if (!grid) {
     return;
   }
-  const visible = (Array.isArray(items) ? items : []).filter((item) => item && item.id !== "welcome-panel-v1");
+  const visible = (Array.isArray(items) ? items : []).filter((item) => item && item.id !== "welcome-panel-v1" && item.type !== "panel_update");
   state.homeFeedItems = visible;
   setText("home-feed-status", visible.length ? `${visible.length} записей` : "нет записей");
   grid.innerHTML = visible.length
@@ -1826,8 +1832,8 @@ function renderPanelVisualDigest() {
   const items = updates.length
     ? updates.map((item, index) => ({
       label: item.action || "Готово",
-      title: item.title || "Задача панели",
-      text: item.text || "Результат обновлён в рабочей карточке.",
+      title: item.title || "Обновление панели",
+      text: item.text || "Изменение добавлено в журнал панели.",
       tone: ["green", "blue", "copper"][index % 3],
       meta: formatShortDate(item.meta) || "только что",
     }))
@@ -7158,7 +7164,7 @@ if (contentAdminForm) {
       setText("content-admin-status", "сохранено");
       contentAdminForm.reset();
       updateContentPreview();
-      showToast("Опубликовано на главной");
+      showToast(payload.type === "panel_update" ? "Обновление добавлено" : "Опубликовано на главной");
       loadHomeFeed();
       refreshContentAdmin();
     } catch (error) {

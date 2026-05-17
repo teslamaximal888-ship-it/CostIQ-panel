@@ -361,8 +361,19 @@ function normalizeOptions(options) {
     .slice(0, 8);
 }
 
+function contentType(value, fallback = "news") {
+  const normalized = cleanText(value || fallback, 40).toLowerCase();
+  if (normalized === "poll") {
+    return "poll";
+  }
+  if (normalized === "panel_update") {
+    return "panel_update";
+  }
+  return "news";
+}
+
 function itemFromBody(body, existing = null) {
-  const type = cleanText(body.type || (existing && existing.type) || "news", 20) === "poll" ? "poll" : "news";
+  const type = contentType(body.type, existing && existing.type);
   const created = existing && existing.created_at ? existing.created_at : nowIso();
   const id = cleanId(body.id || (existing && existing.id) || `${type}-${Date.now()}`, type);
   const item = {
