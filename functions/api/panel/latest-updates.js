@@ -159,6 +159,10 @@ function publicContentUpdate(item) {
   };
 }
 
+function updateTimestamp(item) {
+  return Date.parse(item && (item.event_at || item.updated_at || item.created_at)) || 0;
+}
+
 function isPublishedPanelUpdate(item) {
   const type = cleanText(item && item.type, 40).toLowerCase();
   const status = cleanText(item && item.status, 40).toLowerCase() || "published";
@@ -202,27 +206,21 @@ export async function onRequestGet({ request, env }) {
   try {
     const content = (await contentItems(env, 200))
       .filter(isPublishedPanelUpdate)
-      .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
-    if (content.length) {
-      return jsonResponse({
-        ok: true,
-        items: content.slice(0, limit).map(publicContentUpdate),
-        scanned: content.length,
-        source: "panel_updates",
-        updated_at: new Date().toISOString(),
-      });
-    }
-
+      .map((item) => ({ ...publicContentUpdate(item), sort_at: updateTimestamp(item), source: "panel_updates" }));
     const keys = await taskKeys(env, 500);
     const tasks = (await Promise.all(keys.map((key) => readTask(env, key))))
       .filter(Boolean)
       .filter(isPanelChangeTask)
-      .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
+      .map((task) => ({ ...publicUpdate(task), sort_at: updateTimestamp(task), source: "tagged_tasks" }));
+    const updates = [...content, ...tasks]
+      .sort((a, b) => b.sort_at - a.sort_at || String(b.meta || "").localeCompare(String(a.meta || "")))
+      .slice(0, limit)
+      .map(({ sort_at, source, ...item }) => item);
     return jsonResponse({
       ok: true,
-      items: tasks.slice(0, limit).map(publicUpdate),
-      scanned: keys.length,
-      source: "tagged_tasks",
+      items: updates,
+      scanned: content.length + tasks.length,
+      source: content.length && tasks.length ? "panel_updates_and_tagged_tasks" : content.length ? "panel_updates" : "tagged_tasks",
       updated_at: new Date().toISOString(),
     });
   } catch (error) {
