@@ -1592,7 +1592,7 @@ function renderUsageStatsCard(item) {
       </div>
       <div class="usage-top-hero">
         <div>
-          <h3>Эффективность ИИ-инструментов</h3>
+          <h3>Топ используемых навыков</h3>
           <p>${escapeHtml(totalText)}</p>
         </div>
         <strong>${escapeHtml(String(total))}</strong>
