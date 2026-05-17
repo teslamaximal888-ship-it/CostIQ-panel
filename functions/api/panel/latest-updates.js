@@ -154,7 +154,7 @@ function publicContentUpdate(item) {
     title: cleanText(item.title || "Обновление панели", 120),
     action: cleanText(item.action || item.label || "обновление панели", 80),
     text: cleanText(item.body || item.text || "Изменение добавлено в журнал панели.", 220),
-    meta: cleanText(item.updated_at || item.created_at, 80),
+    meta: cleanText(item.event_at || item.updated_at || item.created_at, 80),
     status: cleanText(item.status || "published", 40).toLowerCase(),
   };
 }
