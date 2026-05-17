@@ -1269,6 +1269,81 @@ h2 {
   font-size: 13px;
 }
 
+.cost-change-overview {
+  margin-bottom: 10px;
+}
+
+.cost-search-hint {
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cost-code-table {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cost-code-table-head,
+.cost-code-row,
+.cost-subcode-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(110px, 0.7fr));
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.cost-code-table-head {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cost-code-row,
+.cost-subcode-row {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cost-code-row {
+  border-left: 3px solid var(--teal);
+}
+
+.cost-subcode-row {
+  margin-left: 10px;
+  border-left: 3px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.cost-code-row strong,
+.cost-subcode-row strong,
+.cost-code-row span,
+.cost-code-row em,
+.cost-subcode-row span,
+.cost-subcode-row em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.cost-code-row strong,
+.cost-subcode-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.cost-code-row span,
+.cost-code-row em,
+.cost-subcode-row span,
+.cost-subcode-row em {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .support-layout {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
   align-items: start;
@@ -3461,6 +3536,9 @@ h2 {
   .smet-reference-layout,
   .smet-card-metrics,
   .smet-card dl,
+  .cost-code-table-head,
+  .cost-code-row,
+  .cost-subcode-row,
   .public-skill-grid,
   .activity-grid,
   .trace-summary,

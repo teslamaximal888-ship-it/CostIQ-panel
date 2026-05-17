@@ -113,7 +113,7 @@ const PANEL_TOOLS = [
   {
     id: "benchmarks",
     title: "Удельные показатели",
-    subtitle: "Показатели, отделка, себестоимость",
+    subtitle: "Показатели, отделка, изменение себестоимости",
     status: "интерактивно",
     access: "public/admin",
     input: "тип показателя, проект, объект",
@@ -123,7 +123,7 @@ const PANEL_TOOLS = [
     primaryLabel: "Открыть показатели",
     summary: "Инструмент повторяет ветки бота: удельные показатели корпусов/паркингов/соцобъектов, отделка квартир и изменение себестоимости по кодам 35/40/45/48/49.",
     steps: ["Группа", "Показатель", "Код затрат", "Карточка"],
-    metrics: ["корпуса", "паркинги", "себестоимость"],
+    metrics: ["корпуса", "паркинги", "изменение себестоимости"],
     anchor: "benchmarks-tool",
   },
   {
@@ -2788,7 +2788,7 @@ function renderTepProjectTool() {
   const realty = selected && Array.isArray(selected.realty) ? selected.realty : [];
   panel.innerHTML = `
     <div class="reference-toolbar">
-      <input id="tep-project-search" type="search" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Формат как в боте: проект | объект">
+      <input id="tep-project-search" type="search" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Проект или объект">
     </div>
     <div class="reference-layout">
       <div class="reference-results">${results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
@@ -3027,7 +3027,7 @@ function renderBenchmarksTool() {
   const statusLabels = {
     benchmarks: "удельные показатели",
     finishing: "отделка квартир",
-    cost: "себестоимость",
+    cost: "изменение себестоимости",
   };
   setText("benchmarks-status", statusLabels[state.benchmarkTab] || "удельные показатели");
   const benchmarkCards = buildBenchmarkCards(data);
@@ -3038,21 +3038,13 @@ function renderBenchmarksTool() {
   const finishingGroups = ["all", "projects_active", "projects_prospective"];
   const activeFinishingGroup = finishingGroups.includes(state.benchmarkFinishingGroup) ? state.benchmarkFinishingGroup : "all";
   const filteredFinishingRows = activeFinishingGroup === "all" ? finishingRows : finishingRows.filter((row) => row.sheetKey === activeFinishingGroup);
-  const costProjects = data.cost_changes && data.cost_changes.projects ? Object.values(data.cost_changes.projects).flat() : [];
-  const costResults = costProjects
-    .map((item) => ({ ...item, _score: toolSearchScore(item, state.benchmarkCostQuery, ["project", "object"]) }))
-    .filter((item) => !state.benchmarkCostQuery || item._score > 0)
-    .slice(0, 40);
-  const costSelected = costProjects.find((item) => `${item.project}|${item.object}` === state.benchmarkCostSelectedId) || costResults[0] || null;
-  if (costSelected) {
-    state.benchmarkCostSelectedId = `${costSelected.project}|${costSelected.object}`;
-  }
+  const costContext = getCostChangeContext(data);
   panel.innerHTML = `
     <div class="reference-toolbar">
       <div class="view-toggle">
         <button type="button" class="${state.benchmarkTab === "benchmarks" ? "active" : ""}" data-benchmark-tab="benchmarks">Удельные показатели</button>
         <button type="button" class="${state.benchmarkTab === "finishing" ? "active" : ""}" data-benchmark-tab="finishing">Отделка квартир</button>
-        <button type="button" class="${state.benchmarkTab === "cost" ? "active" : ""}" data-benchmark-tab="cost">Себестоимость</button>
+        <button type="button" class="${state.benchmarkTab === "cost" ? "active" : ""}" data-benchmark-tab="cost">Изменение себестоимости</button>
       </div>
     </div>
     ${state.benchmarkTab === "benchmarks" ? `
@@ -3064,31 +3056,171 @@ function renderBenchmarksTool() {
       ${renderFinishingCards(filteredFinishingRows)}
     ` : ""}
     ${state.benchmarkTab === "cost" ? `
+      <div class="benchmark-overview cost-change-overview">
+        <div>
+          <span>Раздел</span>
+          <strong>Изменение себестоимости</strong>
+        </div>
+        <div>
+          <span>Период</span>
+          <strong>${escapeHtml(costContext.period || "-")}</strong>
+        </div>
+        <div>
+          <span>База</span>
+          <strong>${escapeHtml(`${formatMoney(costContext.items.length)} объектов · ${formatMoney(costContext.meta.total_subcodes || 0)} подкодов`)}</strong>
+        </div>
+      </div>
       <div class="reference-toolbar">
-        <input id="benchmark-cost-search" type="search" value="${escapeHtml(state.benchmarkCostQuery)}" placeholder="Проект | объект">
-        <select id="benchmark-cost-code">${["Итого", "35", "40", "45", "48", "49"].map((code) => `<option value="${code}" ${code === state.benchmarkCostCode ? "selected" : ""}>${code}</option>`).join("")}</select>
+        <input id="benchmark-cost-search" type="search" value="${escapeHtml(state.benchmarkCostQuery)}" placeholder="Проект или объект">
+        <select id="benchmark-cost-code">${["Итого", "Все коды", "35", "40", "45", "48", "49"].map((code) => `<option value="${code}" ${code === state.benchmarkCostCode ? "selected" : ""}>${code}</option>`).join("")}</select>
       </div>
-      <div class="reference-layout">
-        <div class="reference-results">${costResults.map((item) => `<button type="button" class="${`${item.project}|${item.object}` === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(`${item.project}|${item.object}`)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object)}</strong><small>${escapeHtml(item.change && item.change.pct ? `${item.change.pct}%` : "")}</small></button>`).join("")}</div>
-        <article class="reference-card">${costSelected ? renderCostChangeCard(costSelected) : `<div class="empty">Выберите объект</div>`}</article>
-      </div>
+      <div id="benchmark-cost-panel">${renderCostChangePanel(costContext)}</div>
     ` : ""}
   `;
 }
 
+function costChangeId(item) {
+  return `${item.project}|${item.object}`;
+}
+
+function getCostChangeContext(data = state.panelToolsData) {
+  const costChanges = data && data.cost_changes ? data.cost_changes : {};
+  const meta = costChanges.meta || {};
+  const items = costChanges.projects ? Object.values(costChanges.projects).flat() : [];
+  const search = resolveCostChangeSearch(items, state.benchmarkCostQuery);
+  const selected = items.find((item) => costChangeId(item) === state.benchmarkCostSelectedId) || search.results[0] || null;
+  if (selected) {
+    state.benchmarkCostSelectedId = costChangeId(selected);
+  }
+  return {
+    meta,
+    period: meta.period || "",
+    items,
+    results: search.results,
+    projectScope: search.projectScope,
+    objectQuery: search.objectQuery,
+    selected,
+  };
+}
+
+function resolveCostChangeSearch(items, query) {
+  const words = normalizeSearchText(query).split(" ").filter(Boolean);
+  if (!words.length) {
+    return { results: items.slice(0, 40), projectScope: "", objectQuery: "" };
+  }
+  const projects = [...new Set(items.map((item) => item.project).filter(Boolean))];
+  const projectMatches = projects
+    .map((project) => {
+      const projectText = normalizeSearchText(project);
+      const matchedWords = words.filter((word) => projectText.includes(word));
+      const exactBonus = projectText.includes(normalizeSearchText(query)) ? 40 : 0;
+      return { project, score: matchedWords.length * 25 + exactBonus, matchedWords };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.project.localeCompare(b.project, "ru"));
+  const projectScope = projectMatches.length ? projectMatches[0].project : "";
+  const objectWords = projectScope
+    ? words.filter((word) => !normalizeSearchText(projectScope).includes(word))
+    : words;
+  const scopedItems = projectScope ? items.filter((item) => item.project === projectScope) : items;
+  const scored = scopedItems
+    .map((item) => {
+      const fields = projectScope ? ["object"] : ["project", "object"];
+      const queryWords = objectWords.length ? objectWords : words;
+      const haystack = normalizeSearchText(fields.map((field) => item[field]).join(" "));
+      const score = queryWords.reduce((total, word) => total + (haystack.includes(word) ? 20 : 0), 0);
+      return { item, score };
+    })
+    .filter((row) => !objectWords.length || row.score > 0)
+    .sort((a, b) => b.score - a.score || costChangeId(a.item).localeCompare(costChangeId(b.item), "ru"));
+  const results = (scored.length ? scored.map((row) => row.item) : scopedItems).slice(0, 40);
+  return { results, projectScope, objectQuery: objectWords.join(" ") };
+}
+
+function renderCostChangePanel(context = getCostChangeContext()) {
+  const hint = context.projectScope
+    ? `Проект: ${context.projectScope}${context.objectQuery ? ` · объект: ${context.objectQuery}` : ""}`
+    : state.benchmarkCostQuery ? "Поиск по проектам и объектам" : "Показаны первые объекты базы";
+  return `
+    <div class="cost-search-hint">${escapeHtml(hint)}</div>
+    <div class="reference-layout">
+      <div class="reference-results">${context.results.map((item) => `<button type="button" class="${costChangeId(item) === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(costChangeId(item))}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object)}</strong><small>${escapeHtml(item.change && item.change.pct ? `${item.change.pct}%` : "")}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
+      <article class="reference-card">${context.selected ? renderCostChangeCard(context.selected, context) : `<div class="empty">Выберите объект</div>`}</article>
+    </div>
+  `;
+}
+
+function renderCostChangePanelOnly() {
+  const panel = document.getElementById("benchmark-cost-panel");
+  if (!panel) {
+    renderBenchmarksTool();
+    return;
+  }
+  panel.innerHTML = renderCostChangePanel(getCostChangeContext());
+}
+
+function costDelta(start, end, fallback = 0) {
+  if (Number.isFinite(Number(start)) && Number.isFinite(Number(end))) {
+    return Number(end || 0) - Number(start || 0);
+  }
+  return Number(fallback || 0);
+}
+
+function renderCostCodeSummary(code, details) {
+  if (!details) {
+    return "";
+  }
+  const delta = costDelta(details.cost_start, details.cost_end);
+  return `
+    <div class="cost-code-row">
+      <strong>${escapeHtml(code)}</strong>
+      <span>${escapeHtml(formatMoney(details.cost_start || 0))} руб.</span>
+      <span>${escapeHtml(formatMoney(details.cost_end || 0))} руб.</span>
+      <em>${escapeHtml(formatMoney(delta))} руб.</em>
+    </div>
+  `;
+}
+
+function renderCostSubcodeRows(details) {
+  const rows = details && details.subcodes ? Object.entries(details.subcodes) : [];
+  return rows.map(([name, row]) => `
+    <div class="cost-subcode-row">
+      <strong>${escapeHtml(name)}</strong>
+      <span>${escapeHtml(formatMoney(row.cost_start || 0))} руб.</span>
+      <span>${escapeHtml(formatMoney(row.cost_end || 0))} руб.</span>
+      <em>${escapeHtml(formatMoney(row.change || 0))} руб.</em>
+    </div>
+  `).join("");
+}
+
 function renderCostChangeCard(item) {
   const code = state.benchmarkCostCode;
-  const details = code === "Итого" ? null : item.codes && item.codes[code];
-  const subcodes = details && details.subcodes ? Object.entries(details.subcodes).slice(0, 12) : [];
+  const details = ["Итого", "Все коды"].includes(code) ? null : item.codes && item.codes[code];
+  const allCodes = ["35", "40", "45", "48", "49"].filter((itemCode) => item.codes && item.codes[itemCode]);
+  const cardLabel = code === "Все коды" ? "все коды" : code;
   return `
-    <div class="smet-card-head"><span>Себестоимость</span><em>${escapeHtml(code)}</em></div>
+    <div class="smet-card-head"><span>Изменение себестоимости</span><em>${escapeHtml(cardLabel)}</em></div>
     <h3>${escapeHtml([item.project, item.object].filter(Boolean).join(" · "))}</h3>
     <div class="smet-card-metrics">
       <div><span>Начало</span><strong>${escapeHtml(formatMoney(details ? details.cost_start : item.period_start.cost || 0))}</strong><small>руб.</small></div>
       <div><span>Конец</span><strong>${escapeHtml(formatMoney(details ? details.cost_end : item.period_end.cost || 0))}</strong><small>руб.</small></div>
-      <div><span>Изменение</span><strong>${escapeHtml(formatMoney(details ? (details.cost_end || 0) - (details.cost_start || 0) : item.change.rub || 0))}</strong><small>руб.</small></div>
+      <div><span>Изменение</span><strong>${escapeHtml(formatMoney(details ? costDelta(details.cost_start, details.cost_end) : item.change.rub || 0))}</strong><small>руб.</small></div>
     </div>
-    ${subcodes.length ? `<div class="smet-card-list"><span>Подкоды</span>${subcodes.map(([name, row]) => `<em>${escapeHtml(name)} · ${escapeHtml(formatMoney(row.change || 0))} руб.</em>`).join("")}</div>` : ""}
+    ${code === "Итого" ? `<div class="cost-code-table">
+      <div class="cost-code-table-head"><span>Код</span><span>Начало</span><span>Конец</span><span>Изменение</span></div>
+      ${allCodes.map((itemCode) => renderCostCodeSummary(itemCode, item.codes[itemCode])).join("")}
+    </div>` : ""}
+    ${code === "Все коды" ? `<div class="cost-code-table detailed">
+      <div class="cost-code-table-head"><span>Код / подкод</span><span>Начало</span><span>Конец</span><span>Изменение</span></div>
+      ${allCodes.map((itemCode) => `
+        ${renderCostCodeSummary(itemCode, item.codes[itemCode])}
+        ${renderCostSubcodeRows(item.codes[itemCode])}
+      `).join("")}
+    </div>` : ""}
+    ${details ? `<div class="cost-code-table detailed">
+      <div class="cost-code-table-head"><span>Подкод</span><span>Начало</span><span>Конец</span><span>Изменение</span></div>
+      ${renderCostSubcodeRows(details) || `<div class="empty">Подкоды не заполнены</div>`}
+    </div>` : ""}
   `;
 }
 
@@ -6231,7 +6363,7 @@ document.addEventListener("click", (event) => {
   const costResultButton = event.target.closest("[data-cost-id]");
   if (costResultButton) {
     state.benchmarkCostSelectedId = costResultButton.dataset.costId || "";
-    renderBenchmarksTool();
+    renderCostChangePanelOnly();
     return;
   }
 
@@ -6425,7 +6557,7 @@ document.addEventListener("input", (event) => {
   if (field && field.id === "benchmark-cost-search") {
     state.benchmarkCostQuery = field.value;
     state.benchmarkCostSelectedId = "";
-    renderBenchmarksTool();
+    renderCostChangePanelOnly();
     return;
   }
   if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
@@ -6508,7 +6640,7 @@ document.addEventListener("change", (event) => {
   }
   if (field && field.id === "benchmark-cost-code") {
     state.benchmarkCostCode = field.value || "Итого";
-    renderBenchmarksTool();
+    renderCostChangePanelOnly();
     return;
   }
   if (field && field.closest && field.closest("#agent-factory-form")) {
