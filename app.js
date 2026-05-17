@@ -19,6 +19,7 @@ const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
 const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
 const PANEL_TOOLS_DATA_URL = "/data/panel-tools.json";
 const PANEL_USAGE_STATS_URL = "/api/panel/usage-stats";
+const PANEL_LATEST_UPDATES_URL = "/api/panel/latest-updates";
 const SMET_REFERENCE_RESULT_LIMIT = 10;
 const SUPPORT_TICKETS_STORAGE_KEY = "costiq_support_tickets";
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
@@ -40,25 +41,11 @@ const APP_VIEW_TITLES = {
 
 const PANEL_VISUAL_DIGEST = [
   {
-    label: "Панель",
-    title: "Единый рабочий экран",
-    text: "Новости, голосования, заявки, расчёты и инструменты собраны в одном Mini App.",
+    label: "Готово",
+    title: "Ждём первые завершённые работы",
+    text: "Здесь появятся последние результаты по заявкам и доработкам панели.",
     tone: "green",
-    meta: "главная",
-  },
-  {
-    label: "Результаты",
-    title: "Review loop",
-    text: "Карточка результата показывает статус, файл, предупреждения, вопрос, доработку и принятие.",
-    tone: "blue",
-    meta: "мои заявки",
-  },
-  {
-    label: "Инструменты",
-    title: "Agent Factory как эталон",
-    text: "Паспорта агентов, визуальная карточка, схема запуска и handoff Александру.",
-    tone: "copper",
-    meta: "admin-only",
+    meta: "обновляется автоматически",
   },
 ];
 
@@ -943,6 +930,7 @@ const state = {
   homeFeedTimer: null,
   homeFeedItems: [],
   skillUsageStats: null,
+  latestPanelUpdates: null,
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
   smetReferenceData: null,
@@ -1823,7 +1811,20 @@ function renderPanelVisualDigest() {
   if (!grid) {
     return;
   }
-  grid.innerHTML = PANEL_VISUAL_DIGEST.map((item) => `
+  const updates = state.latestPanelUpdates && state.latestPanelUpdates.ok && Array.isArray(state.latestPanelUpdates.items)
+    ? state.latestPanelUpdates.items
+    : [];
+  const items = updates.length
+    ? updates.map((item, index) => ({
+      label: item.action || "Готово",
+      title: item.title || "Задача панели",
+      text: item.text || "Результат обновлён в рабочей карточке.",
+      tone: ["green", "blue", "copper"][index % 3],
+      meta: formatShortDate(item.meta) || "только что",
+    }))
+    : PANEL_VISUAL_DIGEST;
+  setText("visual-digest-status", updates.length ? `последние ${updates.length}` : "ждём данные");
+  grid.innerHTML = items.map((item) => `
     <article class="visual-digest-card" data-tone="${escapeHtml(item.tone)}">
       <span>${escapeHtml(item.label)}</span>
       <strong>${escapeHtml(item.title)}</strong>
@@ -3601,16 +3602,22 @@ async function loadHomeFeed() {
     if (state.panelAuth) {
       headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
     }
-    const [response, usageResponse] = await Promise.all([
+    const [response, usageResponse, latestResponse] = await Promise.all([
       fetch(`/api/panel/content?ts=${Date.now()}`, {
         cache: "no-store",
         headers,
       }),
       fetch(`${PANEL_USAGE_STATS_URL}?ts=${Date.now()}`, { cache: "no-store" }).catch(() => null),
+      fetch(`${PANEL_LATEST_UPDATES_URL}?ts=${Date.now()}`, { cache: "no-store" }).catch(() => null),
     ]);
     if (usageResponse && usageResponse.ok) {
       const usageData = await usageResponse.json().catch(() => null);
       state.skillUsageStats = usageData && usageData.ok ? usageData : null;
+    }
+    if (latestResponse && latestResponse.ok) {
+      const latestData = await latestResponse.json().catch(() => null);
+      state.latestPanelUpdates = latestData && latestData.ok ? latestData : null;
+      renderPanelVisualDigest();
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) {
