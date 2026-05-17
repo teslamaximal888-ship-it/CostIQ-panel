@@ -1586,6 +1586,16 @@ function renderUsageStatsCard(item) {
   const top = stats && Array.isArray(stats.top) ? stats.top : [];
   const total = stats ? Number(stats.total || 0) : 0;
   const dateLabel = stats && stats.date ? formatUsageStatsDate(stats.date) : "сегодня";
+  const isLatestActiveDay = stats && stats.period === "latest_active_day";
+  const totalText = total
+    ? `${isLatestActiveDay ? "Последний активный день" : "За день"}: обработано ${total} обращений по навыкам панели.`
+    : "Пока нет обращений по навыкам панели.";
+  const emptyTitle = isLatestActiveDay
+    ? "Нет данных за выбранный активный день"
+    : "Статистика появится после первых заявок сегодня";
+  const emptyText = isLatestActiveDay
+    ? "Карточка переключится на новый день сразу после первой заявки."
+    : "Карточка обновляется автоматически каждый день по данным панели.";
   return `
     <article class="home-card usage-top-card${item && item.pinned ? " pinned" : ""}">
       <div class="home-card-head">
@@ -1595,7 +1605,7 @@ function renderUsageStatsCard(item) {
       <div class="usage-top-hero">
         <div>
           <h3>Эффективность ИИ-инструментов</h3>
-          <p>${escapeHtml(total ? `За день обработано ${total} обращений по навыкам панели.` : "За день пока нет обращений по навыкам панели.")}</p>
+          <p>${escapeHtml(totalText)}</p>
         </div>
         <strong>${escapeHtml(String(total))}</strong>
       </div>
@@ -1612,13 +1622,13 @@ function renderUsageStatsCard(item) {
           </div>
         `).join("") : `
           <div class="usage-top-empty">
-            <strong>Статистика появится после первых заявок сегодня</strong>
-            <small>Карточка обновляется автоматически каждый день по данным панели.</small>
+            <strong>${escapeHtml(emptyTitle)}</strong>
+            <small>${escapeHtml(emptyText)}</small>
           </div>
         `}
       </div>
       <div class="home-card-foot">
-        <span>обновляется из заявок панели</span>
+        <span>${escapeHtml(isLatestActiveDay ? "последний активный день" : "обновляется из заявок панели")}</span>
         <span>${escapeHtml(formatShortDate(stats && stats.updated_at))}</span>
       </div>
     </article>

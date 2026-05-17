@@ -109,6 +109,20 @@ function topSkillEntries(tasks, dateKey) {
   return { total, top };
 }
 
+function latestActiveDateKey(tasks, todayKey) {
+  let latest = "";
+  for (const task of tasks) {
+    const dateKey = moscowDateKey(task.created_at || task.updated_at);
+    if (!dateKey || dateKey > todayKey) {
+      continue;
+    }
+    if (!latest || dateKey > latest) {
+      latest = dateKey;
+    }
+  }
+  return latest || todayKey;
+}
+
 export async function onRequestOptions() {
   return jsonResponse({ ok: true });
 }
@@ -117,14 +131,24 @@ export async function onRequestGet({ env }) {
   if (!env.WEB_INTAKE) {
     return jsonResponse({ ok: false, error: "storage_not_configured" }, 503);
   }
-  const dateKey = moscowDateKey(Date.now());
+  const todayKey = moscowDateKey(Date.now());
   try {
     const keys = await taskKeys(env, 500);
     const tasks = (await Promise.all(keys.map((key) => readTask(env, key)))).filter(Boolean);
-    const { total, top } = topSkillEntries(tasks, dateKey);
+    let dateKey = todayKey;
+    let { total, top } = topSkillEntries(tasks, dateKey);
+    if (!total) {
+      const fallbackDateKey = latestActiveDateKey(tasks, todayKey);
+      if (fallbackDateKey !== todayKey) {
+        dateKey = fallbackDateKey;
+        ({ total, top } = topSkillEntries(tasks, dateKey));
+      }
+    }
     return jsonResponse({
       ok: true,
       date: dateKey,
+      current_date: todayKey,
+      period: dateKey === todayKey ? "today" : "latest_active_day",
       timezone: "Europe/Moscow",
       total,
       top,
