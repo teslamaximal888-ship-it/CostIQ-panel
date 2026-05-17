@@ -219,6 +219,15 @@ function defaultItems() {
   ];
 }
 
+function normalizeLegacyContentTitle(item) {
+  const title = cleanText(item && item.title, 160);
+  const normalized = title.toLowerCase().replace(/ё/g, "е");
+  if (normalized.includes("отдел расчета стоимости") && normalized.includes("эффект ии")) {
+    return "Эффективность ИИ-инструментов";
+  }
+  return title;
+}
+
 async function readIndex(env) {
   const raw = await env.WEB_INTAKE.get(CONTENT_INDEX_KEY);
   if (!raw) {
@@ -298,7 +307,7 @@ function publicItem(item, userId = "") {
   const base = {
     id: item.id,
     type: item.type,
-    title: item.title,
+    title: normalizeLegacyContentTitle(item),
     body: item.body,
     image_url: cleanUrl(item.image_url),
     image_caption: cleanText(item.image_caption, 240),

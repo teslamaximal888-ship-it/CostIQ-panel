@@ -1523,6 +1523,15 @@ function contentTypeLabel(type) {
   return type === "poll" ? "Голосование" : "Новость";
 }
 
+function displayContentTitle(item, fallback = "Голосование") {
+  const title = item && item.title ? String(item.title) : fallback;
+  const normalized = normalize(title);
+  if (normalized.includes("отдел расчета стоимости") && normalized.includes("эффект ии")) {
+    return "Эффективность ИИ-инструментов";
+  }
+  return title;
+}
+
 function homeNewsFallbackMedia(item) {
   const id = String((item && item.id) || "");
   if (id === "news-fgis-salary-2025-2026-05-14") {
@@ -1638,7 +1647,7 @@ function renderHomeFeedItem(item) {
           <span>${escapeHtml(contentTypeLabel("poll"))}</span>
           ${isClosed ? "<em>закрыто</em>" : item && item.pinned ? "<em>закреплено</em>" : ""}
         </div>
-        <h3>${escapeHtml(item && item.title ? item.title : "Голосование")}</h3>
+        <h3>${escapeHtml(displayContentTitle(item, "Голосование"))}</h3>
         <p>${escapeHtml(item && item.body ? item.body : "")}</p>
         <div class="poll-options">
           ${options.map((option) => {
@@ -1673,7 +1682,7 @@ function renderHomeFeedItem(item) {
         <span>${escapeHtml(contentTypeLabel(item.type))}</span>
         ${item.pinned ? "<em>закреплено</em>" : ""}
       </div>
-      <h3>${escapeHtml(item.title)}</h3>
+      <h3>${escapeHtml(displayContentTitle(item, "Новость"))}</h3>
       ${imageUrl ? `
         <figure class="home-card-media">
           <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageCaption || item.title)}" loading="lazy">
