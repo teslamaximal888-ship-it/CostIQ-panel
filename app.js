@@ -18,6 +18,7 @@ const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
 const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
 const PANEL_TOOLS_DATA_URL = "/data/panel-tools.json";
+const PANEL_USAGE_STATS_URL = "/api/panel/usage-stats";
 const SMET_REFERENCE_RESULT_LIMIT = 10;
 const SUPPORT_TICKETS_STORAGE_KEY = "costiq_support_tickets";
 const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
@@ -941,6 +942,7 @@ const state = {
   webCurrentTask: null,
   homeFeedTimer: null,
   homeFeedItems: [],
+  skillUsageStats: null,
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
   smetReferenceData: null,
@@ -1567,7 +1569,66 @@ function isContentPollClosed(item) {
   return Boolean(closesAt && closesAt < Date.now());
 }
 
+function isUsageStatsFeedItem(item) {
+  return item && item.id === "vote-next-tool";
+}
+
+function formatUsageStatsDate(value) {
+  const parts = String(value || "").split("-");
+  if (parts.length !== 3) {
+    return "сегодня";
+  }
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+function renderUsageStatsCard(item) {
+  const stats = state.skillUsageStats && state.skillUsageStats.ok ? state.skillUsageStats : null;
+  const top = stats && Array.isArray(stats.top) ? stats.top : [];
+  const total = stats ? Number(stats.total || 0) : 0;
+  const dateLabel = stats && stats.date ? formatUsageStatsDate(stats.date) : "сегодня";
+  return `
+    <article class="home-card usage-top-card${item && item.pinned ? " pinned" : ""}">
+      <div class="home-card-head">
+        <span>Активность</span>
+        <em>${escapeHtml(dateLabel)}</em>
+      </div>
+      <div class="usage-top-hero">
+        <div>
+          <h3>Топ-3 используемых навыков</h3>
+          <p>${escapeHtml(total ? `За день обработано ${total} обращений по навыкам панели.` : "За день пока нет обращений по навыкам панели.")}</p>
+        </div>
+        <strong>${escapeHtml(String(total))}</strong>
+      </div>
+      <div class="usage-top-list">
+        ${top.length ? top.map((skill) => `
+          <div class="usage-top-row">
+            <span>${escapeHtml(skill.rank || "")}</span>
+            <div>
+              <strong>${escapeHtml(skill.name)}</strong>
+              <small>${escapeHtml(`${skill.count || 0} запусков${skill.done ? ` · ${skill.done} готово` : ""}${skill.active ? ` · ${skill.active} в работе` : ""}`)}</small>
+              <i style="width: ${Math.max(6, Number(skill.percent || 0))}%"></i>
+            </div>
+            <b>${escapeHtml(`${skill.percent || 0}%`)}</b>
+          </div>
+        `).join("") : `
+          <div class="usage-top-empty">
+            <strong>Статистика появится после первых заявок сегодня</strong>
+            <small>Карточка обновляется автоматически каждый день по данным панели.</small>
+          </div>
+        `}
+      </div>
+      <div class="home-card-foot">
+        <span>обновляется из заявок панели</span>
+        <span>${escapeHtml(formatShortDate(stats && stats.updated_at))}</span>
+      </div>
+    </article>
+  `;
+}
+
 function renderHomeFeedItem(item) {
+  if (isUsageStatsFeedItem(item)) {
+    return renderUsageStatsCard(item);
+  }
   if (!item || item.type === "poll") {
     const options = Array.isArray(item && item.options) ? item.options : [];
     const canVote = hasVerifiedTelegramProfile();
@@ -3530,10 +3591,17 @@ async function loadHomeFeed() {
     if (state.panelAuth) {
       headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
     }
-    const response = await fetch(`/api/panel/content?ts=${Date.now()}`, {
-      cache: "no-store",
-      headers,
-    });
+    const [response, usageResponse] = await Promise.all([
+      fetch(`/api/panel/content?ts=${Date.now()}`, {
+        cache: "no-store",
+        headers,
+      }),
+      fetch(`${PANEL_USAGE_STATS_URL}?ts=${Date.now()}`, { cache: "no-store" }).catch(() => null),
+    ]);
+    if (usageResponse && usageResponse.ok) {
+      const usageData = await usageResponse.json().catch(() => null);
+      state.skillUsageStats = usageData && usageData.ok ? usageData : null;
+    }
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);

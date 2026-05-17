@@ -2040,6 +2040,125 @@ h2 {
   background: rgba(89, 209, 140, 0.16);
 }
 
+.usage-top-card {
+  border-color: rgba(89, 209, 140, 0.34);
+  background: linear-gradient(180deg, #13201b 0%, var(--surface) 100%);
+}
+
+.usage-top-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.usage-top-hero h3 {
+  margin-top: 0;
+}
+
+.usage-top-hero p {
+  color: var(--muted);
+}
+
+.usage-top-hero > strong {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(89, 209, 140, 0.38);
+  border-radius: 999px;
+  background: rgba(89, 209, 140, 0.12);
+  color: var(--green);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.usage-top-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.usage-top-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 46px;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.usage-top-row > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(89, 209, 140, 0.14);
+  color: var(--green);
+  font-weight: 900;
+}
+
+.usage-top-row > div {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  padding-bottom: 9px;
+}
+
+.usage-top-row strong,
+.usage-top-row small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-top-row small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.usage-top-row i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--green), var(--teal));
+}
+
+.usage-top-row b {
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+}
+
+.usage-top-empty {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.usage-top-empty strong,
+.usage-top-empty small {
+  display: block;
+}
+
+.usage-top-empty small {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .content-admin-token {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
