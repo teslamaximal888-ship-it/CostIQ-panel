@@ -2776,22 +2776,76 @@ function renderTepProjectTool() {
     return;
   }
   setText("tep-project-status", `${formatMoney(tep.projects.length)} проектов · ${formatMoney(tep.objects.length)} объектов`);
-  const results = tep.objects
-    .map((item) => ({ ...item, _score: toolSearchScore(item, state.tepProjectQuery, ["project", "object", "type", "class", "queue"]) }))
-    .filter((item) => !state.tepProjectQuery || item._score > 0)
-    .sort((a, b) => b._score - a._score || String(a.project).localeCompare(String(b.project), "ru"))
-    .slice(0, 60);
-  const selected = tep.objects.find((item) => item.id === state.tepProjectSelectedId) || results[0] || null;
-  if (selected) {
-    state.tepProjectSelectedId = selected.id;
-  }
-  const realty = selected && Array.isArray(selected.realty) ? selected.realty : [];
+  const context = getTepProjectContext(tep);
   panel.innerHTML = `
     <div class="reference-toolbar">
       <input id="tep-project-search" type="search" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Проект или объект">
     </div>
+    <div id="tep-project-results">${renderTepProjectPanel(context)}</div>
+  `;
+}
+
+function getTepProjectContext(tep = state.panelToolsData && state.panelToolsData.tep) {
+  const objects = tep && Array.isArray(tep.objects) ? tep.objects : [];
+  const search = resolveTepProjectSearch(objects, state.tepProjectQuery);
+  const selected = objects.find((item) => item.id === state.tepProjectSelectedId) || search.results[0] || null;
+  if (selected) {
+    state.tepProjectSelectedId = selected.id;
+  }
+  return {
+    results: search.results,
+    projectScope: search.projectScope,
+    objectQuery: search.objectQuery,
+    selected,
+  };
+}
+
+function resolveTepProjectSearch(items, query) {
+  const words = normalizeSearchText(query).split(" ").filter(Boolean);
+  if (!words.length) {
+    return { results: items.slice(0, 60), projectScope: "", objectQuery: "" };
+  }
+  const projects = [...new Set(items.map((item) => item.project).filter(Boolean))];
+  const wordWeight = (word) => (/^\d+$/.test(word) ? 4 : 30);
+  const projectMatches = projects
+    .map((project) => {
+      const projectText = normalizeSearchText(project);
+      const matchedWords = words.filter((word) => projectText.includes(word));
+      const exactBonus = projectText.includes(normalizeSearchText(query)) ? 80 : 0;
+      const score = matchedWords.reduce((total, word) => total + wordWeight(word), 0) + exactBonus;
+      return { project, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.project.localeCompare(b.project, "ru"));
+  const projectScope = projectMatches.length ? projectMatches[0].project : "";
+  const projectText = normalizeSearchText(projectScope);
+  const objectWords = projectScope ? words.filter((word) => !projectText.includes(word)) : words;
+  const scopedItems = projectScope ? items.filter((item) => item.project === projectScope) : items;
+  const scored = scopedItems
+    .map((item) => {
+      const fields = projectScope ? ["object", "type", "class", "queue"] : ["project", "object", "type", "class", "queue"];
+      const queryWords = objectWords.length ? objectWords : words;
+      const haystack = normalizeSearchText(fields.map((field) => item[field]).join(" "));
+      const exactBonus = haystack.includes(normalizeSearchText(queryWords.join(" "))) ? 25 : 0;
+      const score = queryWords.reduce((total, word) => total + (haystack.includes(word) ? wordWeight(word) : 0), 0) + exactBonus;
+      return { item, score };
+    })
+    .filter((row) => !objectWords.length || row.score > 0)
+    .sort((a, b) => b.score - a.score || String(a.item.object || "").localeCompare(String(b.item.object || ""), "ru", { numeric: true }));
+  const results = (scored.length ? scored.map((row) => row.item) : scopedItems).slice(0, 60);
+  return { results, projectScope, objectQuery: objectWords.join(" ") };
+}
+
+function renderTepProjectPanel(context = getTepProjectContext()) {
+  const selected = context.selected;
+  const realty = selected && Array.isArray(selected.realty) ? selected.realty : [];
+  const hint = context.projectScope
+    ? `Проект: ${context.projectScope}${context.objectQuery ? ` · объект: ${context.objectQuery}` : ""}`
+    : state.tepProjectQuery ? "Поиск по проектам и объектам" : "Показаны первые объекты базы";
+  return `
+    <div class="cost-search-hint">${escapeHtml(hint)}</div>
     <div class="reference-layout">
-      <div class="reference-results">${results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
+      <div class="reference-results">${context.results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
       <article class="reference-card">
         ${selected ? `
           <div class="smet-card-head"><span>ТЭП</span><em>${escapeHtml(selected.type || "")}</em></div>
@@ -2801,7 +2855,7 @@ function renderTepProjectTool() {
             <div><span>Подземная</span><strong>${escapeHtml(formatMoney(selected.areas_total.underground || 0))}</strong><small>м2</small></div>
             <div><span>Благоустройство</span><strong>${escapeHtml(formatMoney(selected.areas_total.landscape || 0))}</strong><small>м2</small></div>
           </div>
-          <dl>
+          <dl class="tep-detail-list">
             <div><dt>Класс</dt><dd>${escapeHtml(selected.class || "-")}</dd></div>
             <div><dt>Очередь</dt><dd>${escapeHtml(selected.queue || "-")}</dd></div>
             <div><dt>РС план / прогноз</dt><dd>${escapeHtml([selected.dates.rs_plan, selected.dates.rs_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
@@ -2809,11 +2863,20 @@ function renderTepProjectTool() {
             <div><dt>Передача</dt><dd>${escapeHtml([selected.dates.transfer_plan, selected.dates.transfer_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
             <div><dt>СМР</dt><dd>${escapeHtml([selected.dates.smr_start, selected.dates.smr_finish].filter(Boolean).join(" / ") || "-")}</dd></div>
           </dl>
-          <div class="smet-card-list"><span>Недвижимость</span>${realty.slice(0, 12).map((row) => `<em>${escapeHtml([row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))}</em>`).join("")}</div>
+          <div class="smet-card-list tep-realty-list"><span>Недвижимость</span>${realty.slice(0, 12).map((row) => `<em>${escapeHtml([row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))}</em>`).join("")}</div>
         ` : `<div class="empty">Выберите объект</div>`}
       </article>
     </div>
   `;
+}
+
+function renderTepProjectPanelOnly() {
+  const panel = document.getElementById("tep-project-results");
+  if (!panel) {
+    renderTepProjectTool();
+    return;
+  }
+  panel.innerHTML = renderTepProjectPanel(getTepProjectContext());
 }
 
 function buildBenchmarkCards(data) {
@@ -6568,7 +6631,7 @@ document.addEventListener("input", (event) => {
   if (field && field.id === "tep-project-search") {
     state.tepProjectQuery = field.value;
     state.tepProjectSelectedId = "";
-    renderTepProjectTool();
+    renderTepProjectPanelOnly();
     return;
   }
   if (field && field.id === "benchmark-cost-search") {
