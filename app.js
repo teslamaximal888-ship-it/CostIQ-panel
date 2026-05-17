@@ -113,7 +113,7 @@ const PANEL_TOOLS = [
   {
     id: "benchmarks",
     title: "Удельные показатели",
-    subtitle: "Бенчмарки, отделка, себестоимость",
+    subtitle: "Показатели, отделка, себестоимость",
     status: "интерактивно",
     access: "public/admin",
     input: "тип показателя, проект, объект",
@@ -121,26 +121,10 @@ const PANEL_TOOLS = [
     tone: "green",
     visibility: "public",
     primaryLabel: "Открыть показатели",
-    summary: "Инструмент повторяет ветки бота: бенчмарки корпусов/паркингов/соцобъектов, отделка квартир и изменение себестоимости по кодам 35/40/45/48/49.",
-    steps: ["Бенчмарк", "Отделка", "Код затрат", "Карточка"],
+    summary: "Инструмент повторяет ветки бота: удельные показатели корпусов/паркингов/соцобъектов, отделка квартир и изменение себестоимости по кодам 35/40/45/48/49.",
+    steps: ["Группа", "Показатель", "Код затрат", "Карточка"],
     metrics: ["корпуса", "паркинги", "себестоимость"],
     anchor: "benchmarks-tool",
-  },
-  {
-    id: "support",
-    title: "Поддержка",
-    subtitle: "Обращение, предложение, проблема",
-    status: "рабочий вход",
-    access: "public/admin",
-    input: "тема и описание",
-    output: "статус обращения",
-    tone: "teal",
-    visibility: "public",
-    primaryLabel: "Открыть поддержку",
-    summary: "Отдельный раздел для обратной связи по панели: пользователь оставляет обращение и видит локальный статус, задача уходит в контур CostIQ.",
-    steps: ["Тип", "Описание", "Статус", "Ответ"],
-    metrics: ["проблемы", "предложения", "вопросы"],
-    appView: "support",
   },
   {
     id: "agent_factory",
@@ -983,6 +967,7 @@ const state = {
   tepProjectQuery: "",
   tepProjectSelectedId: "",
   benchmarkTab: "benchmarks",
+  benchmarkGroup: "all",
   benchmarkCostQuery: "",
   benchmarkCostCode: "Итого",
   benchmarkCostSelectedId: "",
@@ -2830,6 +2815,104 @@ function renderTepProjectTool() {
   `;
 }
 
+function buildBenchmarkCards(data) {
+  return [
+    ...(data.benchmarks.buildings.items || []).map((row) => ({
+      group: "Корпуса",
+      filter: "buildings",
+      unit: data.benchmarks.buildings.unit,
+      tone: "blue",
+      meta: data.benchmarks.buildings.description,
+      ...row,
+    })),
+    ...(data.benchmarks.parking.items || []).map((row) => ({
+      group: "Паркинги",
+      filter: "parking",
+      unit: data.benchmarks.parking.unit,
+      tone: "green",
+      meta: data.benchmarks.parking.description,
+      ...row,
+    })),
+    ...Object.entries(data.benchmarks.social.regions || {}).flatMap(([region, types]) => Object.entries(types).flatMap(([type, rows]) => (rows || []).map((row) => ({
+      group: type,
+      filter: type === "ДОУ" ? "dou" : "school",
+      unit: data.benchmarks.social.unit,
+      tone: type === "ДОУ" ? "copper" : "teal",
+      region,
+      meta: `${type} · ${region}`,
+      ...row,
+    })))),
+  ];
+}
+
+function benchmarkGroupTitle(group) {
+  const labels = {
+    all: "Все",
+    buildings: "Корпуса",
+    parking: "Паркинги",
+    dou: "ДОУ",
+    school: "СОШ",
+  };
+  return labels[group] || labels.all;
+}
+
+function renderBenchmarkCards(cards) {
+  if (!cards.length) {
+    return `<div class="empty">Показатели по выбранной группе не найдены</div>`;
+  }
+  return `
+    <div class="benchmark-card-grid">
+      ${cards.map((row) => `
+        <article class="benchmark-card" data-tone="${escapeHtml(row.tone || "teal")}">
+          <div class="benchmark-card-head">
+            <span>${escapeHtml(row.group)}</span>
+            ${row.region ? `<em>${escapeHtml(row.region)}</em>` : ""}
+          </div>
+          <strong>${escapeHtml(row.name)}</strong>
+          <div class="benchmark-card-value">
+            <b>${row.price ? escapeHtml(formatMoney(row.price)) : "нет ставки"}</b>
+            <small>${row.price ? escapeHtml(row.unit || "") : escapeHtml(row.meta || "")}</small>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderBenchmarkOverview(cards, activeGroup) {
+  const groups = [
+    { id: "all", label: "Все", count: cards.length },
+    { id: "buildings", label: "Корпуса", count: cards.filter((row) => row.filter === "buildings").length },
+    { id: "parking", label: "Паркинги", count: cards.filter((row) => row.filter === "parking").length },
+    { id: "dou", label: "ДОУ", count: cards.filter((row) => row.filter === "dou").length },
+    { id: "school", label: "СОШ", count: cards.filter((row) => row.filter === "school").length },
+  ];
+  return `
+    <div class="benchmark-overview">
+      <div>
+        <span>Активная группа</span>
+        <strong>${escapeHtml(benchmarkGroupTitle(activeGroup))}</strong>
+      </div>
+      <div>
+        <span>Показателей</span>
+        <strong>${escapeHtml(String(activeGroup === "all" ? cards.length : cards.filter((row) => row.filter === activeGroup).length))}</strong>
+      </div>
+      <div>
+        <span>Состав</span>
+        <strong>корпуса / паркинги / соцобъекты</strong>
+      </div>
+    </div>
+    <div class="benchmark-group-tabs" aria-label="Группы удельных показателей">
+      ${groups.map((group) => `
+        <button type="button" class="${group.id === activeGroup ? "active" : ""}" data-benchmark-group="${escapeHtml(group.id)}">
+          <span>${escapeHtml(group.label)}</span>
+          <em>${escapeHtml(String(group.count))}</em>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderBenchmarksTool() {
   const section = document.getElementById("benchmarks-tool");
   const panel = document.getElementById("benchmarks-panel");
@@ -2845,12 +2928,11 @@ function renderBenchmarksTool() {
     panel.innerHTML = `<div class="empty">Загружаю показатели</div>`;
     return;
   }
-  setText("benchmarks-status", "бенчмарки");
-  const benchmarkCards = [
-    ...(data.benchmarks.buildings.items || []).map((row) => ({ group: "Корпуса", unit: data.benchmarks.buildings.unit, ...row })),
-    ...(data.benchmarks.parking.items || []).map((row) => ({ group: "Паркинги", unit: data.benchmarks.parking.unit, ...row })),
-    ...Object.entries(data.benchmarks.social.regions || {}).flatMap(([region, types]) => Object.entries(types).flatMap(([type, rows]) => (rows || []).map((row) => ({ group: `${type} · ${region}`, unit: data.benchmarks.social.unit, ...row })))),
-  ];
+  setText("benchmarks-status", "удельные показатели");
+  const benchmarkCards = buildBenchmarkCards(data);
+  const benchmarkGroups = ["all", "buildings", "parking", "dou", "school"];
+  const activeGroup = benchmarkGroups.includes(state.benchmarkGroup) ? state.benchmarkGroup : "all";
+  const filteredBenchmarkCards = activeGroup === "all" ? benchmarkCards : benchmarkCards.filter((row) => row.filter === activeGroup);
   const finishingRows = Object.values(data.finishing.sheets || {}).flatMap((sheet) => (sheet.data || []).map((row) => ({ sheet: sheet.name, ...row })));
   const costProjects = data.cost_changes && data.cost_changes.projects ? Object.values(data.cost_changes.projects).flat() : [];
   const costResults = costProjects
@@ -2864,12 +2946,15 @@ function renderBenchmarksTool() {
   panel.innerHTML = `
     <div class="reference-toolbar">
       <div class="view-toggle">
-        <button type="button" class="${state.benchmarkTab === "benchmarks" ? "active" : ""}" data-benchmark-tab="benchmarks">Бенчмарки</button>
+        <button type="button" class="${state.benchmarkTab === "benchmarks" ? "active" : ""}" data-benchmark-tab="benchmarks">Удельные показатели</button>
         <button type="button" class="${state.benchmarkTab === "finishing" ? "active" : ""}" data-benchmark-tab="finishing">Отделка</button>
         <button type="button" class="${state.benchmarkTab === "cost" ? "active" : ""}" data-benchmark-tab="cost">Себестоимость</button>
       </div>
     </div>
-    ${state.benchmarkTab === "benchmarks" ? `<div class="reference-grid">${benchmarkCards.map((row) => `<article class="reference-mini-card"><span>${escapeHtml(row.group)}</span><strong>${escapeHtml(row.name)}</strong><em>${row.price ? `${escapeHtml(formatMoney(row.price))} ${escapeHtml(row.unit)}` : "нет ставки"}</em></article>`).join("")}</div>` : ""}
+    ${state.benchmarkTab === "benchmarks" ? `
+      ${renderBenchmarkOverview(benchmarkCards, activeGroup)}
+      ${renderBenchmarkCards(filteredBenchmarkCards)}
+    ` : ""}
     ${state.benchmarkTab === "finishing" ? `<div class="reference-grid">${finishingRows.map((row) => {
       const prices = Object.entries(row.prices.predchistovaya || {}).concat(Object.entries(row.prices.finishing_packages || {}));
       return `<article class="reference-mini-card"><span>${escapeHtml(row.sheet)}</span><strong>${escapeHtml(row.object_type)}</strong>${prices.map(([name, price]) => `<em>${escapeHtml(name)} · ${escapeHtml(formatMoney(price))} руб./м2</em>`).join("") || "<em>ставки не заполнены</em>"}</article>`;
@@ -6021,6 +6106,13 @@ document.addEventListener("click", (event) => {
   const benchmarkTabButton = event.target.closest("[data-benchmark-tab]");
   if (benchmarkTabButton) {
     state.benchmarkTab = benchmarkTabButton.dataset.benchmarkTab || "benchmarks";
+    renderBenchmarksTool();
+    return;
+  }
+
+  const benchmarkGroupButton = event.target.closest("[data-benchmark-group]");
+  if (benchmarkGroupButton) {
+    state.benchmarkGroup = benchmarkGroupButton.dataset.benchmarkGroup || "all";
     renderBenchmarksTool();
     return;
   }
