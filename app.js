@@ -2788,7 +2788,9 @@ function renderTepProjectTool() {
 function getTepProjectContext(tep = state.panelToolsData && state.panelToolsData.tep) {
   const objects = tep && Array.isArray(tep.objects) ? tep.objects : [];
   const search = resolveTepProjectSearch(objects, state.tepProjectQuery);
-  const selected = objects.find((item) => item.id === state.tepProjectSelectedId) || search.results[0] || null;
+  const projectSummary = search.projectScope && !search.objectQuery ? buildTepProjectSummary(search.projectScope, search.results) : null;
+  const selectedObject = objects.find((item) => item.id === state.tepProjectSelectedId);
+  const selected = selectedObject || projectSummary || search.results[0] || null;
   if (selected) {
     state.tepProjectSelectedId = selected.id;
   }
@@ -2796,7 +2798,78 @@ function getTepProjectContext(tep = state.panelToolsData && state.panelToolsData
     results: search.results,
     projectScope: search.projectScope,
     objectQuery: search.objectQuery,
+    projectSummary,
     selected,
+  };
+}
+
+function uniqueValues(items, field) {
+  return [...new Set(items.map((item) => item[field]).filter(Boolean))];
+}
+
+function compactValueList(values, limit = 6) {
+  const filtered = values.filter(Boolean);
+  if (!filtered.length) {
+    return "-";
+  }
+  const visible = filtered.slice(0, limit).join(", ");
+  return filtered.length > limit ? `${visible} +${filtered.length - limit}` : visible;
+}
+
+function minMaxDateLabel(values) {
+  const dates = values.filter(Boolean).sort();
+  if (!dates.length) {
+    return "";
+  }
+  return dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} - ${dates[dates.length - 1]}`;
+}
+
+function buildTepProjectSummary(project, items) {
+  const areas = items.reduce((total, item) => {
+    const areasTotal = item.areas_total || {};
+    total.total += Number(areasTotal.total || 0);
+    total.above_ground += Number(areasTotal.above_ground || 0);
+    total.underground += Number(areasTotal.underground || 0);
+    total.landscape += Number(areasTotal.landscape || 0);
+    return total;
+  }, { total: 0, above_ground: 0, underground: 0, landscape: 0 });
+  const realtyMap = new Map();
+  items.forEach((item) => {
+    (Array.isArray(item.realty) ? item.realty : []).forEach((row) => {
+      const key = [row.realty_type || "", row.finish_type || ""].join("|");
+      const current = realtyMap.get(key) || {
+        realty_type: row.realty_type || "",
+        finish_type: row.finish_type || "",
+        sale_area: 0,
+        count: 0,
+      };
+      current.sale_area += Number(row.sale_area || 0);
+      current.count += Number(row.count || 0);
+      realtyMap.set(key, current);
+    });
+  });
+  const dates = (field) => minMaxDateLabel(items.map((item) => item.dates && item.dates[field]));
+  return {
+    id: `tep-project:${project}`,
+    isProjectSummary: true,
+    project,
+    object: "Сводная по проекту",
+    type: "Проект",
+    class: compactValueList(uniqueValues(items, "class")),
+    queue: compactValueList(uniqueValues(items, "queue").sort((a, b) => String(a).localeCompare(String(b), "ru", { numeric: true }))),
+    objectCount: items.length,
+    areas_total: areas,
+    dates: {
+      rs_plan: dates("rs_plan"),
+      rs_forecast: dates("rs_forecast"),
+      rve_plan: dates("rve_plan"),
+      rve_forecast: dates("rve_forecast"),
+      transfer_plan: dates("transfer_plan"),
+      transfer_forecast: dates("transfer_forecast"),
+      smr_start: dates("smr_start"),
+      smr_finish: dates("smr_finish"),
+    },
+    realty: [...realtyMap.values()].sort((a, b) => String(a.realty_type || "").localeCompare(String(b.realty_type || ""), "ru")),
   };
 }
 
@@ -2845,7 +2918,10 @@ function renderTepProjectPanel(context = getTepProjectContext()) {
   return `
     <div class="cost-search-hint">${escapeHtml(hint)}</div>
     <div class="reference-layout">
-      <div class="reference-results">${context.results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
+      <div class="reference-results">
+        ${context.projectSummary ? `<button type="button" class="${context.projectSummary.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(context.projectSummary.id)}"><span>${escapeHtml(context.projectSummary.project)}</span><strong>Сводная по проекту</strong><small>${escapeHtml(`${formatMoney(context.projectSummary.objectCount)} объектов`)}</small></button>` : ""}
+        ${context.results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}
+      </div>
       <article class="reference-card">
         ${selected ? `
           <div class="smet-card-head"><span>ТЭП</span><em>${escapeHtml(selected.type || "")}</em></div>
@@ -2856,6 +2932,7 @@ function renderTepProjectPanel(context = getTepProjectContext()) {
             <div><span>Благоустройство</span><strong>${escapeHtml(formatMoney(selected.areas_total.landscape || 0))}</strong><small>м2</small></div>
           </div>
           <dl class="tep-detail-list">
+            ${selected.isProjectSummary ? `<div><dt>Объектов в проекте</dt><dd>${escapeHtml(formatMoney(selected.objectCount || 0))}</dd></div>` : ""}
             <div><dt>Класс</dt><dd>${escapeHtml(selected.class || "-")}</dd></div>
             <div><dt>Очередь</dt><dd>${escapeHtml(selected.queue || "-")}</dd></div>
             <div><dt>РС план / прогноз</dt><dd>${escapeHtml([selected.dates.rs_plan, selected.dates.rs_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
@@ -3150,7 +3227,9 @@ function getCostChangeContext(data = state.panelToolsData) {
   const meta = costChanges.meta || {};
   const items = costChanges.projects ? Object.values(costChanges.projects).flat() : [];
   const search = resolveCostChangeSearch(items, state.benchmarkCostQuery);
-  const selected = items.find((item) => costChangeId(item) === state.benchmarkCostSelectedId) || search.results[0] || null;
+  const projectSummary = search.projectScope && !search.objectQuery ? buildCostChangeProjectSummary(search.projectScope, search.results) : null;
+  const selectedObject = items.find((item) => costChangeId(item) === state.benchmarkCostSelectedId);
+  const selected = selectedObject || projectSummary || search.results[0] || null;
   if (selected) {
     state.benchmarkCostSelectedId = costChangeId(selected);
   }
@@ -3161,8 +3240,60 @@ function getCostChangeContext(data = state.panelToolsData) {
     results: search.results,
     projectScope: search.projectScope,
     objectQuery: search.objectQuery,
+    projectSummary,
     selected,
   };
+}
+
+function addCostDetails(target, source) {
+  if (!source) {
+    return target;
+  }
+  target.cost_start += Number(source.cost_start || 0);
+  target.cost_end += Number(source.cost_end || 0);
+  const sourceSubcodes = source.subcodes || {};
+  Object.entries(sourceSubcodes).forEach(([name, row]) => {
+    const current = target.subcodes[name] || { cost_start: 0, cost_end: 0, change: 0 };
+    current.cost_start += Number(row.cost_start || 0);
+    current.cost_end += Number(row.cost_end || 0);
+    current.change += Number(row.change || 0);
+    target.subcodes[name] = current;
+  });
+  return target;
+}
+
+function buildCostChangeProjectSummary(project, items) {
+  const summary = {
+    project,
+    object: "Сводная по проекту",
+    isProjectSummary: true,
+    objectCount: items.length,
+    period_start: { area: 0, cost: 0, price_m2: 0 },
+    period_end: { area: 0, cost: 0, price_m2: 0 },
+    change: { area: 0, rub: 0, price_m2: 0, pct: 0, comment: "" },
+    change_by_code: {},
+    codes: {},
+  };
+  items.forEach((item) => {
+    summary.period_start.area += Number(item.period_start && item.period_start.area || 0);
+    summary.period_start.cost += Number(item.period_start && item.period_start.cost || 0);
+    summary.period_end.area += Number(item.period_end && item.period_end.area || 0);
+    summary.period_end.cost += Number(item.period_end && item.period_end.cost || 0);
+    Object.entries(item.codes || {}).forEach(([code, details]) => {
+      const current = summary.codes[code] || { cost_start: 0, cost_end: 0, subcodes: {} };
+      summary.codes[code] = addCostDetails(current, details);
+    });
+  });
+  summary.change.rub = summary.period_end.cost - summary.period_start.cost;
+  summary.change.area = summary.period_end.area - summary.period_start.area;
+  summary.change.pct = summary.period_start.cost ? Number(((summary.change.rub / summary.period_start.cost) * 100).toFixed(2)) : 0;
+  summary.period_start.price_m2 = summary.period_start.area ? summary.period_start.cost / summary.period_start.area : 0;
+  summary.period_end.price_m2 = summary.period_end.area ? summary.period_end.cost / summary.period_end.area : 0;
+  summary.change.price_m2 = summary.period_end.price_m2 - summary.period_start.price_m2;
+  Object.entries(summary.codes).forEach(([code, details]) => {
+    summary.change_by_code[code] = costDelta(details.cost_start, details.cost_end);
+  });
+  return summary;
 }
 
 function resolveCostChangeSearch(items, query) {
@@ -3209,7 +3340,10 @@ function renderCostChangePanel(context = getCostChangeContext()) {
   return `
     <div class="cost-search-hint">${escapeHtml(hint)}</div>
     <div class="reference-layout">
-      <div class="reference-results">${context.results.map((item) => `<button type="button" class="${costChangeId(item) === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(costChangeId(item))}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object)}</strong><small>${escapeHtml(item.change && item.change.pct ? `${item.change.pct}%` : "")}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}</div>
+      <div class="reference-results">
+        ${context.projectSummary ? `<button type="button" class="${costChangeId(context.projectSummary) === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(costChangeId(context.projectSummary))}"><span>${escapeHtml(context.projectSummary.project)}</span><strong>Сводная по проекту</strong><small>${escapeHtml(`${formatMoney(context.projectSummary.objectCount)} объектов`)}</small></button>` : ""}
+        ${context.results.map((item) => `<button type="button" class="${costChangeId(item) === state.benchmarkCostSelectedId ? "active" : ""}" data-cost-id="${escapeHtml(costChangeId(item))}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object)}</strong><small>${escapeHtml(item.change && item.change.pct ? `${item.change.pct}%` : "")}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}
+      </div>
       <article class="reference-card">${context.selected ? renderCostChangeCard(context.selected, context) : `<div class="empty">Выберите объект</div>`}</article>
     </div>
   `;
