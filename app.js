@@ -3109,12 +3109,14 @@ function resolveCostChangeSearch(items, query) {
     return { results: items.slice(0, 40), projectScope: "", objectQuery: "" };
   }
   const projects = [...new Set(items.map((item) => item.project).filter(Boolean))];
+  const wordWeight = (word) => (/^\d+$/.test(word) ? 4 : 30);
   const projectMatches = projects
     .map((project) => {
       const projectText = normalizeSearchText(project);
       const matchedWords = words.filter((word) => projectText.includes(word));
-      const exactBonus = projectText.includes(normalizeSearchText(query)) ? 40 : 0;
-      return { project, score: matchedWords.length * 25 + exactBonus, matchedWords };
+      const exactBonus = projectText.includes(normalizeSearchText(query)) ? 80 : 0;
+      const score = matchedWords.reduce((total, word) => total + wordWeight(word), 0) + exactBonus;
+      return { project, score, matchedWords };
     })
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || a.project.localeCompare(b.project, "ru"));
@@ -3128,7 +3130,8 @@ function resolveCostChangeSearch(items, query) {
       const fields = projectScope ? ["object"] : ["project", "object"];
       const queryWords = objectWords.length ? objectWords : words;
       const haystack = normalizeSearchText(fields.map((field) => item[field]).join(" "));
-      const score = queryWords.reduce((total, word) => total + (haystack.includes(word) ? 20 : 0), 0);
+      const exactBonus = haystack.includes(normalizeSearchText(queryWords.join(" "))) ? 25 : 0;
+      const score = queryWords.reduce((total, word) => total + (haystack.includes(word) ? wordWeight(word) : 0), 0) + exactBonus;
       return { item, score };
     })
     .filter((row) => !objectWords.length || row.score > 0)
@@ -3181,8 +3184,23 @@ function renderCostCodeSummary(code, details) {
   `;
 }
 
+function compareCostCodeLabels(left, right) {
+  const extract = (value) => String(value || "").match(/\d+(?:-\d+)*/)?.[0] || "";
+  const leftParts = extract(left).split("-").filter(Boolean).map(Number);
+  const rightParts = extract(right).split("-").filter(Boolean).map(Number);
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftValue = Number.isFinite(leftParts[index]) ? leftParts[index] : -1;
+    const rightValue = Number.isFinite(rightParts[index]) ? rightParts[index] : -1;
+    if (leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+  }
+  return String(left || "").localeCompare(String(right || ""), "ru", { numeric: true });
+}
+
 function renderCostSubcodeRows(details) {
-  const rows = details && details.subcodes ? Object.entries(details.subcodes) : [];
+  const rows = details && details.subcodes ? Object.entries(details.subcodes).sort(([left], [right]) => compareCostCodeLabels(left, right)) : [];
   return rows.map(([name, row]) => `
     <div class="cost-subcode-row">
       <strong>${escapeHtml(name)}</strong>
