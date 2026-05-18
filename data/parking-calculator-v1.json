@@ -1,11 +1,11 @@
 {
-  "version": "parking-calculator-v1",
+  "version": "parking-calculator-v1.1",
   "source": "office_parking_calculator_selected_analogs_analysis_2026-05-18.xlsx",
   "updatedAt": "2026-05-18",
   "method": {
     "title": "Подземные паркинги по выбранным аналогам ФСК",
-    "basis": "ПАС = 40-01 Земляные работы + 40-02-04 Устройство подземного паркинга + 40-02-05 Устройство покрытия стилобатной части",
-    "rule": "Рекомендуемая ставка = медиана по выбранной группе аналогов. Мин/макс показываются как диапазон. Шпунт, свайное поле и подпорные стены не входят в базовую ставку ПАС.",
+    "basis": "ПАС = 40-01 Земляные работы + детальная расшифровка 40-02-04 Устройство подземного паркинга + 40-02-05 Устройство покрытия стилобатной части",
+    "rule": "Рекомендуемая ставка = медиана по выбранной группе аналогов. Мин/макс показываются как диапазон. Расшифровка стоимости раскрывает все доступные строки ПАС; родительская 40-02-04 не суммируется повторно с дочерними статьями. Шпунт, свайное поле и подпорные стены не входят в базовую ставку ПАС.",
     "officeIntegration": "В офисном калькуляторе базовая ставка не меняется. Для Офиса мечты паркинг считается только как дельта +/- машиноместа, чтобы не задвоить уже сидящую в базе подземную часть."
   },
   "rules": {
@@ -52,7 +52,159 @@
       "undergroundParking": 418154108,
       "stylobateCover": 47464509,
       "extraWorks": "40-02-01-01 Устройство шпунтового ограждения: 3,362,598 руб.",
-      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку."
+      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 40201591,
+          "perPlace": 187858,
+          "perM2": 6978,
+          "share": 0.079478,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 418154108,
+          "perPlace": 1953991,
+          "perM2": 72582,
+          "share": 0.826685,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 47464509,
+          "perPlace": 221797,
+          "perM2": 8239,
+          "share": 0.093837,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 107804267,
+          "perPlace": 503758,
+          "perM2": 17364,
+          "share": 0.213128,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 124930296,
+          "perPlace": 583786,
+          "perM2": 20122,
+          "share": 0.246986,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 25547793,
+          "perPlace": 119382,
+          "perM2": 4115,
+          "share": 0.050508,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 5670662,
+          "perPlace": 26498,
+          "perM2": 913,
+          "share": 0.011211,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 4647190,
+          "perPlace": 21716,
+          "perM2": 749,
+          "share": 0.009187,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 6580930,
+          "perPlace": 30752,
+          "perM2": 1060,
+          "share": 0.01301,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 7327649,
+          "perPlace": 34241,
+          "perM2": 1180,
+          "share": 0.014487,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 20637278,
+          "perPlace": 96436,
+          "perM2": 3324,
+          "share": 0.0408,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 30960878,
+          "perPlace": 144677,
+          "perM2": 4987,
+          "share": 0.061209,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 31196492,
+          "perPlace": 145778,
+          "perM2": 5025,
+          "share": 0.061675,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 11219004,
+          "perPlace": 52425,
+          "perM2": 1807,
+          "share": 0.02218,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 41631669,
+          "perPlace": 194541,
+          "perM2": 6706,
+          "share": 0.082305,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Химкинский / Ивакино",
@@ -69,7 +221,169 @@
       "undergroundParking": 542105413,
       "stylobateCover": 49017086,
       "extraWorks": "",
-      "conclusion": "Отдельных строк шпунта/подпорных стен не найдено."
+      "conclusion": "Отдельных строк шпунта/подпорных стен не найдено.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 48091622,
+          "perPlace": 187858,
+          "perM2": 6721,
+          "share": 0.075236,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 542105413,
+          "perPlace": 2117599,
+          "perM2": 75759,
+          "share": 0.848081,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 49017086,
+          "perPlace": 191473,
+          "perM2": 6850,
+          "share": 0.076683,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 154984292,
+          "perPlace": 605407,
+          "perM2": 20363,
+          "share": 0.242461,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 179988757,
+          "perPlace": 703081,
+          "perM2": 23649,
+          "share": 0.281578,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 28165145,
+          "perPlace": 110020,
+          "perM2": 3701,
+          "share": 0.044062,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 5856151,
+          "perPlace": 22876,
+          "perM2": 769,
+          "share": 0.009161,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 4799201,
+          "perPlace": 18747,
+          "perM2": 631,
+          "share": 0.007508,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 6796194,
+          "perPlace": 26548,
+          "perM2": 893,
+          "share": 0.010632,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-07",
+          "title": "Устройство фасадов паркинга",
+          "amount": 13398245,
+          "perPlace": 52337,
+          "perM2": 1760,
+          "share": 0.02096,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 7567338,
+          "perPlace": 29560,
+          "perM2": 994,
+          "share": 0.011839,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 26291563,
+          "perPlace": 102701,
+          "perM2": 3454,
+          "share": 0.041131,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 31973617,
+          "perPlace": 124897,
+          "perM2": 4201,
+          "share": 0.05002,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 25470224,
+          "perPlace": 99493,
+          "perM2": 3347,
+          "share": 0.039846,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 12496902,
+          "perPlace": 48816,
+          "perM2": 1642,
+          "share": 0.01955,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 44317784,
+          "perPlace": 173116,
+          "perM2": 5823,
+          "share": 0.069332,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Донской / Сапроново",
@@ -86,7 +400,159 @@
       "undergroundParking": 337608580,
       "stylobateCover": 61095736,
       "extraWorks": "40-02-01-01 Устройство шпунтового ограждения: 6,354,697 руб.",
-      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку."
+      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 29117974,
+          "perPlace": 187858,
+          "perM2": 6621,
+          "share": 0.068061,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 337608580,
+          "perPlace": 2178120,
+          "perM2": 76773,
+          "share": 0.789133,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 61095736,
+          "perPlace": 394166,
+          "perM2": 13893,
+          "share": 0.142806,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 86686338,
+          "perPlace": 559267,
+          "perM2": 18549,
+          "share": 0.202622,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 118564235,
+          "perPlace": 764931,
+          "perM2": 25370,
+          "share": 0.277134,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 8337303,
+          "perPlace": 53789,
+          "perM2": 1784,
+          "share": 0.019488,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 4107255,
+          "perPlace": 26498,
+          "perM2": 879,
+          "share": 0.0096,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 2832892,
+          "perPlace": 18277,
+          "perM2": 606,
+          "share": 0.006622,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 4766562,
+          "perPlace": 30752,
+          "perM2": 1020,
+          "share": 0.011141,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 4561140,
+          "perPlace": 29427,
+          "perM2": 976,
+          "share": 0.010661,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 21756392,
+          "perPlace": 140364,
+          "perM2": 4655,
+          "share": 0.050854,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 23986261,
+          "perPlace": 154750,
+          "perM2": 5133,
+          "share": 0.056066,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 22595590,
+          "perPlace": 145778,
+          "perM2": 4835,
+          "share": 0.052815,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 9260834,
+          "perPlace": 59747,
+          "perM2": 1982,
+          "share": 0.021646,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 30153779,
+          "perPlace": 194541,
+          "perM2": 6452,
+          "share": 0.070482,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Донской / Сапроново",
@@ -103,7 +569,159 @@
       "undergroundParking": 274826584,
       "stylobateCover": 54999764,
       "extraWorks": "40-02-01-02 Устройство свайного поля: 24,334,837 руб.; 49-03 подпорные стенки в благоустройстве: 26,473,374 руб.",
-      "conclusion": "Кандидатные строки есть, но требуют проверки привязки к паркингу."
+      "conclusion": "Кандидатные строки есть, но требуют проверки привязки к паркингу.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 27239396,
+          "perPlace": 187858,
+          "perM2": 5831,
+          "share": 0.076287,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 274826584,
+          "perPlace": 1895356,
+          "perM2": 58836,
+          "share": 0.769681,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 54999764,
+          "perPlace": 379309,
+          "perM2": 11774,
+          "share": 0.154033,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 80936331,
+          "perPlace": 558182,
+          "perM2": 16447,
+          "share": 0.226671,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 92599910,
+          "perPlace": 638620,
+          "perM2": 18817,
+          "share": 0.259336,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 4506138,
+          "perPlace": 31077,
+          "perM2": 916,
+          "share": 0.01262,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 424476,
+          "perPlace": 2927,
+          "perM2": 86,
+          "share": 0.001189,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 2842142,
+          "perPlace": 19601,
+          "perM2": 578,
+          "share": 0.00796,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 4459041,
+          "perPlace": 30752,
+          "perM2": 906,
+          "share": 0.012488,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 5675252,
+          "perPlace": 39140,
+          "perM2": 1153,
+          "share": 0.015894,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 26400070,
+          "perPlace": 182069,
+          "perM2": 5365,
+          "share": 0.073936,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 11128979,
+          "perPlace": 76752,
+          "perM2": 2262,
+          "share": 0.031168,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 13298126,
+          "perPlace": 91711,
+          "perM2": 2702,
+          "share": 0.037243,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 7219985,
+          "perPlace": 49793,
+          "perM2": 1467,
+          "share": 0.02022,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 25336134,
+          "perPlace": 174732,
+          "perM2": 5149,
+          "share": 0.070956,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Шереметьевский / Подрезково",
@@ -120,7 +738,159 @@
       "undergroundParking": 410874650,
       "stylobateCover": 47908102,
       "extraWorks": "40-02-01-01 Устройство шпунтового ограждения: 34,165,563 руб.",
-      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку."
+      "conclusion": "Шпунт найден в себестоимости объекта, но не включен в ПАС-сводку.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 40577306,
+          "perPlace": 187858,
+          "perM2": 6765,
+          "share": 0.081259,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 410874650,
+          "perPlace": 1902197,
+          "perM2": 68504,
+          "share": 0.822802,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 47908102,
+          "perPlace": 221797,
+          "perM2": 7988,
+          "share": 0.095939,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 102336648,
+          "perPlace": 473781,
+          "perM2": 16332,
+          "share": 0.204936,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 114408328,
+          "perPlace": 529668,
+          "perM2": 18259,
+          "share": 0.22911,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 23275359,
+          "perPlace": 107756,
+          "perM2": 3715,
+          "share": 0.04661,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 5723659,
+          "perPlace": 26498,
+          "perM2": 913,
+          "share": 0.011462,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 4690621,
+          "perPlace": 21716,
+          "perM2": 749,
+          "share": 0.009393,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 6642434,
+          "perPlace": 30752,
+          "perM2": 1060,
+          "share": 0.013302,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 7396132,
+          "perPlace": 34241,
+          "perM2": 1180,
+          "share": 0.014811,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 30318585,
+          "perPlace": 140364,
+          "perM2": 4839,
+          "share": 0.060715,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 31250232,
+          "perPlace": 144677,
+          "perM2": 4987,
+          "share": 0.062581,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 31488048,
+          "perPlace": 145778,
+          "perM2": 5025,
+          "share": 0.063057,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 11323854,
+          "perPlace": 52425,
+          "perM2": 1807,
+          "share": 0.022677,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 42020750,
+          "perPlace": 194541,
+          "perM2": 6706,
+          "share": 0.084149,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Южный / Булатниково",
@@ -137,7 +907,159 @@
       "undergroundParking": 442922354,
       "stylobateCover": 62150811,
       "extraWorks": "40-02-01-03 Устройство подпорной стенки: 1,543,415 руб.; 49-03 подпорные стенки в благоустройстве: 30,567,240 руб.",
-      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС."
+      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 54854507,
+          "perPlace": 187858,
+          "perM2": 16585,
+          "share": 0.097967,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 442922354,
+          "perPlace": 1516857,
+          "perM2": 133919,
+          "share": 0.791035,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 62150811,
+          "perPlace": 212845,
+          "perM2": 18791,
+          "share": 0.110998,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 81848169,
+          "perPlace": 280302,
+          "perM2": 8494,
+          "share": 0.146176,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 146200493,
+          "perPlace": 500687,
+          "perM2": 15172,
+          "share": 0.261106,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 19055935,
+          "perPlace": 65260,
+          "perM2": 1978,
+          "share": 0.034033,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 3652455,
+          "perPlace": 12508,
+          "perM2": 379,
+          "share": 0.006523,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 8805602,
+          "perPlace": 30156,
+          "perM2": 914,
+          "share": 0.015726,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 1374201,
+          "perPlace": 4706,
+          "perM2": 143,
+          "share": 0.002454,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 13961656,
+          "perPlace": 47814,
+          "perM2": 1449,
+          "share": 0.024935,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 27648381,
+          "perPlace": 94686,
+          "perM2": 2869,
+          "share": 0.049378,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 38397998,
+          "perPlace": 131500,
+          "perM2": 3985,
+          "share": 0.068577,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 27236336,
+          "perPlace": 93275,
+          "perM2": 2827,
+          "share": 0.048643,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 18283470,
+          "perPlace": 62615,
+          "perM2": 1897,
+          "share": 0.032653,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 56457658,
+          "perPlace": 193348,
+          "perM2": 5859,
+          "share": 0.10083,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Южный / Булатниково",
@@ -154,7 +1076,159 @@
       "undergroundParking": 479602453,
       "stylobateCover": 73282696,
       "extraWorks": "40-02-01-03 Устройство подпорной стенки: 1,268,489 руб.; 49-03 подпорные стенки в благоустройстве: 25,775,200 руб.",
-      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС."
+      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 54854507,
+          "perPlace": 187858,
+          "perM2": 0,
+          "share": 0.09026,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 479602453,
+          "perPlace": 1642474,
+          "perM2": 0,
+          "share": 0.789158,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 73282696,
+          "perPlace": 250968,
+          "perM2": 0,
+          "share": 0.120582,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 86164625,
+          "perPlace": 295084,
+          "perM2": 8833,
+          "share": 0.141779,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 158045650,
+          "perPlace": 541252,
+          "perM2": 16201,
+          "share": 0.260055,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 20476684,
+          "perPlace": 70126,
+          "perM2": 2099,
+          "share": 0.033693,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 2271975,
+          "perPlace": 7781,
+          "perM2": 233,
+          "share": 0.003738,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 7755176,
+          "perPlace": 26559,
+          "perM2": 795,
+          "share": 0.012761,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-06",
+          "title": "Устройство металлоконструкций и ограждений паркинга",
+          "amount": 1213428,
+          "perPlace": 4156,
+          "perM2": 124,
+          "share": 0.001997,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 7770102,
+          "perPlace": 26610,
+          "perM2": 796,
+          "share": 0.012785,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 17691814,
+          "perPlace": 60588,
+          "perM2": 1814,
+          "share": 0.029111,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 63707024,
+          "perPlace": 218175,
+          "perM2": 6530,
+          "share": 0.104826,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 23921134,
+          "perPlace": 81922,
+          "perM2": 2452,
+          "share": 0.039361,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 16935848,
+          "perPlace": 57999,
+          "perM2": 1736,
+          "share": 0.027867,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 73648993,
+          "perPlace": 252223,
+          "perM2": 7550,
+          "share": 0.121185,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     },
     {
       "project": "Первый Южный / Булатниково",
@@ -171,7 +1245,149 @@
       "undergroundParking": 609899239,
       "stylobateCover": 88802057,
       "extraWorks": "40-02-01-03 Устройство подпорной стенки: 2,234,466 руб.; 49-03 подпорные стенки в благоустройстве: 43,805,962 руб.",
-      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС."
+      "conclusion": "Подпорная стенка найдена, но не включена в базовую ПАС.",
+      "pasBreakdown": [
+        {
+          "code": "40-01",
+          "title": "Земляные работы",
+          "amount": 84160339,
+          "perPlace": 187858,
+          "perM2": 6556,
+          "share": 0.107503,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04",
+          "title": "Устройство подземного паркинга",
+          "amount": 609899239,
+          "perPlace": 1361382,
+          "perM2": 47511,
+          "share": 0.779064,
+          "summary": true,
+          "includeInDetailedTotal": false
+        },
+        {
+          "code": "40-02-05",
+          "title": "Устройство покрытия стилобатной части",
+          "amount": 88802057,
+          "perPlace": 198219,
+          "perM2": 6918,
+          "share": 0.113433,
+          "summary": true,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-01",
+          "title": "Фундаменты паркинга",
+          "amount": 117446476,
+          "perPlace": 262157,
+          "perM2": 7981,
+          "share": 0.150022,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-02",
+          "title": "Устройство монолитных конструкций подземной части паркинга",
+          "amount": 203583972,
+          "perPlace": 454429,
+          "perM2": 13834,
+          "share": 0.260051,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-03",
+          "title": "Гидроизоляция и утепление фундаментов, стен паркинга",
+          "amount": 26845384,
+          "perPlace": 59923,
+          "perM2": 1824,
+          "share": 0.034291,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-04",
+          "title": "Каменная кладка паркинга",
+          "amount": 2359359,
+          "perPlace": 5266,
+          "perM2": 160,
+          "share": 0.003014,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-05",
+          "title": "Двери и ворота паркинга",
+          "amount": 8621865,
+          "perPlace": 19245,
+          "perM2": 586,
+          "share": 0.011013,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-08",
+          "title": "Устройство отопления паркинга",
+          "amount": 7772968,
+          "perPlace": 17350,
+          "perM2": 528,
+          "share": 0.009929,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-09",
+          "title": "Устройство водоснабжения и канализования паркинга",
+          "amount": 37580693,
+          "perPlace": 83885,
+          "perM2": 2554,
+          "share": 0.048004,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-10",
+          "title": "Устройство вентиляции и ДУ паркинга",
+          "amount": 42084037,
+          "perPlace": 93938,
+          "perM2": 2860,
+          "share": 0.053757,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-11",
+          "title": "Устройство электроснабжения паркинга",
+          "amount": 35834749,
+          "perPlace": 79988,
+          "perM2": 2435,
+          "share": 0.045774,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-12",
+          "title": "Устройство слаботочных систем паркинга",
+          "amount": 27168844,
+          "perPlace": 60645,
+          "perM2": 1846,
+          "share": 0.034705,
+          "summary": false,
+          "includeInDetailedTotal": true
+        },
+        {
+          "code": "40-02-04-13",
+          "title": "Отделка паркинга",
+          "amount": 100600892,
+          "perPlace": 224556,
+          "perM2": 6836,
+          "share": 0.128504,
+          "summary": false,
+          "includeInDetailedTotal": true
+        }
+      ]
     }
   ],
   "candidateExtraWorks": [

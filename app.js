@@ -3823,6 +3823,25 @@ function parkingArticleBreakdown(calc) {
   if (!calc || !calc.referenceAnalog || !calc.referenceAnalog.spaces) {
     return [];
   }
+  if (Array.isArray(calc.referenceAnalog.pasBreakdown) && calc.referenceAnalog.pasBreakdown.length) {
+    return calc.referenceAnalog.pasBreakdown
+      .filter((row) => row && row.includeInDetailedTotal)
+      .map((row) => {
+        const referenceAmount = Number(row.amount || 0);
+        const perPlace = referenceAmount / Number(calc.referenceAnalog.spaces || 1);
+        const amount = perPlace * Number(calc.inputs.spaces || 0);
+        const share = calc.totalCost ? amount / calc.totalCost : 0;
+        return {
+          key: row.code,
+          code: row.code,
+          title: row.title,
+          referenceAmount,
+          perPlace,
+          amount,
+          share,
+        };
+      });
+  }
   return parkingArticleRows().map((row) => {
     const referenceAmount = Number(calc.referenceAnalog[row.key] || 0);
     const perPlace = referenceAmount / Number(calc.referenceAnalog.spaces || 1);
@@ -3900,7 +3919,7 @@ function parkingCalculationRows(calc) {
     ["Состав ПАС", calc.method.basis || ""],
   ];
   rows.push([]);
-  rows.push(["Расшифровка стоимости по статьям", "Сумма, руб.", "руб./м.м.", "Доля", "Базовый аналог"]);
+  rows.push(["Детальная расшифровка стоимости по статьям", "Сумма, руб.", "руб./м.м.", "Доля", "Базовый аналог"]);
   parkingArticleBreakdown(calc).forEach((item) => {
     rows.push([
       `${item.code} ${item.title}`,
@@ -3911,7 +3930,7 @@ function parkingCalculationRows(calc) {
     ]);
   });
   rows.push([]);
-  rows.push(["Аналог", "М/м", "Итого ПАС", "руб./м.м.", "руб./м2", "40-01", "40-02-04", "40-02-05"]);
+  rows.push(["Аналог", "М/м", "Итого ПАС", "руб./м.м.", "руб./м2", "40-01", "40-02-04", "40-02-05", "Детальных строк"]);
   calc.analogs.forEach((item) => {
     rows.push([
       `${item.project} - ${item.object}`,
@@ -3922,6 +3941,7 @@ function parkingCalculationRows(calc) {
       Math.round(item.earthworks || 0),
       Math.round(item.undergroundParking || 0),
       Math.round(item.stylobateCover || 0),
+      Array.isArray(item.pasBreakdown) ? item.pasBreakdown.filter((row) => row.includeInDetailedTotal).length : "",
     ]);
   });
   rows.push([]);
@@ -4086,9 +4106,10 @@ function renderParkingCalculator() {
   const referenceTitle = calc.referenceAnalog ? `${calc.referenceAnalog.project} / ${calc.referenceAnalog.object}` : "";
   details.innerHTML = `
     <section class="parking-detail-block">
-      <h3>Расшифровка стоимости по статьям</h3>
+      <h3>Детальная расшифровка стоимости по статьям</h3>
       <div class="parking-breakdown-note">
         ${referenceTitle ? `Структура взята из ближайшего аналога к выбранной ставке: ${escapeHtml(referenceTitle)}.` : "Структура считается по выбранной группе аналогов."}
+        Строка 40-02-04 раскрыта по дочерним статьям и не суммируется повторно.
       </div>
       <div class="parking-breakdown-list">
         ${articleRows.map((row) => `
@@ -4124,6 +4145,7 @@ function renderParkingCalculator() {
             <span>${escapeHtml(item.object)} · ${formatMoney(item.spaces)} м/м</span>
             <small>${formatMoney(item.perPlace)} руб./м.м. · ПАС ${formatMoney(item.pasTotal)} руб.</small>
             <small>40-01 ${formatMoney(item.earthworks)} · 40-02-04 ${formatMoney(item.undergroundParking)} · 40-02-05 ${formatMoney(item.stylobateCover)}</small>
+            <small>${Array.isArray(item.pasBreakdown) ? item.pasBreakdown.filter((row) => row.includeInDetailedTotal).length : 3} детальных строк ПАС</small>
           </article>
         `).join("")}
       </div>

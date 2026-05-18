@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "Детализация паркингов",
+    action: "обновлено",
+    text: "В калькуляторе паркингов расшифровка ПАС раскрыта по всем доступным подстатьям, а аналоги перенесены ниже на всю ширину экрана.",
+    meta: "2026-05-18T16:35:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "Дельта паркинга",
     action: "уточнено",
     text: "В офисном калькуляторе база, дельта и итог машиномест вынесены в отдельные показатели; снятие м/м ограничено фактической базой.",

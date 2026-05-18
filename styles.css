@@ -2485,7 +2485,7 @@ h2 {
 
 .parking-calculator-details {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -2504,7 +2504,7 @@ h2 {
 
 .parking-analog-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 8px;
 }
 
@@ -2522,7 +2522,7 @@ h2 {
 
 .parking-breakdown-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(190px, auto);
   gap: 12px;
   align-items: center;
   min-width: 0;
