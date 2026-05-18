@@ -33,6 +33,30 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "История заявок",
+    action: "обновлено",
+    text: "Комментарий при создании заявки стал необязательным, в «Навыках» осталась только последняя заявка, а в «Мои заявки» добавлены поиск, история, открытие карточки и скрытие отработанных задач.",
+    meta: "2026-05-18T23:05:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
+    title: "Fit-out офиса",
+    action: "уточнено",
+    text: "В офисном калькуляторе ставки fit-out заменены на базу «Офис мечты»: Bronze 123 573, Silver 145 380, Gold 278 347 руб./м².",
+    meta: "2026-05-18T23:04:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
+    title: "Инструменты",
+    action: "упрощено",
+    text: "Карточка «Калькулятор паркингов» убрана из раздела «Инструменты»; отдельный экран паркингов остаётся в разделе «Калькуляторы».",
+    meta: "2026-05-18T23:03:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "Детализация паркингов",
     action: "обновлено",
     text: "В калькуляторе паркингов расшифровка ПАС раскрыта по всем доступным подстатьям, а аналоги перенесены ниже на всю ширину экрана.",

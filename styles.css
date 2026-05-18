@@ -2792,6 +2792,64 @@ h2 {
   display: none;
 }
 
+.web-latest-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.web-latest-task[hidden] {
+  display: none;
+}
+
+.web-latest-task > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.web-latest-task > div:first-child {
+  justify-content: space-between;
+}
+
+.web-latest-task span,
+.web-latest-task strong,
+.web-latest-task small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.web-latest-task small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.web-latest-task em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.web-latest-task .submit-button,
+.web-latest-task .ghost-button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .web-recent {
   margin-top: 14px;
   padding-top: 14px;
@@ -2810,6 +2868,10 @@ h2 {
   min-height: 34px;
   padding: 0 10px;
   font-size: 13px;
+}
+
+.web-recent-search {
+  margin-bottom: 10px;
 }
 
 .web-recent-filters {
@@ -2842,7 +2904,7 @@ h2 {
 
 .web-recent-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: stretch;
 }
@@ -2862,6 +2924,7 @@ h2 {
   cursor: pointer;
 }
 
+.web-recent-open,
 .web-recent-toggle {
   min-width: 74px;
   padding: 0 10px;
@@ -2873,6 +2936,7 @@ h2 {
   cursor: pointer;
 }
 
+.web-recent-open:hover,
 .web-recent-toggle:hover {
   border-color: rgba(110, 168, 255, 0.75);
   color: var(--text);
@@ -3885,6 +3949,7 @@ h2 {
   .web-task-card dl,
   .web-task-timeline,
   .web-task-visual-summary,
+  .web-latest-task,
   .form-grid,
   .ops {
     grid-template-columns: 1fr;

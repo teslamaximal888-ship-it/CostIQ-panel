@@ -28,9 +28,9 @@ const PANEL_BOT_URL = "https://t.me/SAUFSK_bot?start=panel";
 const AGENT_FACTORY_SUPPORT_CHAT = "-1003923170152";
 const OFFICE_FITOUT_RATES = {
   none: { label: "Без fit-out", rate: 0 },
-  bronze: { label: "Bronze", rate: 35000 },
-  silver: { label: "Silver", rate: 55000 },
-  gold: { label: "Gold", rate: 80000 },
+  bronze: { label: "Bronze", rate: 123573 },
+  silver: { label: "Silver", rate: 145380 },
+  gold: { label: "Gold", rate: 278347 },
 };
 const APP_VIEW_TITLES = {
   home: "Главная",
@@ -99,23 +99,6 @@ const PANEL_TOOLS = [
     steps: ["Запрос", "Выбор объекта", "Обзор", "Даты и площади"],
     metrics: ["39 проектов", "409 объектов", "1 149 строк"],
     anchor: "tep-project-tool",
-  },
-  {
-    id: "parking_calc",
-    title: "Калькулятор паркингов",
-    subtitle: "Подземные паркинги по аналогам ФСК",
-    status: "интерактивно",
-    access: "public/admin",
-    input: "тип паркинга, машиноместа, сценарий",
-    output: "ПАС, ставка, аналоги",
-    tone: "green",
-    visibility: "public",
-    primaryLabel: "Открыть калькулятор",
-    summary: "Отдельный расчёт подземных паркингов по выбранной базе аналогов: -1 или -2 уровня, количество машиномест, ставка мин/медиана/макс, состав ПАС и кандидатные доп. работы котлована.",
-    steps: ["Тип", "Машиноместа", "Сценарий", "ПАС и аналоги"],
-    metrics: ["8 аналогов", "ПАС", "руб./м/м"],
-    anchor: "parking-calculator",
-    appView: "calculators",
   },
   {
     id: "benchmarks",
@@ -659,7 +642,7 @@ const webFieldPresets = {
     type: "textarea",
     placeholder: "Что нужно сделать и на что обратить внимание",
     wide: true,
-    required: true,
+    required: false,
   },
   file: { name: "file", label: "Файл", type: "file", wide: true },
 };
@@ -965,6 +948,7 @@ const state = {
   webSelectedSkillId: "",
   panelToolId: "smet_reference",
   webRecentFilter: "all",
+  webRecentQuery: "",
   webReviewDraft: null,
   webCurrentTask: null,
   homeFeedTimer: null,
@@ -1058,6 +1042,7 @@ function saveMiniAppState() {
     panelToolId: state.panelToolId,
     calculatorView: state.calculatorView,
     webRecentFilter: state.webRecentFilter,
+    webRecentQuery: state.webRecentQuery,
   }, window.sessionStorage);
 }
 
@@ -1077,6 +1062,7 @@ function restoreMiniAppState() {
     state.smetReferenceScope = "smr";
   }
   state.webRecentFilter = WEB_RECENT_FILTERS.includes(saved.webRecentFilter) ? saved.webRecentFilter : state.webRecentFilter;
+  state.webRecentQuery = saved.webRecentQuery || state.webRecentQuery;
   state.restoringState = false;
 }
 
@@ -6332,11 +6318,27 @@ function matchesRecentFilter(task) {
   return status === filter;
 }
 
+function matchesRecentSearch(task) {
+  const query = normalizeSearchText(state.webRecentQuery);
+  if (!query) {
+    return true;
+  }
+  const haystack = normalizeSearchText([
+    task && task.trace_id,
+    task && task.skill_title,
+    task && task.summary,
+    task && task.status,
+    task && task.created_at,
+    task && task.updated_at,
+  ].filter(Boolean).join(" "));
+  return query.split(" ").every((word) => haystack.includes(word));
+}
+
 function readRecentWebTasks() {
   try {
     const raw = window.localStorage.getItem(WEB_RECENT_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((task) => task && task.trace_id).slice(0, 8) : [];
+    return Array.isArray(parsed) ? parsed.filter((task) => task && task.trace_id).slice(0, 50) : [];
   } catch (error) {
     return [];
   }
@@ -6344,7 +6346,7 @@ function readRecentWebTasks() {
 
 function writeRecentWebTasks(tasks) {
   try {
-    window.localStorage.setItem(WEB_RECENT_STORAGE_KEY, JSON.stringify(tasks.slice(0, 8)));
+    window.localStorage.setItem(WEB_RECENT_STORAGE_KEY, JSON.stringify(tasks.slice(0, 50)));
   } catch (error) {
     return;
   }
@@ -6379,6 +6381,7 @@ function hideRecentWebTask(traceId) {
   const hidden = readHiddenWebTaskIds();
   hidden.add(String(traceId));
   writeHiddenWebTaskIds(hidden);
+  renderLatestWebTask();
   renderRecentWebTasks();
 }
 
@@ -6389,6 +6392,7 @@ function restoreRecentWebTask(traceId) {
   const hidden = readHiddenWebTaskIds();
   hidden.delete(String(traceId));
   writeHiddenWebTaskIds(hidden);
+  renderLatestWebTask();
   renderRecentWebTasks();
 }
 
@@ -6414,7 +6418,7 @@ function mergeRecentWebTasks(primaryTasks, secondaryTasks) {
   });
   return [...byTrace.values()]
     .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")))
-    .slice(0, 8);
+    .slice(0, 50);
 }
 
 function recentTaskSummary(task) {
@@ -6579,6 +6583,7 @@ function rememberWebTask(task) {
   const item = compactWebTask(task);
   const current = readRecentWebTasks().filter((recent) => recent.trace_id !== item.trace_id);
   writeRecentWebTasks([item, ...current]);
+  renderLatestWebTask();
   renderRecentWebTasks();
 }
 
@@ -6590,7 +6595,40 @@ function clearRecentWebTasks() {
     }
   });
   writeHiddenWebTaskIds(hidden);
+  renderLatestWebTask();
   renderRecentWebTasks();
+}
+
+function latestVisibleWebTask() {
+  return readRecentWebTasks().find((task) => task && task.trace_id && !isWebTaskHidden(task.trace_id)) || null;
+}
+
+function renderLatestWebTask() {
+  const container = document.getElementById("web-latest-task");
+  if (!container) {
+    return;
+  }
+  const task = latestVisibleWebTask();
+  if (!task) {
+    container.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+  container.hidden = false;
+  container.innerHTML = `
+    <div>
+      <span>
+        <strong>Последняя заявка</strong>
+        <small>${escapeHtml(compact(task.skill_title || "задача", 70))} · ${escapeHtml(formatShortDate(task.updated_at || task.created_at))}</small>
+        <small>${escapeHtml(compact(task.summary || task.trace_id, 110))}</small>
+      </span>
+      <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
+    </div>
+    <div>
+      <button type="button" class="submit-button" data-web-trace="${escapeHtml(task.trace_id)}">Показать</button>
+      <button type="button" class="ghost-button" data-web-latest-hide="${escapeHtml(task.trace_id)}">Скрыть</button>
+    </div>
+  `;
 }
 
 function renderRecentWebTasks() {
@@ -6605,15 +6643,21 @@ function renderRecentWebTasks() {
     return;
   }
   container.hidden = false;
-  const filteredTasks = tasks.filter(matchesRecentFilter);
+  const filteredTasks = tasks.filter((task) => matchesRecentFilter(task) && matchesRecentSearch(task));
   const isHiddenFilter = state.webRecentFilter === "hidden";
   container.innerHTML = `
     <div class="section-head">
       <div>
-        <h2>Мои последние заявки</h2>
+        <h2>История заявок</h2>
         <p>${isHiddenFilter ? "Скрыты с рабочего экрана, но доступны из истории" : state.telegramHistoryAvailable ? "Привязаны к Telegram, локальные заявки тоже сохранены" : "Сохраняются только в этом браузере"}</p>
       </div>
       <button type="button" class="ghost-button" id="clear-web-recent">${isHiddenFilter ? "Вернуть все" : "Очистить экран"}</button>
+    </div>
+    <div class="web-recent-search">
+      <div class="search">
+        <span>⌕</span>
+        <input id="web-recent-search" type="search" autocomplete="off" placeholder="Поиск по заявке, объекту, trace или статусу" value="${escapeHtml(state.webRecentQuery)}">
+      </div>
     </div>
     <div class="web-recent-filters" role="group" aria-label="Фильтр заявок">
       ${WEB_RECENT_FILTERS.map((filter) => `
@@ -6636,6 +6680,7 @@ function renderRecentWebTasks() {
                 </span>
                 <em data-tone="${escapeHtml(webTaskStatusTone(task.status))}">${escapeHtml(webTaskStatusLabel(task.status))}</em>
               </button>
+              <button type="button" class="ghost-button web-recent-open" data-web-trace="${escapeHtml(task.trace_id)}">Открыть</button>
               <button type="button" class="web-recent-toggle" data-web-${isHiddenFilter ? "restore" : "hide"}="${escapeHtml(task.trace_id)}">${isHiddenFilter ? "Вернуть" : "Скрыть"}</button>
             </div>
           `,
@@ -6654,6 +6699,21 @@ function renderRecentWebTasks() {
         return;
       }
       clearRecentWebTasks();
+    });
+  }
+  const search = document.getElementById("web-recent-search");
+  if (search) {
+    search.addEventListener("input", (event) => {
+      state.webRecentQuery = event.target.value || "";
+      renderRecentWebTasks();
+      const nextSearch = document.getElementById("web-recent-search");
+      if (nextSearch) {
+        window.requestAnimationFrame(() => {
+          nextSearch.focus();
+          nextSearch.setSelectionRange(nextSearch.value.length, nextSearch.value.length);
+        });
+      }
+      saveMiniAppState();
     });
   }
   container.querySelectorAll("[data-web-hide]").forEach((button) => {
@@ -6681,7 +6741,7 @@ async function fetchMyWebTasks() {
   if (!hasVerifiedTelegramProfile()) {
     return [];
   }
-  const response = await fetch("/api/panel/my-tasks?limit=8", {
+  const response = await fetch("/api/panel/my-tasks?limit=50", {
     cache: "no-store",
     headers: {
       "X-Telegram-Init-Data": state.telegramInitData,
@@ -7140,11 +7200,8 @@ function loadWebTaskFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const traceId = params.get("trace");
   if (traceId) {
+    setAppView("tasks", { pushHistory: false });
     startWebTaskPolling(traceId);
-    const intake = document.getElementById("web-intake");
-    if (intake) {
-      intake.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
   }
 }
 
@@ -7201,6 +7258,7 @@ async function submitWebIntake(event) {
       const url = new URL(window.location.href);
       url.searchParams.set("trace", data.task.trace_id);
       window.history.replaceState(null, "", url.toString());
+      setAppView("tasks");
       if (data.persisted) {
         startWebTaskPolling(data.task.trace_id);
       }
@@ -7218,6 +7276,7 @@ async function submitWebIntake(event) {
       file_name: "",
       result: safeErrorMessage(message),
     });
+    setAppView("tasks");
   } finally {
     if (button) {
       button.disabled = false;
@@ -7405,11 +7464,18 @@ document.addEventListener("click", (event) => {
     const url = new URL(window.location.href);
     url.searchParams.set("trace", traceId);
     window.history.replaceState(null, "", url.toString());
+    setAppView("tasks");
     startWebTaskPolling(traceId);
     const taskCard = document.getElementById("web-task-card");
     if (taskCard) {
       taskCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    return;
+  }
+
+  const latestHideButton = event.target.closest("[data-web-latest-hide]");
+  if (latestHideButton) {
+    hideRecentWebTask(latestHideButton.dataset.webLatestHide);
     return;
   }
 
@@ -7881,6 +7947,7 @@ initTelegram();
 startHomeFeedRefresh();
 refreshContentAdmin();
 startPanelDataRefresh();
+renderLatestWebTask();
 renderRecentWebTasks();
 refreshRecentWebTasks();
 state.webRecentTimer = window.setInterval(refreshRecentWebTasks, WEB_RECENT_REFRESH_MS);
