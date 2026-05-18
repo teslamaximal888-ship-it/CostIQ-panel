@@ -4391,7 +4391,7 @@ function currentOfficeCalculation() {
   const parkingDelta = currentOfficeParkingDelta(inputs);
   const parkingTotal = Number(parkingDelta.cost || 0);
   const fitout = OFFICE_FITOUT_RATES[inputs.fitout] || OFFICE_FITOUT_RATES.none;
-  const fitoutTotal = inputs.rentableArea * Number(fitout.rate || 0);
+  const fitoutTotal = inputs.area * Number(fitout.rate || 0);
   const optionRate = (optionsTotal + parkingTotal) / inputs.area;
   const fitoutRateByTotalArea = fitoutTotal / inputs.area;
   const totalRate = baseRate + optionRate + fitoutRateByTotalArea;
@@ -4537,7 +4537,7 @@ function officeCalculationRows(calc) {
     ["Арендопригодная площадь, м2", Math.round(calc.inputs.rentableArea)],
     ["Арендопригодная площадь, %", calc.inputs.rentableShare],
     ["Fit-out", calc.fitout.label],
-    ["Fit-out ставка, руб./м2 аренд.", calc.fitout.rate],
+    ["Fit-out ставка, руб./м2", calc.fitout.rate],
     ["Строка матрицы", calc.row ? `${calc.row.class} · ${calc.row.range}` : ""],
     ["Базовая ставка, руб./м2", Math.round(calc.baseRate)],
     ["Опции, руб.", Math.round(calc.optionsTotal)],
@@ -4734,7 +4734,7 @@ function renderOfficeCalculator() {
     <div class="calc-metric">
       <span>Fit-out</span>
       <strong>${formatRate(calc.fitoutRateByTotalArea)}</strong>
-      <small>${escapeHtml(`${calc.fitout.label} · ${formatMoney(calc.inputs.rentableArea)} м² арендопригодной`)}</small>
+      <small>${escapeHtml(`${calc.fitout.label} · ставка Офис мечты`)}</small>
     </div>
     <div class="calc-metric accent">
       <span>Итог</span>
