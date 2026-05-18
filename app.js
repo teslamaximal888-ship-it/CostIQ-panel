@@ -3767,6 +3767,10 @@ function formatRate(value) {
   return `${formatMoney(value)} руб./м²`;
 }
 
+function formatPercent(value) {
+  return `${formatMoney(Number(value || 0) * 100)}%`;
+}
+
 function parkingCalculatorInputs(prefix = "parking") {
   const levelInput = document.getElementById(prefix === "office" ? "office-parking-level" : "parking-level");
   const spacesInput = document.getElementById(prefix === "office" ? "office-parking-spaces" : "parking-spaces");
@@ -4202,11 +4206,16 @@ function officeVisibleOptions(data) {
 function currentOfficeParkingDelta(inputs) {
   const data = state.parkingCalculatorData;
   const parkingInputs = parkingCalculatorInputs("office");
+  const base = currentOfficeParkingBase(inputs);
   if (!data || !data.rules || parkingInputs.mode === "none" || parkingInputs.spaces <= 0) {
     return {
       mode: parkingInputs.mode,
       level: parkingInputs.level,
       spaces: parkingInputs.spaces,
+      baseSpaces: base.spaces,
+      resultSpaces: base.spaces,
+      baseLabel: base.label,
+      baseNote: base.note,
       rule: null,
       rate: 0,
       cost: 0,
@@ -4224,10 +4233,50 @@ function currentOfficeParkingDelta(inputs) {
     mode: parkingInputs.mode,
     level: parkingInputs.level,
     spaces: parkingInputs.spaces,
+    baseSpaces: base.spaces,
+    resultSpaces: Math.max(0, base.spaces + sign * parkingInputs.spaces),
+    baseLabel: base.label,
+    baseNote: base.note,
     rule,
     rate,
     cost,
     warning,
+  };
+}
+
+function currentOfficeParkingBase(inputs) {
+  const data = state.officeCalculatorData;
+  const row = data ? findOfficeMatrixRow(data, inputs.officeClass, inputs.area) : null;
+  const refs = data && data.references ? data.references : {};
+  const dream = refs.dreamOffice || {};
+  const louvre = refs.louvre || {};
+  const dreamSpaces = Number(dream.parkingSpaces || 0);
+  const louvreSpaces = Number(louvre.parkingSpaces || 0);
+  const dreamWeight = Number(row && row.dreamWeight != null ? row.dreamWeight : 0);
+  const louvreWeight = Number(row && row.louvreWeight != null ? row.louvreWeight : 0);
+
+  if (inputs.reference === "dream") {
+    return {
+      spaces: dreamSpaces,
+      label: `${dream.name || "Офис мечты"}: ${formatMoney(dreamSpaces)} м/м`,
+      note: dream.parkingBasis || "",
+    };
+  }
+  if (inputs.reference === "louvre") {
+    return {
+      spaces: louvreSpaces,
+      label: `${louvre.name || "БЦ Лувр"}: ${formatMoney(louvreSpaces)} м/м`,
+      note: louvre.parkingBasis || "",
+    };
+  }
+
+  const weightedSpaces = Math.max(0, Math.round(dreamSpaces * dreamWeight + louvreSpaces * louvreWeight));
+  return {
+    spaces: weightedSpaces,
+    label: row ? `База строки ${row.class} · ${row.range}: ${formatMoney(weightedSpaces)} м/м` : `База: ${formatMoney(weightedSpaces)} м/м`,
+    note: row
+      ? `Расчётная база по весам аналогов: Офис мечты ${formatPercent(dreamWeight)} / БЦ Лувр ${formatPercent(louvreWeight)}. Ввод в поле ниже — изменение к этой базе, а не итоговое количество.`
+      : "Ввод дельты машиномест считается изменением к базовой строке калькулятора.",
   };
 }
 
@@ -4374,8 +4423,8 @@ function officeCalculationText(calc) {
     `Базовая ставка: ${formatRate(calc.baseRate)}`,
     `Опции: ${formatMoney(calc.optionsTotal)} руб.`,
     calc.parkingDelta && calc.parkingDelta.cost
-      ? `Паркинг: ${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${formatMoney(calc.parkingDelta.spaces)} м/м, ${calc.parkingDelta.rule.label}, ${formatMoney(calc.parkingDelta.cost)} руб.`
-      : "Паркинг: без дельты",
+      ? `Паркинг: база ${formatMoney(calc.parkingDelta.baseSpaces)} м/м; ${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${formatMoney(calc.parkingDelta.spaces)} м/м; после изменения ${formatMoney(calc.parkingDelta.resultSpaces)} м/м; ${calc.parkingDelta.rule.label}, ${formatMoney(calc.parkingDelta.cost)} руб.`
+      : `Паркинг: без дельты; база ${formatMoney(calc.parkingDelta.baseSpaces)} м/м`,
     `Опции + паркинг: ${formatRate(calc.optionRate)}`,
     `Fit-out: ${calc.fitout.label}, ${formatMoney(calc.fitoutTotal)} руб. (${formatRate(calc.fitoutRateByTotalArea)})`,
     `Итоговая ставка: ${formatRate(calc.totalRate)}`,
@@ -4474,6 +4523,9 @@ function officeCalculationRows(calc) {
     ["Строка матрицы", calc.row ? `${calc.row.class} · ${calc.row.range}` : ""],
     ["Базовая ставка, руб./м2", Math.round(calc.baseRate)],
     ["Опции, руб.", Math.round(calc.optionsTotal)],
+    ["База паркинга, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.baseSpaces || 0)],
+    ["Дельта паркинга, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.spaces || 0)],
+    ["Паркинг после изменения, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.resultSpaces || 0)],
     ["Паркинг, руб.", Math.round(calc.parkingTotal || 0)],
     ["Fit-out, руб.", Math.round(calc.fitoutTotal)],
     ["Итоговая ставка, руб./м2", Math.round(calc.totalRate)],
@@ -4488,8 +4540,8 @@ function officeCalculationRows(calc) {
   if (calc.parkingDelta && calc.parkingDelta.cost) {
     rows.push([
       `Паркинг: ${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${calc.parkingDelta.rule.label}`,
-      calc.parkingDelta.spaces,
-      "м/м",
+      `${calc.parkingDelta.baseSpaces} -> ${calc.parkingDelta.resultSpaces}`,
+      "м/м после дельты",
       Math.round(calc.parkingDelta.rate),
       Math.round(calc.parkingDelta.cost),
     ]);
@@ -4549,7 +4601,9 @@ async function sendOfficeCalculationToCostIQ(button) {
     fitout: calc.fitout.label,
     parking_mode: calc.inputs.parkingMode,
     parking_level: calc.inputs.parkingLevel,
+    parking_base_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.baseSpaces || 0),
     parking_spaces: calc.inputs.parkingSpaces,
+    parking_result_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.resultSpaces || 0),
     parking_delta: Math.round(calc.parkingTotal || 0),
     total_rate: Math.round(calc.totalRate),
     total_cost: Math.round(calc.totalCost),
@@ -4557,7 +4611,7 @@ async function sendOfficeCalculationToCostIQ(button) {
   formData.set("extra_fields", JSON.stringify([
     { label: "Класс", value: calc.inputs.officeClass },
     { label: "Площадь", value: `${formatMoney(calc.inputs.area)} м²` },
-    { label: "Паркинг", value: calc.parkingDelta && calc.parkingDelta.cost ? `${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${formatMoney(calc.parkingDelta.spaces)} м/м` : "без дельты" },
+    { label: "Паркинг", value: calc.parkingDelta && calc.parkingDelta.cost ? `${formatMoney(calc.parkingDelta.baseSpaces)} -> ${formatMoney(calc.parkingDelta.resultSpaces)} м/м` : `без дельты, база ${formatMoney(calc.parkingDelta.baseSpaces)} м/м` },
     { label: "Итог", value: `${formatRate(calc.totalRate)} / ${formatMoney(calc.totalCost)} руб.` },
   ]));
   if (state.telegramInitData) {
@@ -4603,6 +4657,7 @@ function renderOfficeCalculator() {
   const data = state.officeCalculatorData;
   const summary = document.getElementById("office-calc-summary");
   const optionsContainer = document.getElementById("office-calc-options");
+  const parkingBaseNote = document.getElementById("office-parking-base-note");
   if (!summary || !optionsContainer) {
     return;
   }
@@ -4615,6 +4670,18 @@ function renderOfficeCalculator() {
   const calc = currentOfficeCalculation();
   if (!calc) {
     return;
+  }
+  if (parkingBaseNote) {
+    const modeText = calc.parkingDelta && calc.parkingDelta.mode === "remove"
+      ? `убрать ${formatMoney(calc.parkingDelta.spaces)} м/м`
+      : calc.parkingDelta && calc.parkingDelta.mode === "add"
+        ? `добавить ${formatMoney(calc.parkingDelta.spaces)} м/м`
+        : "без изменения";
+    parkingBaseNote.innerHTML = `
+      <strong>База паркинга: ${escapeHtml(calc.parkingDelta.baseLabel)}</strong>
+      <span>${escapeHtml(`Поле "Дельта машиномест" считается как ${modeText}; после изменения: ${formatMoney(calc.parkingDelta.resultSpaces)} м/м.`)}</span>
+      ${calc.parkingDelta.baseNote ? `<small>${escapeHtml(calc.parkingDelta.baseNote)}</small>` : ""}
+    `;
   }
 
   summary.innerHTML = `
@@ -4636,7 +4703,7 @@ function renderOfficeCalculator() {
     <div class="calc-metric">
       <span>Паркинг</span>
       <strong>${calc.parkingDelta && calc.parkingDelta.cost ? `${calc.parkingDelta.mode === "remove" ? "-" : "+"}${formatMoney(Math.abs(calc.parkingTotal))} руб.` : "без дельты"}</strong>
-      <small>${calc.parkingDelta && calc.parkingDelta.cost ? `${escapeHtml(calc.parkingDelta.rule.label)} · ${formatMoney(calc.parkingDelta.spaces)} м/м · ${formatMoney(calc.parkingDelta.rate)} руб./м/м` : "база офисного объекта не меняется"}</small>
+      <small>${calc.parkingDelta && calc.parkingDelta.cost ? `${formatMoney(calc.parkingDelta.baseSpaces)} -> ${formatMoney(calc.parkingDelta.resultSpaces)} м/м · ${escapeHtml(calc.parkingDelta.rule.label)} · ${formatMoney(calc.parkingDelta.rate)} руб./м/м` : `база ${formatMoney(calc.parkingDelta.baseSpaces)} м/м`}</small>
     </div>
     <div class="calc-metric">
       <span>Fit-out</span>

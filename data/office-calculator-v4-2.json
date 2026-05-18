@@ -7,13 +7,21 @@
       "name": "Офис мечты",
       "area": 75105,
       "class": "A",
-      "baseRate": 147300
+      "baseRate": 147300,
+      "parkingLevels": 3,
+      "parkingArea": 10576.3,
+      "parkingSpaces": 250,
+      "parkingBasis": "Расчётная база для дельты: 10 576,3 м² подземного паркинга / около 42 м² на 1 м/м. Стоимость паркинга в ПАС Офиса мечты отдельно не выделена."
     },
     "louvre": {
       "name": "БЦ Лувр / ИТ-Технопарк",
       "area": 20233.08,
       "class": "B+",
-      "baseRate": 168400
+      "baseRate": 168400,
+      "parkingLevels": 0,
+      "parkingArea": 0,
+      "parkingSpaces": 0,
+      "parkingBasis": "Подземный паркинг не предусмотрен; открытая автостоянка не является базой для подземного паркинга."
     }
   },
   "parkingIntegration": {

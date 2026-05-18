@@ -2281,6 +2281,32 @@ h2 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.calculator-help {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid rgba(89, 209, 140, 0.36);
+  border-radius: var(--radius);
+  background: rgba(89, 209, 140, 0.08);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.calculator-help:empty {
+  display: none;
+}
+
+.calculator-help strong,
+.calculator-help span,
+.calculator-help small {
+  display: block;
+}
+
+.calculator-help small {
+  color: var(--muted);
+}
+
 .calc-metric {
   min-width: 0;
   padding: 13px;
