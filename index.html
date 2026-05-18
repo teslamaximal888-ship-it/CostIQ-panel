@@ -255,10 +255,49 @@
       <section class="calculator-section" data-app-section="calculators">
         <div class="section-head">
           <div>
-            <h2>Офисный калькулятор</h2>
-            <p>Первый расчёт по рабочему Excel v4.2: база класса, площадь и реальные опции</p>
+            <h2>Калькулятор подземных паркингов</h2>
+            <p>Расчёт по выбранным внутренним аналогам ФСК: ПАС, машиноместа, диапазон и состав работ</p>
           </div>
-          <span id="office-calc-status">v4.2</span>
+          <span id="parking-calc-status">v1</span>
+        </div>
+        <div class="parking-calculator" id="parking-calculator">
+          <div class="calculator-inputs">
+            <div class="field">
+              <label for="parking-level">Тип паркинга</label>
+              <select id="parking-level">
+                <option value="1">-1 уровень</option>
+                <option value="2">-2 уровня</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="parking-spaces">Машиноместа</label>
+              <input id="parking-spaces" type="number" min="1" step="1" value="250">
+            </div>
+            <div class="field">
+              <label for="parking-scenario">Сценарий ставки</label>
+              <select id="parking-scenario">
+                <option value="median">Медиана</option>
+                <option value="min">Минимум</option>
+                <option value="max">Максимум</option>
+              </select>
+            </div>
+          </div>
+          <div class="calculator-summary" id="parking-calc-summary"></div>
+          <div class="calculator-actions">
+            <button type="button" class="ghost-button" data-parking-action="excel">Сформировать Excel</button>
+            <button type="button" class="submit-button" data-parking-action="send">Отправить расчёт в CostIQ</button>
+          </div>
+          <div class="parking-calculator-details" id="parking-calc-details"></div>
+        </div>
+      </section>
+
+      <section class="calculator-section" data-app-section="calculators">
+        <div class="section-head">
+          <div>
+            <h2>Офисный калькулятор</h2>
+            <p>Расчёт по рабочему Excel v4.3: база класса, площадь, fit-out, опции и дельта машиномест</p>
+          </div>
+          <span id="office-calc-status">v4.3</span>
         </div>
         <div class="office-calculator" id="office-calculator">
           <div class="calculator-inputs">
@@ -300,6 +339,25 @@
                 <option value="dream">Офис мечты</option>
                 <option value="louvre">БЦ Лувр</option>
               </select>
+            </div>
+            <div class="field">
+              <label for="office-parking-mode">Паркинг</label>
+              <select id="office-parking-mode">
+                <option value="none">Без дельты</option>
+                <option value="add">Добавить м/м</option>
+                <option value="remove">Убрать м/м</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="office-parking-level">Тип паркинга</label>
+              <select id="office-parking-level">
+                <option value="1">-1 уровень</option>
+                <option value="2">-2 уровня</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="office-parking-spaces">Дельта машиномест</label>
+              <input id="office-parking-spaces" type="number" min="0" step="1" value="0">
             </div>
           </div>
           <div class="calculator-summary" id="office-calc-summary"></div>

@@ -2226,7 +2226,8 @@ h2 {
   height: 18px;
 }
 
-.office-calculator {
+.office-calculator,
+.parking-calculator {
   display: grid;
   gap: 12px;
   margin-top: 12px;
@@ -2392,6 +2393,63 @@ h2 {
 .calculator-option b {
   font-size: 13px;
   white-space: nowrap;
+}
+
+.parking-calculator-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  gap: 10px;
+}
+
+.parking-detail-block {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.parking-detail-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.parking-analog-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.parking-analog-card,
+.parking-extra-row {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.parking-analog-card strong,
+.parking-analog-card span,
+.parking-analog-card small,
+.parking-extra-row strong,
+.parking-extra-row span,
+.parking-extra-row small {
+  display: block;
+}
+
+.parking-analog-card span,
+.parking-analog-card small,
+.parking-extra-row span,
+.parking-extra-row small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.parking-extra-row + .parking-extra-row {
+  margin-top: 8px;
 }
 
 .public-skill-picker {
@@ -3673,6 +3731,8 @@ h2 {
   .calculator-inputs,
   .calculator-summary,
   .calculator-options,
+  .parking-calculator-details,
+  .parking-analog-grid,
   .smet-search-panel,
   .smet-reference-layout,
   .smet-card-metrics,

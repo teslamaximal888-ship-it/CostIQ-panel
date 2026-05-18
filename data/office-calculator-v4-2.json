@@ -1,7 +1,7 @@
 {
-  "version": "v4.2",
-  "source": "office_calculator_v4_2_panel_options.xlsx",
-  "updatedAt": "2026-05-14",
+  "version": "v4.3",
+  "source": "office_calculator_v4_2_panel_options.xlsx + parking-calculator-v1",
+  "updatedAt": "2026-05-18",
   "references": {
     "dreamOffice": {
       "name": "Офис мечты",
@@ -15,6 +15,12 @@
       "class": "B+",
       "baseRate": 168400
     }
+  },
+  "parkingIntegration": {
+    "source": "parking-calculator-v1.json",
+    "rule": "Старые частичные опции PARK-01/PARK-02 не показываются пользователю. Паркинг считается отдельной дельтой по машиноместам на базе выбранных внутренних аналогов.",
+    "dreamOfficePolicy": "Офис мечты уже содержит 3 подземных уровня, но стоимость паркинга не выделена. Базовую ставку не меняем и не прибавляем полный паркинг второй раз; считаем только +/- машиноместа.",
+    "louvrePolicy": "БЦ Лувр не содержит выделенного подземного паркинга; паркинг добавляется только как отдельная дельта по аналогам."
   },
   "matrix": [
     {

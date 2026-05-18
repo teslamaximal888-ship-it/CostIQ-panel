@@ -3,6 +3,7 @@ const WEB_RECENT_STORAGE_KEY = "costiq_web_recent_tasks";
 const WEB_HIDDEN_TASKS_STORAGE_KEY = "costiq_web_hidden_tasks";
 const OFFICE_CALC_STORAGE_KEY = "costiq_office_calculations";
 const OFFICE_CALC_DRAFT_STORAGE_KEY = "costiq_office_calculator_draft";
+const PARKING_CALC_DRAFT_STORAGE_KEY = "costiq_parking_calculator_draft";
 const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
@@ -16,6 +17,7 @@ const WEB_FILE_ACCEPT = ".xlsx,.xls,.docx,.doc,.pdf,.csv,.txt,.zip,.rar";
 const WEB_RECENT_FILTERS = ["all", "active", "review", "done", "failed", "hidden"];
 const HOME_FEED_REFRESH_MS = 120000;
 const OFFICE_CALCULATOR_DATA_URL = "/data/office-calculator-v4-2.json";
+const PARKING_CALCULATOR_DATA_URL = "/data/parking-calculator-v1.json";
 const SMET_REFERENCE_DATA_URL = "/data/smet-reference.json";
 const PANEL_TOOLS_DATA_URL = "/data/panel-tools.json";
 const PANEL_USAGE_STATS_URL = "/api/panel/usage-stats";
@@ -99,6 +101,23 @@ const PANEL_TOOLS = [
     anchor: "tep-project-tool",
   },
   {
+    id: "parking_calc",
+    title: "Калькулятор паркингов",
+    subtitle: "Подземные паркинги по аналогам ФСК",
+    status: "интерактивно",
+    access: "public/admin",
+    input: "тип паркинга, машиноместа, сценарий",
+    output: "ПАС, ставка, аналоги",
+    tone: "green",
+    visibility: "public",
+    primaryLabel: "Открыть калькулятор",
+    summary: "Отдельный расчёт подземных паркингов по выбранной базе аналогов: -1 или -2 уровня, количество машиномест, ставка мин/медиана/макс, состав ПАС и кандидатные доп. работы котлована.",
+    steps: ["Тип", "Машиноместа", "Сценарий", "ПАС и аналоги"],
+    metrics: ["8 аналогов", "ПАС", "руб./м/м"],
+    anchor: "parking-calculator",
+    appView: "calculators",
+  },
+  {
     id: "benchmarks",
     title: "Удельные показатели",
     subtitle: "Показатели, отделка, изменение себестоимости",
@@ -165,6 +184,7 @@ const publicSkillIds = new Set([
   "upss",
   "object_precalc",
   "office_calc",
+  "parking_calc",
   "tep_calc",
   "project_analytics",
   "tep_cost_chat",
@@ -304,12 +324,23 @@ const skills = [
   {
     id: "office_calc",
     title: "Офисный калькулятор",
-    subtitle: "Prime/A/B+/B-/C, CAPEX и fit-out",
+    subtitle: "Prime/A/B+/B-/C, CAPEX, fit-out и паркинг",
     function: "укрупнённая оценка",
     department: "сметный отдел",
     command: "/office_calc",
     icon: "БЦ",
     tone: "teal",
+    status: "готово",
+  },
+  {
+    id: "parking_calc",
+    title: "Калькулятор паркингов",
+    subtitle: "Подземные паркинги по выбранным аналогам ФСК",
+    function: "укрупнённая оценка",
+    department: "сметный отдел",
+    command: "/parking_calc",
+    icon: "ПР",
+    tone: "green",
     status: "готово",
   },
   {
@@ -798,6 +829,15 @@ const webIntakeConfigs = {
       webFieldPresets.deadline,
     ],
   },
+  parking_calc: {
+    inputType: "project_query",
+    fields: [
+      webFieldPresets.project,
+      { name: "query", label: "Запрос", type: "textarea", placeholder: "Тип паркинга, количество машиномест, сценарий ставки", wide: true, required: true },
+      { name: "parameters", label: "Параметры", type: "text", placeholder: "-1/-2 уровня, м/м, мин/медиана/макс" },
+      webFieldPresets.deadline,
+    ],
+  },
   tep_calc: {
     inputType: "project_query",
     fields: [
@@ -933,6 +973,7 @@ const state = {
   latestPanelUpdates: null,
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
+  parkingCalculatorData: null,
   smetReferenceData: null,
   smetReferenceSectionCache: {},
   smetReferenceLoadingSection: "",
@@ -1056,8 +1097,13 @@ function setAppView(view, options = {}) {
   if (heading && state.mode === "public") {
     heading.textContent = title;
   }
-  if (nextView === "calculators" && !state.officeCalculatorData) {
-    loadOfficeCalculatorData();
+  if (nextView === "calculators") {
+    if (!state.parkingCalculatorData) {
+      loadParkingCalculatorData();
+    }
+    if (!state.officeCalculatorData) {
+      loadOfficeCalculatorData();
+    }
   }
   if (nextView === "tools") {
     renderAgentFactory();
@@ -3698,6 +3744,311 @@ function formatRate(value) {
   return `${formatMoney(value)} руб./м²`;
 }
 
+function parkingCalculatorInputs(prefix = "parking") {
+  const levelInput = document.getElementById(prefix === "office" ? "office-parking-level" : "parking-level");
+  const spacesInput = document.getElementById(prefix === "office" ? "office-parking-spaces" : "parking-spaces");
+  const scenarioInput = document.getElementById("parking-scenario");
+  const modeInput = document.getElementById("office-parking-mode");
+  return {
+    level: levelInput ? String(levelInput.value || "1") : "1",
+    spaces: Math.max(0, Math.round(Number(spacesInput && spacesInput.value ? spacesInput.value : 0))),
+    scenario: scenarioInput ? scenarioInput.value || "median" : "median",
+    mode: modeInput ? modeInput.value || "none" : "none",
+  };
+}
+
+function parkingRuleRate(rule, scenario = "median") {
+  if (!rule) {
+    return 0;
+  }
+  if (scenario === "min") {
+    return Number(rule.minPerPlace || 0);
+  }
+  if (scenario === "max") {
+    return Number(rule.maxPerPlace || 0);
+  }
+  return Number(rule.medianPerPlace || 0);
+}
+
+function currentParkingCalculation() {
+  const data = state.parkingCalculatorData;
+  if (!data || !data.rules) {
+    return null;
+  }
+  const inputs = parkingCalculatorInputs();
+  const rule = data.rules[inputs.level] || data.rules["1"];
+  const rate = parkingRuleRate(rule, inputs.scenario);
+  const totalCost = inputs.spaces * rate;
+  const analogs = (Array.isArray(data.analogs) ? data.analogs : []).filter((item) => String(item.levels) === inputs.level);
+  return {
+    id: `parking-${Date.now()}`,
+    created_at: new Date().toISOString(),
+    version: data.version || "parking-calculator-v1",
+    source: data.source || "",
+    method: data.method || {},
+    inputs,
+    rule,
+    rate,
+    totalCost,
+    analogs,
+    candidateExtraWorks: Array.isArray(data.candidateExtraWorks) ? data.candidateExtraWorks : [],
+  };
+}
+
+function parkingCalculationText(calc) {
+  if (!calc) {
+    return "";
+  }
+  return [
+    `Калькулятор подземных паркингов ${calc.version}`,
+    `Тип: ${calc.rule ? calc.rule.label : `-${calc.inputs.level} уровень`}`,
+    `Машиноместа: ${formatMoney(calc.inputs.spaces)}`,
+    `Сценарий: ${calc.inputs.scenario}`,
+    `Ставка: ${formatMoney(calc.rate)} руб./м.м.`,
+    `Итого ПАС: ${formatMoney(calc.totalCost)} руб.`,
+    `Диапазон: ${formatMoney(calc.rule.minPerPlace)} - ${formatMoney(calc.rule.maxPerPlace)} руб./м.м.`,
+    `Аналоги: ${calc.rule.analogCount} объектов, ${formatMoney(calc.rule.spaces)} м/м`,
+    `Состав: ${calc.method.basis || ""}`,
+    "Шпунт/подпорные стены: кандидатные опции, не включены в базовую ставку без подтверждения привязки.",
+  ].filter(Boolean).join("\n");
+}
+
+function parkingCalculationRows(calc) {
+  const rows = [
+    ["Параметр", "Значение"],
+    ["Версия", calc.version],
+    ["Тип паркинга", calc.rule ? calc.rule.label : ""],
+    ["Машиноместа", calc.inputs.spaces],
+    ["Сценарий", calc.inputs.scenario],
+    ["Ставка, руб./м.м.", Math.round(calc.rate)],
+    ["Итого ПАС, руб.", Math.round(calc.totalCost)],
+    ["Мин, руб./м.м.", Math.round(calc.rule.minPerPlace || 0)],
+    ["Медиана, руб./м.м.", Math.round(calc.rule.medianPerPlace || 0)],
+    ["Макс, руб./м.м.", Math.round(calc.rule.maxPerPlace || 0)],
+    ["Состав ПАС", calc.method.basis || ""],
+  ];
+  rows.push([]);
+  rows.push(["Аналог", "М/м", "Итого ПАС", "руб./м.м.", "руб./м2", "Состав"]);
+  calc.analogs.forEach((item) => {
+    rows.push([
+      `${item.project} - ${item.object}`,
+      item.spaces,
+      Math.round(item.pasTotal || 0),
+      Math.round(item.perPlace || 0),
+      Math.round(item.perM2 || 0),
+      `40-01 ${formatMoney(item.earthworks)}; 40-02-04 ${formatMoney(item.undergroundParking)}; 40-02-05 ${formatMoney(item.stylobateCover)}`,
+    ]);
+  });
+  rows.push([]);
+  rows.push(["Кандидатные доп. работы", "Статус", "Диапазон руб./м.м.", "Комментарий"]);
+  calc.candidateExtraWorks.forEach((item) => {
+    rows.push([
+      item.type,
+      item.status,
+      `${formatMoney(item.minPerPlace)} - ${formatMoney(item.maxPerPlace)}`,
+      item.comment,
+    ]);
+  });
+  return rows;
+}
+
+function downloadParkingCalculationExcel() {
+  const calc = currentParkingCalculation();
+  if (!calc) {
+    showToast("Данные калькулятора паркингов ещё загружаются");
+    return;
+  }
+  const rows = parkingCalculationRows(calc);
+  const table = rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(excelCell(cell))}</td>`).join("")}</tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table>${table}</table></body></html>`;
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `parking-calculation-${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  showToast("Excel сформирован");
+}
+
+async function sendParkingCalculationToCostIQ(button) {
+  const calc = currentParkingCalculation();
+  if (!calc) {
+    showToast("Данные калькулятора паркингов ещё загружаются");
+    return;
+  }
+  if (!hasVerifiedTelegramProfile()) {
+    showIdentityRequired("Чтобы отправить расчёт в CostIQ, откройте панель через кнопку бота.");
+    return;
+  }
+  const user = state.telegramUser || {};
+  const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || document.getElementById("web-name")?.value || "Пользователь панели";
+  const formData = new FormData();
+  formData.set("name", name);
+  formData.set("skill", "parking_calc");
+  formData.set("skill_title", "Калькулятор подземных паркингов");
+  formData.set("command", "/parking_calc");
+  formData.set("input_type", "interactive_calculator");
+  formData.set("requires_file", "0");
+  formData.set("object", `Паркинг ${calc.rule.label}, ${formatMoney(calc.inputs.spaces)} м/м`);
+  formData.set("query", parkingCalculationText(calc));
+  formData.set("parameters", JSON.stringify({
+    level: calc.inputs.level,
+    spaces: calc.inputs.spaces,
+    scenario: calc.inputs.scenario,
+    rate_per_place: Math.round(calc.rate),
+    total_cost: Math.round(calc.totalCost),
+  }));
+  formData.set("extra_fields", JSON.stringify([
+    { label: "Тип", value: calc.rule.label },
+    { label: "Машиноместа", value: formatMoney(calc.inputs.spaces) },
+    { label: "Итого", value: `${formatMoney(calc.totalCost)} руб.` },
+  ]));
+  if (state.telegramInitData) {
+    formData.set("telegram_init_data", state.telegramInitData);
+  }
+  if (state.panelAuth) {
+    formData.set("panel_auth", state.panelAuth);
+  }
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Отправляю...";
+  }
+  try {
+    const response = await fetch("/api/panel/task", { method: "POST", body: formData });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    renderWebTask(data.task);
+    rememberWebTask(data.task);
+    showToast("Расчёт отправлен в CostIQ");
+  } catch (error) {
+    showToast(safeErrorMessage(error && error.message));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Отправить расчёт в CostIQ";
+    }
+  }
+}
+
+function handleParkingCalculatorAction(action, button) {
+  if (action === "excel") {
+    downloadParkingCalculationExcel();
+  } else if (action === "send") {
+    sendParkingCalculationToCostIQ(button);
+  }
+}
+
+function renderParkingCalculator() {
+  const data = state.parkingCalculatorData;
+  const summary = document.getElementById("parking-calc-summary");
+  const details = document.getElementById("parking-calc-details");
+  if (!summary || !details) {
+    return;
+  }
+  if (!data) {
+    summary.innerHTML = `<div class="empty">Данные калькулятора паркингов загружаются</div>`;
+    details.innerHTML = "";
+    return;
+  }
+  const calc = currentParkingCalculation();
+  if (!calc) {
+    return;
+  }
+  writeJsonStorage(PARKING_CALC_DRAFT_STORAGE_KEY, calc.inputs, window.localStorage);
+  summary.innerHTML = `
+    <div class="calc-metric">
+      <span>Тип</span>
+      <strong>${escapeHtml(calc.rule.label)}</strong>
+      <small>${calc.rule.analogCount} аналогов · ${formatMoney(calc.rule.spaces)} м/м</small>
+    </div>
+    <div class="calc-metric">
+      <span>Ставка</span>
+      <strong>${formatMoney(calc.rate)} руб./м.м.</strong>
+      <small>${formatMoney(calc.rule.minPerPlace)} - ${formatMoney(calc.rule.maxPerPlace)} руб./м.м.</small>
+    </div>
+    <div class="calc-metric accent">
+      <span>Итого ПАС</span>
+      <strong>${formatMoney(calc.totalCost)} руб.</strong>
+      <small>${formatMoney(calc.inputs.spaces)} м/м · ${escapeHtml(calc.inputs.scenario)}</small>
+    </div>
+    <div class="calc-metric">
+      <span>Состав</span>
+      <strong>40-01 / 40-02-04 / 40-02-05</strong>
+      <small>шпунт и подпорные стены отдельно</small>
+    </div>
+    <div class="calc-warning">Шпунт, свайное поле и подпорные стены показаны как кандидатные доп. работы и не включены в базовую ставку без подтверждения привязки к котловану/паркингу.</div>
+  `;
+  const extraRows = calc.candidateExtraWorks.map((item) => `
+    <div class="parking-extra-row">
+      <strong>${escapeHtml(item.type)}</strong>
+      <span>${formatMoney(item.minPerPlace)} - ${formatMoney(item.maxPerPlace)} руб./м.м.</span>
+      <small>${escapeHtml(item.comment)}</small>
+    </div>
+  `).join("");
+  details.innerHTML = `
+    <section class="parking-detail-block">
+      <h3>Аналоги</h3>
+      <div class="parking-analog-grid">
+        ${calc.analogs.map((item) => `
+          <article class="parking-analog-card">
+            <strong>${escapeHtml(item.project)}</strong>
+            <span>${escapeHtml(item.object)} · ${formatMoney(item.spaces)} м/м</span>
+            <small>${formatMoney(item.perPlace)} руб./м.м. · ПАС ${formatMoney(item.pasTotal)} руб.</small>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+    <section class="parking-detail-block">
+      <h3>Кандидатные доп. работы</h3>
+      ${extraRows}
+    </section>
+  `;
+}
+
+async function loadParkingCalculatorData() {
+  const summary = document.getElementById("parking-calc-summary");
+  if (summary) {
+    summary.innerHTML = `<div class="empty">Загружаю данные v1</div>`;
+  }
+  try {
+    const response = await fetch(`${PARKING_CALCULATOR_DATA_URL}?ts=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.rules || !Array.isArray(data.analogs)) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    state.parkingCalculatorData = data;
+    setText("parking-calc-status", data.version || "v1");
+    if (state.officeCalculatorData) {
+      setText("office-calc-status", "v4.3");
+    }
+    const draft = readJsonStorage(PARKING_CALC_DRAFT_STORAGE_KEY, null, window.localStorage);
+    if (draft) {
+      const fields = {
+        "parking-level": draft.level || "1",
+        "parking-spaces": Math.max(1, Math.round(Number(draft.spaces || 250))),
+        "parking-scenario": draft.scenario || "median",
+      };
+      Object.entries(fields).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (field) {
+          field.value = String(value);
+        }
+      });
+    }
+    renderParkingCalculator();
+    renderOfficeCalculator();
+  } catch (error) {
+    setText("parking-calc-status", "ошибка");
+    if (summary) {
+      summary.innerHTML = `<div class="empty">Не удалось загрузить данные калькулятора паркингов</div>`;
+    }
+  }
+}
+
 function findOfficeMatrixRow(data, officeClass, area) {
   const rows = Array.isArray(data && data.matrix) ? data.matrix : [];
   const matchingClass = rows.filter((row) => row.class === officeClass);
@@ -3711,13 +4062,51 @@ function findOfficeMatrixRow(data, officeClass, area) {
 }
 
 function selectedOfficeOptions(data) {
-  const options = Array.isArray(data && data.options) ? data.options : [];
+  const options = officeVisibleOptions(data);
   return options
     .map((option) => {
       const qty = Number(state.officeCalculatorState.quantities[option.id] || 0);
       return { ...option, qty, cost: qty * Number(option.rate || 0) };
     })
     .filter((option) => option.qty > 0);
+}
+
+function officeVisibleOptions(data) {
+  return (Array.isArray(data && data.options) ? data.options : []).filter((option) => {
+    return option && !String(option.id || "").startsWith("PARK-");
+  });
+}
+
+function currentOfficeParkingDelta(inputs) {
+  const data = state.parkingCalculatorData;
+  const parkingInputs = parkingCalculatorInputs("office");
+  if (!data || !data.rules || parkingInputs.mode === "none" || parkingInputs.spaces <= 0) {
+    return {
+      mode: parkingInputs.mode,
+      level: parkingInputs.level,
+      spaces: parkingInputs.spaces,
+      rule: null,
+      rate: 0,
+      cost: 0,
+      warning: "",
+    };
+  }
+  const rule = data.rules[parkingInputs.level] || data.rules["1"];
+  const rate = parkingRuleRate(rule, "median");
+  const sign = parkingInputs.mode === "remove" ? -1 : 1;
+  const cost = sign * parkingInputs.spaces * rate;
+  const warning = inputs && inputs.reference === "dream"
+    ? "Офис мечты уже содержит 3 подземных уровня; базовая ставка не меняется, считается только дельта машиномест."
+    : "Паркинг считается отдельной дельтой по медиане выбранных аналогов ФСК.";
+  return {
+    mode: parkingInputs.mode,
+    level: parkingInputs.level,
+    spaces: parkingInputs.spaces,
+    rule,
+    rate,
+    cost,
+    warning,
+  };
 }
 
 function officeOptionsTotal(data) {
@@ -3763,6 +4152,9 @@ function officeCalculatorInputs() {
   const rentableInput = document.getElementById("office-rentable-share");
   const fitoutInput = document.getElementById("office-fitout");
   const referenceInput = document.getElementById("office-reference");
+  const parkingModeInput = document.getElementById("office-parking-mode");
+  const parkingLevelInput = document.getElementById("office-parking-level");
+  const parkingSpacesInput = document.getElementById("office-parking-spaces");
   const area = Math.max(1, Number(areaInput && areaInput.value ? areaInput.value : 70000));
   const rentableShare = Math.min(95, Math.max(35, Number(rentableInput && rentableInput.value ? rentableInput.value : 65)));
   if (areaRange && Number(areaRange.value) !== area) {
@@ -3775,6 +4167,9 @@ function officeCalculatorInputs() {
     rentableArea: area * rentableShare / 100,
     fitout: fitoutInput ? fitoutInput.value : "none",
     reference: referenceInput ? referenceInput.value : "mixed",
+    parkingMode: parkingModeInput ? parkingModeInput.value : "none",
+    parkingLevel: parkingLevelInput ? parkingLevelInput.value : "1",
+    parkingSpaces: Math.max(0, Math.round(Number(parkingSpacesInput && parkingSpacesInput.value ? parkingSpacesInput.value : 0))),
   };
 }
 
@@ -3804,9 +4199,11 @@ function currentOfficeCalculation() {
   const baseRate = Number(row && row.rate ? row.rate : 0);
   const optionsTotal = officeOptionsTotal(data);
   const selected = selectedOfficeOptions(data);
+  const parkingDelta = currentOfficeParkingDelta(inputs);
+  const parkingTotal = Number(parkingDelta.cost || 0);
   const fitout = OFFICE_FITOUT_RATES[inputs.fitout] || OFFICE_FITOUT_RATES.none;
   const fitoutTotal = inputs.rentableArea * Number(fitout.rate || 0);
-  const optionRate = optionsTotal / inputs.area;
+  const optionRate = (optionsTotal + parkingTotal) / inputs.area;
   const fitoutRateByTotalArea = fitoutTotal / inputs.area;
   const totalRate = baseRate + optionRate + fitoutRateByTotalArea;
   const totalCost = totalRate * inputs.area;
@@ -3817,7 +4214,7 @@ function currentOfficeCalculation() {
       ? Number(ref.louvre && ref.louvre.baseRate)
       : baseRate;
   const deltaRate = totalRate - compareRate;
-  const warnings = [officeAreaWarning(data, inputs.officeClass, inputs.area)].filter(Boolean);
+  const warnings = [officeAreaWarning(data, inputs.officeClass, inputs.area), parkingDelta.warning].filter(Boolean);
   return {
     id: `office-${Date.now()}`,
     created_at: new Date().toISOString(),
@@ -3826,8 +4223,10 @@ function currentOfficeCalculation() {
     inputs,
     row,
     selected,
+    parkingDelta,
     baseRate,
     optionsTotal,
+    parkingTotal,
     optionRate,
     fitout,
     fitoutTotal,
@@ -3851,7 +4250,11 @@ function officeCalculationText(calc) {
     `Арендопригодная: ${formatMoney(calc.inputs.rentableArea)} м² (${calc.inputs.rentableShare}%)`,
     `Строка матрицы: ${calc.row ? `${calc.row.class} · ${calc.row.range}` : "не найдена"}`,
     `Базовая ставка: ${formatRate(calc.baseRate)}`,
-    `Опции: ${formatMoney(calc.optionsTotal)} руб. (${formatRate(calc.optionRate)})`,
+    `Опции: ${formatMoney(calc.optionsTotal)} руб.`,
+    calc.parkingDelta && calc.parkingDelta.cost
+      ? `Паркинг: ${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${formatMoney(calc.parkingDelta.spaces)} м/м, ${calc.parkingDelta.rule.label}, ${formatMoney(calc.parkingDelta.cost)} руб.`
+      : "Паркинг: без дельты",
+    `Опции + паркинг: ${formatRate(calc.optionRate)}`,
     `Fit-out: ${calc.fitout.label}, ${formatMoney(calc.fitoutTotal)} руб. (${formatRate(calc.fitoutRateByTotalArea)})`,
     `Итоговая ставка: ${formatRate(calc.totalRate)}`,
     `Итоговый бюджет: ${formatMoney(calc.totalCost)} руб.`,
@@ -3900,6 +4303,9 @@ function applyOfficeCalculation(calc) {
     "office-rentable-share": Math.round(Number(calc.inputs.rentableShare || 65)),
     "office-fitout": calc.inputs.fitout || "none",
     "office-reference": calc.inputs.reference || "mixed",
+    "office-parking-mode": calc.inputs.parkingMode || "none",
+    "office-parking-level": calc.inputs.parkingLevel || "1",
+    "office-parking-spaces": Math.round(Number(calc.inputs.parkingSpaces || 0)),
   };
   Object.entries(fields).forEach(([id, value]) => {
     const field = document.getElementById(id);
@@ -3946,6 +4352,7 @@ function officeCalculationRows(calc) {
     ["Строка матрицы", calc.row ? `${calc.row.class} · ${calc.row.range}` : ""],
     ["Базовая ставка, руб./м2", Math.round(calc.baseRate)],
     ["Опции, руб.", Math.round(calc.optionsTotal)],
+    ["Паркинг, руб.", Math.round(calc.parkingTotal || 0)],
     ["Fit-out, руб.", Math.round(calc.fitoutTotal)],
     ["Итоговая ставка, руб./м2", Math.round(calc.totalRate)],
     ["Итоговый бюджет, руб.", Math.round(calc.totalCost)],
@@ -3956,6 +4363,15 @@ function officeCalculationRows(calc) {
   calc.selected.forEach((option) => {
     rows.push([option.title, option.qty, option.unit, Math.round(Number(option.rate || 0)), Math.round(option.cost)]);
   });
+  if (calc.parkingDelta && calc.parkingDelta.cost) {
+    rows.push([
+      `Паркинг: ${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${calc.parkingDelta.rule.label}`,
+      calc.parkingDelta.spaces,
+      "м/м",
+      Math.round(calc.parkingDelta.rate),
+      Math.round(calc.parkingDelta.cost),
+    ]);
+  }
   if (calc.warnings.length) {
     rows.push([]);
     rows.push(["Предупреждения", calc.warnings.join("; ")]);
@@ -4009,12 +4425,17 @@ async function sendOfficeCalculationToCostIQ(button) {
     area: Math.round(calc.inputs.area),
     rentable_share: calc.inputs.rentableShare,
     fitout: calc.fitout.label,
+    parking_mode: calc.inputs.parkingMode,
+    parking_level: calc.inputs.parkingLevel,
+    parking_spaces: calc.inputs.parkingSpaces,
+    parking_delta: Math.round(calc.parkingTotal || 0),
     total_rate: Math.round(calc.totalRate),
     total_cost: Math.round(calc.totalCost),
   }));
   formData.set("extra_fields", JSON.stringify([
     { label: "Класс", value: calc.inputs.officeClass },
     { label: "Площадь", value: `${formatMoney(calc.inputs.area)} м²` },
+    { label: "Паркинг", value: calc.parkingDelta && calc.parkingDelta.cost ? `${calc.parkingDelta.mode === "remove" ? "убрать" : "добавить"} ${formatMoney(calc.parkingDelta.spaces)} м/м` : "без дельты" },
     { label: "Итог", value: `${formatRate(calc.totalRate)} / ${formatMoney(calc.totalCost)} руб.` },
   ]));
   if (state.telegramInitData) {
@@ -4088,7 +4509,12 @@ function renderOfficeCalculator() {
     <div class="calc-metric">
       <span>Опции</span>
       <strong>${formatRate(calc.optionRate)}</strong>
-      <small>${calc.selected.length ? `${calc.selected.length} выбрано · ${formatMoney(calc.optionsTotal)} руб.` : "без дополнительных опций"}</small>
+      <small>${calc.selected.length ? `${calc.selected.length} выбрано · ${formatMoney(calc.optionsTotal)} руб.` : "без дополнительных опций"}${calc.parkingDelta && calc.parkingDelta.cost ? ` · паркинг ${formatMoney(calc.parkingTotal)} руб.` : ""}</small>
+    </div>
+    <div class="calc-metric">
+      <span>Паркинг</span>
+      <strong>${calc.parkingDelta && calc.parkingDelta.cost ? `${calc.parkingDelta.mode === "remove" ? "-" : "+"}${formatMoney(Math.abs(calc.parkingTotal))} руб.` : "без дельты"}</strong>
+      <small>${calc.parkingDelta && calc.parkingDelta.cost ? `${escapeHtml(calc.parkingDelta.rule.label)} · ${formatMoney(calc.parkingDelta.spaces)} м/м · ${formatMoney(calc.parkingDelta.rate)} руб./м/м` : "база офисного объекта не меняется"}</small>
     </div>
     <div class="calc-metric">
       <span>Fit-out</span>
@@ -4105,9 +4531,10 @@ function renderOfficeCalculator() {
   renderSavedOfficeCalculations();
   writeOfficeCalculatorDraft();
 
-  const groups = [...new Set(data.options.map((option) => option.block))];
+  const visibleOptions = officeVisibleOptions(data);
+  const groups = [...new Set(visibleOptions.map((option) => option.block))];
   optionsContainer.innerHTML = groups.map((group) => {
-    const items = data.options.filter((option) => option.block === group);
+    const items = visibleOptions.filter((option) => option.block === group);
     return `
       <section class="calculator-option-group">
         <h3>${escapeHtml(group)}</h3>
@@ -4134,7 +4561,7 @@ function renderOfficeCalculator() {
 async function loadOfficeCalculatorData() {
   const summary = document.getElementById("office-calc-summary");
   if (summary) {
-    summary.innerHTML = `<div class="empty">Загружаю данные v4.2</div>`;
+    summary.innerHTML = `<div class="empty">Загружаю данные v4.3</div>`;
   }
   try {
     const response = await fetch(`${OFFICE_CALCULATOR_DATA_URL}?ts=${Date.now()}`, { cache: "no-store" });
@@ -4143,7 +4570,7 @@ async function loadOfficeCalculatorData() {
       throw new Error(`HTTP ${response.status}`);
     }
     state.officeCalculatorData = data;
-    setText("office-calc-status", data.version || "v4.2");
+    setText("office-calc-status", state.parkingCalculatorData ? "v4.3" : data.version || "v4.2");
     const draft = readOfficeCalculatorDraft();
     if (draft) {
       applyOfficeCalculation(draft);
@@ -6778,6 +7205,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const parkingActionButton = event.target.closest("[data-parking-action]");
+  if (parkingActionButton) {
+    handleParkingCalculatorAction(parkingActionButton.dataset.parkingAction, parkingActionButton);
+    return;
+  }
+
   const smetReferenceResult = event.target.closest("[data-smet-reference-id]");
   if (smetReferenceResult) {
     state.smetReferenceSelectedId = smetReferenceResult.dataset.smetReferenceId || "";
@@ -6817,6 +7250,14 @@ document.addEventListener("input", (event) => {
   const field = event.target;
   if (field && field.dataset && field.dataset.officeOption) {
     state.officeCalculatorState.quantities[field.dataset.officeOption] = Math.max(0, Number(field.value || 0));
+    renderOfficeCalculator();
+    return;
+  }
+  if (field && ["parking-level", "parking-spaces", "parking-scenario"].includes(field.id)) {
+    renderParkingCalculator();
+    return;
+  }
+  if (field && ["office-parking-mode", "office-parking-level", "office-parking-spaces"].includes(field.id)) {
     renderOfficeCalculator();
     return;
   }
@@ -6897,7 +7338,11 @@ document.addEventListener("change", (event) => {
     renderOfficeCalculator();
     return;
   }
-  if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference"].includes(field.id)) {
+  if (field && ["parking-level", "parking-spaces", "parking-scenario"].includes(field.id)) {
+    renderParkingCalculator();
+    return;
+  }
+  if (field && ["office-class", "office-area", "office-area-range", "office-rentable-share", "office-fitout", "office-reference", "office-parking-mode", "office-parking-level", "office-parking-spaces"].includes(field.id)) {
     renderOfficeCalculator();
     return;
   }
