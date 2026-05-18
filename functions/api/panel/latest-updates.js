@@ -31,6 +31,16 @@ const CONTENT_KEY_PREFIX = "content:item:";
 const DONE_STATUSES = new Set(["done", "ready_for_review", "accepted", "closed", "closed_by_timeout"]);
 const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_update"]);
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
+const BUILT_IN_PANEL_UPDATES = [
+  {
+    title: "Калькулятор паркингов",
+    action: "добавлено",
+    text: "Добавлен отдельный калькулятор подземных паркингов по 8 внутренним аналогам ФСК и дельта-блок паркинга в офисном калькуляторе v4.3.",
+    meta: "2026-05-18T15:30:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+];
 
 async function readTask(env, key) {
   const raw = await env.WEB_INTAKE.get(key.name);
@@ -212,15 +222,17 @@ export async function onRequestGet({ request, env }) {
       .filter(Boolean)
       .filter(isPanelChangeTask)
       .map((task) => ({ ...publicUpdate(task), sort_at: updateTimestamp(task), source: "tagged_tasks" }));
-    const updates = [...content, ...tasks]
+    const builtInUpdates = BUILT_IN_PANEL_UPDATES
+      .map((item) => ({ ...item, sort_at: updateTimestamp({ event_at: item.meta }) }));
+    const updates = [...builtInUpdates, ...content, ...tasks]
       .sort((a, b) => b.sort_at - a.sort_at || String(b.meta || "").localeCompare(String(a.meta || "")))
       .slice(0, limit)
       .map(({ sort_at, source, ...item }) => item);
     return jsonResponse({
       ok: true,
       items: updates,
-      scanned: content.length + tasks.length,
-      source: content.length && tasks.length ? "panel_updates_and_tagged_tasks" : content.length ? "panel_updates" : "tagged_tasks",
+      scanned: builtInUpdates.length + content.length + tasks.length,
+      source: "panel_updates",
       updated_at: new Date().toISOString(),
     });
   } catch (error) {
