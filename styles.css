@@ -2307,6 +2307,31 @@ h2 {
   color: var(--muted);
 }
 
+.parking-base-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.parking-base-grid span {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(89, 209, 140, 0.24);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.13);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.parking-base-grid b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .calc-metric {
   min-width: 0;
   padding: 13px;
@@ -3843,6 +3868,7 @@ h2 {
   .calculator-inputs,
   .calculator-summary,
   .calculator-options,
+  .parking-base-grid,
   .parking-calculator-details,
   .parking-analog-grid,
   .parking-breakdown-row,

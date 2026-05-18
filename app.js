@@ -4207,11 +4207,13 @@ function currentOfficeParkingDelta(inputs) {
   const data = state.parkingCalculatorData;
   const parkingInputs = parkingCalculatorInputs("office");
   const base = currentOfficeParkingBase(inputs);
+  const requestedSpaces = Math.max(0, Number(parkingInputs.spaces || 0));
   if (!data || !data.rules || parkingInputs.mode === "none" || parkingInputs.spaces <= 0) {
     return {
       mode: parkingInputs.mode,
       level: parkingInputs.level,
-      spaces: parkingInputs.spaces,
+      requestedSpaces,
+      spaces: 0,
       baseSpaces: base.spaces,
       resultSpaces: base.spaces,
       baseLabel: base.label,
@@ -4225,16 +4227,24 @@ function currentOfficeParkingDelta(inputs) {
   const rule = data.rules[parkingInputs.level] || data.rules["1"];
   const rate = parkingRuleRate(rule, "median");
   const sign = parkingInputs.mode === "remove" ? -1 : 1;
-  const cost = sign * parkingInputs.spaces * rate;
-  const warning = inputs && inputs.reference === "dream"
+  const appliedSpaces = parkingInputs.mode === "remove"
+    ? Math.min(requestedSpaces, Math.max(0, Number(base.spaces || 0)))
+    : requestedSpaces;
+  const cost = sign * appliedSpaces * rate;
+  const baseWarning = inputs && inputs.reference === "dream"
     ? "Офис мечты уже содержит 3 подземных уровня; базовая ставка не меняется, считается только дельта машиномест."
     : "Паркинг считается отдельной дельтой по медиане выбранных аналогов ФСК.";
+  const capWarning = parkingInputs.mode === "remove" && requestedSpaces > appliedSpaces
+    ? `Запрошено убрать ${formatMoney(requestedSpaces)} м/м, но база ${formatMoney(base.spaces)} м/м; к расчёту принято ${formatMoney(appliedSpaces)} м/м.`
+    : "";
+  const warning = [baseWarning, capWarning].filter(Boolean).join(" ");
   return {
     mode: parkingInputs.mode,
     level: parkingInputs.level,
-    spaces: parkingInputs.spaces,
+    requestedSpaces,
+    spaces: appliedSpaces,
     baseSpaces: base.spaces,
-    resultSpaces: Math.max(0, base.spaces + sign * parkingInputs.spaces),
+    resultSpaces: Math.max(0, base.spaces + sign * appliedSpaces),
     baseLabel: base.label,
     baseNote: base.note,
     rule,
@@ -4524,6 +4534,7 @@ function officeCalculationRows(calc) {
     ["Базовая ставка, руб./м2", Math.round(calc.baseRate)],
     ["Опции, руб.", Math.round(calc.optionsTotal)],
     ["База паркинга, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.baseSpaces || 0)],
+    ["Запрошенная дельта паркинга, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.requestedSpaces || 0)],
     ["Дельта паркинга, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.spaces || 0)],
     ["Паркинг после изменения, м/м", Math.round(calc.parkingDelta && calc.parkingDelta.resultSpaces || 0)],
     ["Паркинг, руб.", Math.round(calc.parkingTotal || 0)],
@@ -4602,7 +4613,8 @@ async function sendOfficeCalculationToCostIQ(button) {
     parking_mode: calc.inputs.parkingMode,
     parking_level: calc.inputs.parkingLevel,
     parking_base_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.baseSpaces || 0),
-    parking_spaces: calc.inputs.parkingSpaces,
+    parking_requested_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.requestedSpaces || 0),
+    parking_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.spaces || 0),
     parking_result_spaces: Math.round(calc.parkingDelta && calc.parkingDelta.resultSpaces || 0),
     parking_delta: Math.round(calc.parkingTotal || 0),
     total_rate: Math.round(calc.totalRate),
@@ -4677,9 +4689,15 @@ function renderOfficeCalculator() {
       : calc.parkingDelta && calc.parkingDelta.mode === "add"
         ? `добавить ${formatMoney(calc.parkingDelta.spaces)} м/м`
         : "без изменения";
+    const deltaPrefix = calc.parkingDelta && calc.parkingDelta.mode === "remove" ? "-" : calc.parkingDelta && calc.parkingDelta.mode === "add" ? "+" : "";
     parkingBaseNote.innerHTML = `
       <strong>База паркинга: ${escapeHtml(calc.parkingDelta.baseLabel)}</strong>
-      <span>${escapeHtml(`Поле "Дельта машиномест" считается как ${modeText}; после изменения: ${formatMoney(calc.parkingDelta.resultSpaces)} м/м.`)}</span>
+      <div class="parking-base-grid">
+        <span><b>База</b>${formatMoney(calc.parkingDelta.baseSpaces)} м/м</span>
+        <span><b>Дельта</b>${deltaPrefix}${formatMoney(calc.parkingDelta.spaces)} м/м</span>
+        <span><b>После изменения</b>${formatMoney(calc.parkingDelta.resultSpaces)} м/м</span>
+      </div>
+      <span>${escapeHtml(`Поле "Дельта машиномест" считается как ${modeText}, а не как итоговое количество.`)}</span>
       ${calc.parkingDelta.baseNote ? `<small>${escapeHtml(calc.parkingDelta.baseNote)}</small>` : ""}
     `;
   }
