@@ -252,7 +252,18 @@
         <div class="web-task-card" id="web-task-card" hidden></div>
       </section>
 
-      <section class="calculator-section" data-app-section="calculators">
+      <section class="calculator-switcher-section" data-app-section="calculators">
+        <div class="calculator-switcher" role="tablist" aria-label="Выбор калькулятора">
+          <button type="button" data-calculator-view="office" role="tab" aria-controls="office-calculator-panel">
+            Офисный калькулятор
+          </button>
+          <button type="button" data-calculator-view="parking" role="tab" aria-controls="parking-calculator-panel">
+            Калькулятор подземных паркингов
+          </button>
+        </div>
+      </section>
+
+      <section class="calculator-section" data-app-section="calculators" data-calculator-panel="parking" id="parking-calculator-panel">
         <div class="section-head">
           <div>
             <h2>Калькулятор подземных паркингов</h2>
@@ -291,7 +302,7 @@
         </div>
       </section>
 
-      <section class="calculator-section" data-app-section="calculators">
+      <section class="calculator-section" data-app-section="calculators" data-calculator-panel="office" id="office-calculator-panel">
         <div class="section-head">
           <div>
             <h2>Офисный калькулятор</h2>

@@ -974,6 +974,7 @@ const state = {
   officeCalculatorData: null,
   officeCalculatorState: { quantities: {} },
   parkingCalculatorData: null,
+  calculatorView: "office",
   smetReferenceData: null,
   smetReferenceSectionCache: {},
   smetReferenceLoadingSection: "",
@@ -1055,6 +1056,7 @@ function saveMiniAppState() {
     webSkillQuery: state.webSkillQuery,
     webSelectedSkillId: state.webSelectedSkillId,
     panelToolId: state.panelToolId,
+    calculatorView: state.calculatorView,
     webRecentFilter: state.webRecentFilter,
   }, window.sessionStorage);
 }
@@ -1070,6 +1072,7 @@ function restoreMiniAppState() {
   state.webSkillQuery = saved.webSkillQuery || state.webSkillQuery;
   state.webSelectedSkillId = saved.webSelectedSkillId || state.webSelectedSkillId;
   state.panelToolId = PANEL_TOOLS.some((tool) => tool.id === saved.panelToolId) ? saved.panelToolId : state.panelToolId;
+  state.calculatorView = ["office", "parking"].includes(saved.calculatorView) ? saved.calculatorView : state.calculatorView;
   if (!["smr", "mtr", "kvr"].includes(state.smetReferenceScope)) {
     state.smetReferenceScope = "smr";
   }
@@ -1092,6 +1095,7 @@ function setAppView(view, options = {}) {
     const belongsToView = section.dataset.appSection === nextView;
     section.hidden = !belongsToView || (section.id === "launcher" && !state.pendingAction);
   });
+  renderCalculatorView();
   const title = APP_VIEW_TITLES[nextView] || "Главная";
   const heading = document.querySelector(".topbar h1");
   if (heading && state.mode === "public") {
@@ -1120,6 +1124,25 @@ function setAppView(view, options = {}) {
   saveMiniAppState();
   updateProfileNotice();
   updateTelegramControls();
+}
+
+function setCalculatorView(view) {
+  state.calculatorView = view === "parking" ? "parking" : "office";
+  renderCalculatorView();
+  saveMiniAppState();
+  updateTelegramControls();
+}
+
+function renderCalculatorView() {
+  document.querySelectorAll("[data-calculator-view]").forEach((button) => {
+    const isActive = button.dataset.calculatorView === state.calculatorView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  document.querySelectorAll("[data-calculator-panel]").forEach((panel) => {
+    const belongsToActiveCalculator = panel.dataset.calculatorPanel === state.calculatorView;
+    panel.hidden = state.appView !== "calculators" || !belongsToActiveCalculator;
+  });
 }
 
 function initTelegram() {
@@ -1258,7 +1281,7 @@ function updateTelegramControls() {
 
   if (state.webReviewDraft) {
     setTelegramMainButton(reviewActionTitle(state.webReviewDraft.action), "review_submit");
-  } else if (state.appView === "calculators") {
+  } else if (state.appView === "calculators" && state.calculatorView === "office") {
     setTelegramMainButton("Сохранить расчёт", "office_save");
   } else if (state.appView === "skills") {
     setTelegramMainButton("Создать задачу", "web_submit");
@@ -7208,6 +7231,12 @@ document.addEventListener("click", (event) => {
   const parkingActionButton = event.target.closest("[data-parking-action]");
   if (parkingActionButton) {
     handleParkingCalculatorAction(parkingActionButton.dataset.parkingAction, parkingActionButton);
+    return;
+  }
+
+  const calculatorViewButton = event.target.closest("[data-calculator-view]");
+  if (calculatorViewButton) {
+    setCalculatorView(calculatorViewButton.dataset.calculatorView);
     return;
   }
 

@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "Выбор калькулятора",
+    action: "обновлено",
+    text: "В разделе калькуляторов добавлены верхние кнопки выбора: офисный калькулятор и калькулятор подземных паркингов.",
+    meta: "2026-05-18T15:35:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "Калькулятор паркингов",
     action: "добавлено",
     text: "Добавлен отдельный калькулятор подземных паркингов по 8 внутренним аналогам ФСК и дельта-блок паркинга в офисном калькуляторе v4.3.",
