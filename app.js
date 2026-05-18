@@ -3793,6 +3793,47 @@ function parkingRuleRate(rule, scenario = "median") {
   return Number(rule.medianPerPlace || 0);
 }
 
+function parkingArticleRows() {
+  return [
+    { key: "earthworks", code: "40-01", title: "Земляные работы" },
+    { key: "undergroundParking", code: "40-02-04", title: "Устройство подземного паркинга" },
+    { key: "stylobateCover", code: "40-02-05", title: "Устройство покрытия стилобатной части" },
+  ];
+}
+
+function parkingReferenceAnalog(analogs, rate) {
+  if (!Array.isArray(analogs) || !analogs.length) {
+    return null;
+  }
+  return analogs.reduce((best, item) => {
+    if (!best) {
+      return item;
+    }
+    const itemDelta = Math.abs(Number(item.perPlace || 0) - Number(rate || 0));
+    const bestDelta = Math.abs(Number(best.perPlace || 0) - Number(rate || 0));
+    return itemDelta < bestDelta ? item : best;
+  }, null);
+}
+
+function parkingArticleBreakdown(calc) {
+  if (!calc || !calc.referenceAnalog || !calc.referenceAnalog.spaces) {
+    return [];
+  }
+  return parkingArticleRows().map((row) => {
+    const referenceAmount = Number(calc.referenceAnalog[row.key] || 0);
+    const perPlace = referenceAmount / Number(calc.referenceAnalog.spaces || 1);
+    const amount = perPlace * Number(calc.inputs.spaces || 0);
+    const share = calc.totalCost ? amount / calc.totalCost : 0;
+    return {
+      ...row,
+      referenceAmount,
+      perPlace,
+      amount,
+      share,
+    };
+  });
+}
+
 function currentParkingCalculation() {
   const data = state.parkingCalculatorData;
   if (!data || !data.rules) {
@@ -3803,6 +3844,7 @@ function currentParkingCalculation() {
   const rate = parkingRuleRate(rule, inputs.scenario);
   const totalCost = inputs.spaces * rate;
   const analogs = (Array.isArray(data.analogs) ? data.analogs : []).filter((item) => String(item.levels) === inputs.level);
+  const referenceAnalog = parkingReferenceAnalog(analogs, rate);
   return {
     id: `parking-${Date.now()}`,
     created_at: new Date().toISOString(),
@@ -3814,6 +3856,7 @@ function currentParkingCalculation() {
     rate,
     totalCost,
     analogs,
+    referenceAnalog,
     candidateExtraWorks: Array.isArray(data.candidateExtraWorks) ? data.candidateExtraWorks : [],
   };
 }
@@ -3832,6 +3875,8 @@ function parkingCalculationText(calc) {
     `Диапазон: ${formatMoney(calc.rule.minPerPlace)} - ${formatMoney(calc.rule.maxPerPlace)} руб./м.м.`,
     `Аналоги: ${calc.rule.analogCount} объектов, ${formatMoney(calc.rule.spaces)} м/м`,
     `Состав: ${calc.method.basis || ""}`,
+    calc.referenceAnalog ? `Расшифровка статей по аналогу: ${calc.referenceAnalog.project} - ${calc.referenceAnalog.object}` : "",
+    ...parkingArticleBreakdown(calc).map((row) => `${row.code} ${row.title}: ${formatMoney(row.amount)} руб. (${formatMoney(row.perPlace)} руб./м.м.)`),
     "Шпунт/подпорные стены: кандидатные опции, не включены в базовую ставку без подтверждения привязки.",
   ].filter(Boolean).join("\n");
 }
@@ -3851,7 +3896,18 @@ function parkingCalculationRows(calc) {
     ["Состав ПАС", calc.method.basis || ""],
   ];
   rows.push([]);
-  rows.push(["Аналог", "М/м", "Итого ПАС", "руб./м.м.", "руб./м2", "Состав"]);
+  rows.push(["Расшифровка стоимости по статьям", "Сумма, руб.", "руб./м.м.", "Доля", "Базовый аналог"]);
+  parkingArticleBreakdown(calc).forEach((item) => {
+    rows.push([
+      `${item.code} ${item.title}`,
+      Math.round(item.amount || 0),
+      Math.round(item.perPlace || 0),
+      `${Math.round((item.share || 0) * 1000) / 10}%`,
+      calc.referenceAnalog ? `${calc.referenceAnalog.project} - ${calc.referenceAnalog.object}` : "",
+    ]);
+  });
+  rows.push([]);
+  rows.push(["Аналог", "М/м", "Итого ПАС", "руб./м.м.", "руб./м2", "40-01", "40-02-04", "40-02-05"]);
   calc.analogs.forEach((item) => {
     rows.push([
       `${item.project} - ${item.object}`,
@@ -3859,7 +3915,9 @@ function parkingCalculationRows(calc) {
       Math.round(item.pasTotal || 0),
       Math.round(item.perPlace || 0),
       Math.round(item.perM2 || 0),
-      `40-01 ${formatMoney(item.earthworks)}; 40-02-04 ${formatMoney(item.undergroundParking)}; 40-02-05 ${formatMoney(item.stylobateCover)}`,
+      Math.round(item.earthworks || 0),
+      Math.round(item.undergroundParking || 0),
+      Math.round(item.stylobateCover || 0),
     ]);
   });
   rows.push([]);
@@ -3922,6 +3980,13 @@ async function sendParkingCalculationToCostIQ(button) {
     scenario: calc.inputs.scenario,
     rate_per_place: Math.round(calc.rate),
     total_cost: Math.round(calc.totalCost),
+    article_breakdown: parkingArticleBreakdown(calc).map((row) => ({
+      code: row.code,
+      title: row.title,
+      amount: Math.round(row.amount || 0),
+      per_place: Math.round(row.perPlace || 0),
+      share: Math.round((row.share || 0) * 1000) / 1000,
+    })),
   }));
   formData.set("extra_fields", JSON.stringify([
     { label: "Тип", value: calc.rule.label },
@@ -4012,7 +4077,40 @@ function renderParkingCalculator() {
       <small>${escapeHtml(item.comment)}</small>
     </div>
   `).join("");
+  const articleRows = parkingArticleBreakdown(calc);
+  const articleTotal = articleRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const referenceTitle = calc.referenceAnalog ? `${calc.referenceAnalog.project} / ${calc.referenceAnalog.object}` : "";
   details.innerHTML = `
+    <section class="parking-detail-block">
+      <h3>Расшифровка стоимости по статьям</h3>
+      <div class="parking-breakdown-note">
+        ${referenceTitle ? `Структура взята из ближайшего аналога к выбранной ставке: ${escapeHtml(referenceTitle)}.` : "Структура считается по выбранной группе аналогов."}
+      </div>
+      <div class="parking-breakdown-list">
+        ${articleRows.map((row) => `
+          <div class="parking-breakdown-row">
+            <div>
+              <strong>${escapeHtml(row.code)}</strong>
+              <span>${escapeHtml(row.title)}</span>
+            </div>
+            <div>
+              <strong>${formatMoney(row.amount)} руб.</strong>
+              <span>${formatMoney(row.perPlace)} руб./м.м. · ${Math.round((row.share || 0) * 1000) / 10}%</span>
+            </div>
+          </div>
+        `).join("")}
+        <div class="parking-breakdown-row total">
+          <div>
+            <strong>Итого ПАС</strong>
+            <span>по выбранному сценарию</span>
+          </div>
+          <div>
+            <strong>${formatMoney(articleTotal)} руб.</strong>
+            <span>${formatMoney(calc.rate)} руб./м.м.</span>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="parking-detail-block">
       <h3>Аналоги</h3>
       <div class="parking-analog-grid">
@@ -4021,6 +4119,7 @@ function renderParkingCalculator() {
             <strong>${escapeHtml(item.project)}</strong>
             <span>${escapeHtml(item.object)} · ${formatMoney(item.spaces)} м/м</span>
             <small>${formatMoney(item.perPlace)} руб./м.м. · ПАС ${formatMoney(item.pasTotal)} руб.</small>
+            <small>40-01 ${formatMoney(item.earthworks)} · 40-02-04 ${formatMoney(item.undergroundParking)} · 40-02-05 ${formatMoney(item.stylobateCover)}</small>
           </article>
         `).join("")}
       </div>

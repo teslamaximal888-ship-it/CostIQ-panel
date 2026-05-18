@@ -2457,6 +2457,55 @@ h2 {
   gap: 8px;
 }
 
+.parking-breakdown-note {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.parking-breakdown-list {
+  display: grid;
+  gap: 8px;
+}
+
+.parking-breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, auto);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.parking-breakdown-row.total {
+  border-color: rgba(92, 214, 141, 0.45);
+  background: rgba(92, 214, 141, 0.08);
+}
+
+.parking-breakdown-row > div {
+  min-width: 0;
+}
+
+.parking-breakdown-row > div:last-child {
+  text-align: right;
+}
+
+.parking-breakdown-row strong,
+.parking-breakdown-row span {
+  display: block;
+}
+
+.parking-breakdown-row span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .parking-analog-card,
 .parking-extra-row {
   min-width: 0;
@@ -3770,6 +3819,7 @@ h2 {
   .calculator-options,
   .parking-calculator-details,
   .parking-analog-grid,
+  .parking-breakdown-row,
   .smet-search-panel,
   .smet-reference-layout,
   .smet-card-metrics,
@@ -3786,6 +3836,10 @@ h2 {
   .form-grid,
   .ops {
     grid-template-columns: 1fr;
+  }
+
+  .parking-breakdown-row > div:last-child {
+    text-align: left;
   }
 
   .welcome-panel {
