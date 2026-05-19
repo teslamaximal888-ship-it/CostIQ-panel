@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "Удельные показатели",
+    action: "доработано",
+    text: "Все три вкладки переведены на список с карточкой справа: добавлены поиск, фильтры, сортировка, сравнение, недавние позиции и избранное.",
+    meta: "2026-05-19T18:35:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "ТЭП проекта",
     action: "доработано",
     text: "База ТЭП переведена на список объектов с карточкой справа, фильтрами, сортировкой, сравнением, недавними объектами и избранным.",

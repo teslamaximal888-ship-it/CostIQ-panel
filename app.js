@@ -8,6 +8,8 @@ const SMET_REFERENCE_FAVORITES_STORAGE_KEY = "costiq_smet_reference_favorites";
 const SMET_REFERENCE_RECENT_STORAGE_KEY = "costiq_smet_reference_recent";
 const TEP_PROJECT_FAVORITES_STORAGE_KEY = "costiq_tep_project_favorites";
 const TEP_PROJECT_RECENT_STORAGE_KEY = "costiq_tep_project_recent";
+const BENCHMARK_FAVORITES_STORAGE_KEY = "costiq_benchmark_favorites";
+const BENCHMARK_RECENT_STORAGE_KEY = "costiq_benchmark_recent";
 const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
@@ -998,6 +1000,21 @@ const state = {
   benchmarkTab: "benchmarks",
   benchmarkGroup: "all",
   benchmarkFinishingGroup: "all",
+  benchmarkQuery: "",
+  benchmarkSelectedId: "",
+  benchmarkDrawerOpen: false,
+  benchmarkCompareIds: [],
+  benchmarkFavoriteIds: [],
+  benchmarkRecentIds: [],
+  benchmarkSavedMode: "",
+  benchmarkSort: "relevance",
+  benchmarkFilters: {
+    type: "all",
+    code: "all",
+    changedOnly: false,
+    growthOnly: false,
+    declineOnly: false,
+  },
   benchmarkCostQuery: "",
   benchmarkCostCode: "Итого",
   benchmarkCostSelectedId: "",
@@ -4074,6 +4091,502 @@ function renderCostChangeCard(item) {
       ${renderCostSubcodeRows(details) || `<div class="empty">Подкоды не заполнены</div>`}
     </div>` : ""}
   `;
+}
+
+function benchmarkItemId(item) {
+  return item ? `${item.tab}:${item.rawId}` : "";
+}
+
+function inferBenchmarkObjectType(value) {
+  const text = normalizeSearchText(value || "");
+  if (text.includes("паркинг") || text.includes("автостоян")) {
+    return "Паркинг";
+  }
+  if (text.includes("доу") || text.includes("детск")) {
+    return "ДОУ";
+  }
+  if (text.includes("сош") || text.includes("школ")) {
+    return "СОШ";
+  }
+  if (text.includes("корпус") || text.includes("дом")) {
+    return "Корпус";
+  }
+  return "Прочее";
+}
+
+function buildBenchmarkToolItems(data = state.panelToolsData) {
+  if (!data) {
+    return [];
+  }
+  const benchmarkRows = buildBenchmarkCards(data).map((row, index) => ({
+    tab: "benchmarks",
+    rawId: `${row.filter || "item"}:${row.region || ""}:${row.name || index}`,
+    title: row.name || "Показатель",
+    subtitle: row.group || "Удельный показатель",
+    project: "",
+    object: row.name || "",
+    type: row.group || row.filter || "Показатель",
+    section: "Удельные показатели",
+    primary: Number(row.price || 0),
+    primaryLabel: row.unit || "руб./м2",
+    secondary: row.meta || "",
+    codeBrief: row.region || row.filter || "",
+    sortDate: "",
+    raw: row,
+  }));
+  const finishingRows = buildFinishingRows(data).map((row, index) => ({
+    tab: "finishing",
+    rawId: `${row.sheetKey || "sheet"}:${row.objectType || index}`,
+    title: row.objectType || "Отделка квартир",
+    subtitle: row.sheetName || "Отделка квартир",
+    project: row.sheetName || "",
+    object: row.objectType || "",
+    type: "Отделка квартир",
+    section: "Отделка квартир",
+    primary: Number(row.bestPrice || 0),
+    primaryLabel: "руб./м2",
+    secondary: `${formatMoney(row.prices.length)} ставок`,
+    codeBrief: row.prices.slice(0, 2).map((item) => item.type).join(" · "),
+    sortDate: "",
+    raw: row,
+  }));
+  const costProjects = data.cost_changes && data.cost_changes.projects ? data.cost_changes.projects : {};
+  const costRows = Object.values(costProjects).flat().map((row) => {
+    const delta = costDelta(row.period_start && row.period_start.cost, row.period_end && row.period_end.cost, row.change && row.change.rub);
+    const pct = row.period_start && row.period_start.cost ? Number(((delta / row.period_start.cost) * 100).toFixed(2)) : Number(row.change && row.change.pct || 0);
+    return {
+      tab: "cost",
+      rawId: costChangeId(row),
+      title: row.object || "Объект",
+      subtitle: row.project || "Проект",
+      project: row.project || "",
+      object: row.object || "",
+      type: inferBenchmarkObjectType(row.object),
+      section: "Изменение себестоимости",
+      primary: delta,
+      primaryLabel: "руб.",
+      secondary: `${formatMoney(row.period_end && row.period_end.cost || 0)} руб. · ${pct ? `${formatMoney(pct)}%` : "0%"}`,
+      codeBrief: Object.keys(row.codes || {}).join(" · "),
+      sortDate: "",
+      raw: { ...row, normalizedChange: { rub: delta, pct } },
+    };
+  });
+  return [...benchmarkRows, ...finishingRows, ...costRows].map((item) => ({ ...item, id: benchmarkItemId(item) }));
+}
+
+function benchmarkItemsForCurrentTab() {
+  return buildBenchmarkToolItems().filter((item) => item.tab === state.benchmarkTab);
+}
+
+function findBenchmarkItem(id) {
+  if (!id) {
+    return null;
+  }
+  return buildBenchmarkToolItems().find((item) => item.id === id) || null;
+}
+
+function readBenchmarkUserLists() {
+  state.benchmarkFavoriteIds = readJsonStorage(BENCHMARK_FAVORITES_STORAGE_KEY, []);
+  state.benchmarkRecentIds = readJsonStorage(BENCHMARK_RECENT_STORAGE_KEY, []);
+}
+
+function saveBenchmarkUserLists() {
+  writeJsonStorage(BENCHMARK_FAVORITES_STORAGE_KEY, state.benchmarkFavoriteIds.slice(0, 120));
+  writeJsonStorage(BENCHMARK_RECENT_STORAGE_KEY, state.benchmarkRecentIds.slice(0, 40));
+}
+
+function touchBenchmarkRecent(id) {
+  if (!findBenchmarkItem(id)) {
+    return;
+  }
+  state.benchmarkRecentIds = [id, ...state.benchmarkRecentIds.filter((current) => current !== id)].slice(0, 40);
+  saveBenchmarkUserLists();
+}
+
+function toggleBenchmarkFavorite(id) {
+  if (!findBenchmarkItem(id)) {
+    return;
+  }
+  state.benchmarkFavoriteIds = state.benchmarkFavoriteIds.includes(id)
+    ? state.benchmarkFavoriteIds.filter((current) => current !== id)
+    : [id, ...state.benchmarkFavoriteIds].slice(0, 120);
+  saveBenchmarkUserLists();
+}
+
+function benchmarkSavedItems(ids) {
+  const itemMap = new Map(buildBenchmarkToolItems().map((item) => [item.id, item]));
+  return ids.map((id) => itemMap.get(id)).filter((item) => item && item.tab === state.benchmarkTab);
+}
+
+function getBenchmarkFilterOptions(items) {
+  const types = [...new Set(items.map((item) => item.type).filter(Boolean))]
+    .sort((a, b) => String(a).localeCompare(String(b), "ru", { numeric: true }));
+  const codes = [...new Set(items.flatMap((item) => Object.keys(item.raw && item.raw.codes || {})).filter(Boolean))]
+    .sort((a, b) => compareCostCodeLabels(a, b));
+  return { types, codes };
+}
+
+function scoreBenchmarkItem(item, query) {
+  const words = normalizeSearchText(query).split(" ").filter(Boolean);
+  if (!words.length) {
+    return 1;
+  }
+  const haystack = normalizeSearchText([item.title, item.subtitle, item.project, item.object, item.type, item.section, item.codeBrief].join(" "));
+  return words.reduce((sum, word) => sum + (haystack.includes(word) ? (/^\d+$/.test(word) ? 8 : 25) : 0), 0)
+    + (haystack.includes(normalizeSearchText(query)) ? 40 : 0);
+}
+
+function applyBenchmarkFilters(items) {
+  const filters = state.benchmarkFilters || {};
+  return items.filter((item) => {
+    if (filters.type && filters.type !== "all" && item.type !== filters.type) {
+      return false;
+    }
+    if (item.tab === "cost" && filters.code && filters.code !== "all" && !(item.raw && item.raw.codes && item.raw.codes[filters.code])) {
+      return false;
+    }
+    const delta = item.tab === "cost" ? Number(item.primary || 0) : 0;
+    if (filters.changedOnly && item.tab === "cost" && delta === 0) {
+      return false;
+    }
+    if (filters.growthOnly && item.tab === "cost" && delta <= 0) {
+      return false;
+    }
+    if (filters.declineOnly && item.tab === "cost" && delta >= 0) {
+      return false;
+    }
+    const score = scoreBenchmarkItem(item, state.benchmarkQuery);
+    if (state.benchmarkQuery && score <= 0) {
+      return false;
+    }
+    item.searchScore = score;
+    return true;
+  });
+}
+
+function sortBenchmarkItems(items) {
+  const sort = state.benchmarkSort || "relevance";
+  const byText = (left, right) => String(left.subtitle || left.title || "").localeCompare(String(right.subtitle || right.title || ""), "ru", { numeric: true })
+    || String(left.title || "").localeCompare(String(right.title || ""), "ru", { numeric: true });
+  return [...items].sort((left, right) => {
+    if (sort === "value_desc") {
+      return Number(right.primary || 0) - Number(left.primary || 0) || byText(left, right);
+    }
+    if (sort === "value_asc") {
+      return Number(left.primary || 0) - Number(right.primary || 0) || byText(left, right);
+    }
+    if (sort === "project") {
+      return byText(left, right);
+    }
+    return Number(right.searchScore || 0) - Number(left.searchScore || 0) || byText(left, right);
+  });
+}
+
+function getBenchmarkContext() {
+  const baseItems = benchmarkItemsForCurrentTab();
+  const sourceItems = state.benchmarkSavedMode
+    ? benchmarkSavedItems(state.benchmarkSavedMode === "favorites" ? state.benchmarkFavoriteIds : state.benchmarkRecentIds)
+    : baseItems;
+  const results = sortBenchmarkItems(applyBenchmarkFilters(sourceItems)).slice(0, 80);
+  const selected = results.find((item) => item.id === state.benchmarkSelectedId) || findBenchmarkItem(state.benchmarkSelectedId) || results[0] || null;
+  if (!selected) {
+    state.benchmarkSelectedId = "";
+  } else if (!state.benchmarkSelectedId || !findBenchmarkItem(state.benchmarkSelectedId)) {
+    state.benchmarkSelectedId = selected.id;
+  }
+  const hint = state.benchmarkSavedMode === "favorites"
+    ? "Избранные показатели"
+    : state.benchmarkSavedMode === "recent"
+      ? "Недавно открытые показатели"
+      : state.benchmarkQuery
+        ? "Поиск по проекту, объекту и показателю"
+        : "Показаны первые объекты базы";
+  return { baseItems, results, selected, hint };
+}
+
+function benchmarkTabLabel(tab = state.benchmarkTab) {
+  return {
+    benchmarks: "Удельные показатели",
+    finishing: "Отделка квартир",
+    cost: "Изменение себестоимости",
+  }[tab] || "Удельные показатели";
+}
+
+function renderBenchmarkOverviewLine(context) {
+  const count = context.baseItems.length;
+  const shown = context.results.length;
+  const costMeta = state.panelToolsData && state.panelToolsData.cost_changes && state.panelToolsData.cost_changes.meta || {};
+  const thirdLabel = state.benchmarkTab === "cost" ? "Период" : "Раздел";
+  const thirdValue = state.benchmarkTab === "cost" ? costMeta.period || "-" : benchmarkTabLabel();
+  return `
+    <div class="benchmark-overview">
+      <div><span>Раздел</span><strong>${escapeHtml(benchmarkTabLabel())}</strong></div>
+      <div><span>Показано</span><strong>${escapeHtml(`${formatMoney(shown)} из ${formatMoney(count)}`)}</strong></div>
+      <div><span>${escapeHtml(thirdLabel)}</span><strong>${escapeHtml(thirdValue)}</strong></div>
+    </div>
+  `;
+}
+
+function renderBenchmarkControls(context) {
+  const options = getBenchmarkFilterOptions(context.baseItems);
+  const tabs = [
+    { id: "benchmarks", label: "Удельные показатели" },
+    { id: "finishing", label: "Отделка квартир" },
+    { id: "cost", label: "Изменение себестоимости" },
+  ];
+  return `
+    <div class="reference-toolbar">
+      <div class="view-toggle">
+        ${tabs.map((tab) => `<button type="button" class="${state.benchmarkTab === tab.id ? "active" : ""}" data-benchmark-tab="${escapeHtml(tab.id)}">${escapeHtml(tab.label)}</button>`).join("")}
+      </div>
+    </div>
+    ${renderBenchmarkOverviewLine(context)}
+    <div class="smet-search-panel benchmark-search-panel">
+      <label class="span-2" for="benchmark-search">Запрос
+        <input id="benchmark-search" type="search" autocomplete="off" value="${escapeHtml(state.benchmarkQuery)}" placeholder="Проект, объект или показатель">
+      </label>
+      <label for="benchmark-type">Тип
+        <select id="benchmark-type">${renderSelectOptions(options.types, state.benchmarkFilters.type, "Все типы")}</select>
+      </label>
+      <label for="benchmark-sort">Сортировка
+        <select id="benchmark-sort">
+          <option value="relevance"${state.benchmarkSort === "relevance" ? " selected" : ""}>По релевантности</option>
+          <option value="value_desc"${state.benchmarkSort === "value_desc" ? " selected" : ""}>Значение: больше</option>
+          <option value="value_asc"${state.benchmarkSort === "value_asc" ? " selected" : ""}>Значение: меньше</option>
+          <option value="project"${state.benchmarkSort === "project" ? " selected" : ""}>По проекту</option>
+        </select>
+      </label>
+      ${state.benchmarkTab === "cost" ? `<label for="benchmark-code">Код затрат
+        <select id="benchmark-code">${renderSelectOptions(options.codes, state.benchmarkFilters.code, "Все коды")}</select>
+      </label>` : ""}
+      <div class="smet-filter-row">
+        ${state.benchmarkTab === "cost" ? `
+          <label><input type="checkbox" data-benchmark-filter="changedOnly"${state.benchmarkFilters.changedOnly ? " checked" : ""}> Только с изменением</label>
+          <label><input type="checkbox" data-benchmark-filter="growthOnly"${state.benchmarkFilters.growthOnly ? " checked" : ""}> Рост</label>
+          <label><input type="checkbox" data-benchmark-filter="declineOnly"${state.benchmarkFilters.declineOnly ? " checked" : ""}> Снижение</label>
+        ` : ""}
+      </div>
+      <div class="smet-saved-row">
+        <button type="button" class="ghost-button compact" data-benchmark-action="show-recent">Недавние</button>
+        <button type="button" class="ghost-button compact" data-benchmark-action="show-favorites">Избранное</button>
+      </div>
+      <div class="smet-reference-actions">
+        <button type="button" class="ghost-button" data-benchmark-action="clear">Очистить</button>
+      </div>
+    </div>
+  `;
+}
+
+function benchmarkMetricCells(item) {
+  if (item.tab === "cost") {
+    const raw = item.raw || {};
+    return [
+      { label: "Начало", value: raw.period_start && raw.period_start.cost || 0, unit: "руб." },
+      { label: "Конец", value: raw.period_end && raw.period_end.cost || 0, unit: "руб." },
+      { label: "Изменение", value: item.primary || 0, unit: "руб." },
+    ];
+  }
+  if (item.tab === "finishing") {
+    return [
+      { label: "Мин. ставка", value: item.primary || 0, unit: item.primaryLabel },
+      { label: "Ставок", value: item.raw && item.raw.prices ? item.raw.prices.length : 0, unit: "шт." },
+      { label: "Группа", valueText: item.subtitle || "-", unit: "" },
+    ];
+  }
+  return [
+    { label: "Показатель", value: item.primary || 0, unit: item.primaryLabel },
+    { label: "Группа", valueText: item.type || "-", unit: "" },
+    { label: "Основание", valueText: item.secondary || "-", unit: "" },
+  ];
+}
+
+function renderBenchmarkResult(item) {
+  const isCompared = state.benchmarkCompareIds.includes(item.id);
+  const isFavorite = state.benchmarkFavoriteIds.includes(item.id);
+  const cells = benchmarkMetricCells(item);
+  return `
+    <div class="smet-result benchmark-result ${item.id === state.benchmarkSelectedId ? "active" : ""}" data-benchmark-id="${escapeHtml(item.id)}" role="button" tabindex="0">
+      <span class="smet-result-kind">${escapeHtml(item.section)}</span>
+      <strong>${escapeHtml(item.title)}</strong>
+      <small>${escapeHtml([item.subtitle, item.type, item.codeBrief].filter(Boolean).join(" · "))}</small>
+      <div class="smet-result-prices">
+        ${cells.map((cell) => `
+          <span class="smet-result-price">
+            <b>${escapeHtml(cell.valueText || formatMoney(cell.value || 0))}</b>
+            <small>${escapeHtml(cell.label)}${cell.unit ? ` · ${escapeHtml(cell.unit)}` : ""}</small>
+          </span>
+        `).join("")}
+      </div>
+      <em>${escapeHtml(item.secondary || item.project || item.object || "-")}</em>
+      <div class="smet-result-tools">
+        <button type="button" class="${isCompared ? "active" : ""}" data-benchmark-action="toggle-compare" data-benchmark-compare-id="${escapeHtml(item.id)}">Сравнить</button>
+        <button type="button" class="${isFavorite ? "active" : ""}" data-benchmark-action="toggle-favorite" data-benchmark-favorite-id="${escapeHtml(item.id)}">${isFavorite ? "В избранном" : "В избранное"}</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderBenchmarkResults(context) {
+  return `
+    <div class="cost-search-hint">${escapeHtml(context.hint)}</div>
+    <div class="smet-reference-layout">
+      <div class="smet-results" id="benchmark-results">
+        ${context.results.map((item) => renderBenchmarkResult(item)).join("") || `<div class="empty">Показатели не найдены</div>`}
+      </div>
+      <div class="smet-card" id="benchmark-card"></div>
+    </div>
+  `;
+}
+
+function renderBenchmarkCompare() {
+  const container = document.getElementById("benchmark-compare");
+  if (!container) {
+    return;
+  }
+  const items = state.benchmarkCompareIds.map((id) => findBenchmarkItem(id)).filter(Boolean).slice(0, 4);
+  container.hidden = items.length < 2;
+  if (items.length < 2) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="smet-compare-head">
+      <strong>Сравнение</strong>
+      <span>${escapeHtml(formatMoney(items.length))} позиции</span>
+      <button type="button" class="ghost-button compact" data-benchmark-action="clear-compare">Очистить</button>
+    </div>
+    <div class="smet-compare-table benchmark-compare-table">
+      ${items.map((item) => `
+        <div class="smet-compare-row" data-benchmark-id="${escapeHtml(item.id)}">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(formatMoney(item.primary || 0))}<small>${escapeHtml(item.primaryLabel || "")}</small></span>
+          <span>${escapeHtml(item.type || "-")}<small>Тип</small></span>
+          <span>${escapeHtml(item.codeBrief || "-")}<small>Код/группа</small></span>
+          <span>${escapeHtml(item.project || item.subtitle || "-")}<small>Проект/группа</small></span>
+          <em>${escapeHtml(item.secondary || "-")}</em>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderBenchmarkDetail(item) {
+  if (!item) {
+    return `<div class="empty">Выберите показатель</div>`;
+  }
+  if (item.tab === "cost") {
+    const previousCode = state.benchmarkCostCode;
+    state.benchmarkCostCode = state.benchmarkFilters.code && state.benchmarkFilters.code !== "all" ? state.benchmarkFilters.code : "Итого";
+    const html = renderCostChangeCard(item.raw);
+    state.benchmarkCostCode = previousCode;
+    return html;
+  }
+  if (item.tab === "finishing") {
+    const prices = item.raw && Array.isArray(item.raw.prices) ? item.raw.prices : [];
+    return `
+      <div class="smet-card-head"><span>Отделка квартир</span><em>${escapeHtml(item.subtitle || "")}</em></div>
+      <h3>${escapeHtml(item.title)}</h3>
+      <div class="smet-card-metrics">
+        <div><span>Минимальная ставка</span><strong>${escapeHtml(formatMoney(item.primary || 0))}</strong><small>руб./м2</small></div>
+        <div><span>Ставок</span><strong>${escapeHtml(formatMoney(prices.length))}</strong><small>шт.</small></div>
+        <div><span>Группа</span><strong>${escapeHtml(item.subtitle || "-")}</strong><small>источник</small></div>
+      </div>
+      <div class="cost-code-table detailed">
+        <div class="cost-code-table-head"><span>Тип</span><span>Ставка</span><span>Пакет</span><span></span></div>
+        ${prices.map((price) => `
+          <div class="cost-code-row">
+            <strong>${escapeHtml(price.type || "-")}</strong>
+            <span>${escapeHtml(formatMoney(price.price || 0))} руб./м2</span>
+            <span>${escapeHtml(price.name || "-")}</span>
+            <em></em>
+          </div>
+        `).join("") || `<div class="empty">Ставки не заполнены</div>`}
+      </div>
+    `;
+  }
+  return `
+    <div class="smet-card-head"><span>Удельный показатель</span><em>${escapeHtml(item.type || "")}</em></div>
+    <h3>${escapeHtml(item.title)}</h3>
+    <div class="smet-card-metrics">
+      <div><span>Значение</span><strong>${escapeHtml(formatMoney(item.primary || 0))}</strong><small>${escapeHtml(item.primaryLabel || "")}</small></div>
+      <div><span>Группа</span><strong>${escapeHtml(item.type || "-")}</strong><small>${escapeHtml(item.codeBrief || "")}</small></div>
+      <div><span>Источник</span><strong>${escapeHtml(item.secondary || "-")}</strong><small>база показателей</small></div>
+    </div>
+    <dl class="tep-detail-list">
+      <div><dt>Раздел</dt><dd>${escapeHtml(item.section || "-")}</dd></div>
+      <div><dt>Описание</dt><dd>${escapeHtml(item.raw && item.raw.meta || item.secondary || "-")}</dd></div>
+    </dl>
+  `;
+}
+
+function renderBenchmarkCard() {
+  const card = document.getElementById("benchmark-card");
+  if (!card) {
+    return;
+  }
+  const item = findBenchmarkItem(state.benchmarkSelectedId);
+  card.classList.toggle("open", Boolean(item && state.benchmarkDrawerOpen));
+  document.body.classList.toggle("benchmark-drawer-active", Boolean(item && state.benchmarkDrawerOpen));
+  if (!item || !state.benchmarkDrawerOpen) {
+    card.innerHTML = "";
+    return;
+  }
+  const favoriteButton = `<button type="button" class="ghost-button compact" data-benchmark-action="toggle-favorite" data-benchmark-favorite-id="${escapeHtml(item.id)}">${state.benchmarkFavoriteIds.includes(item.id) ? "Убрать из избранного" : "В избранное"}</button>`;
+  const compareButton = `<button type="button" class="ghost-button compact" data-benchmark-action="toggle-compare" data-benchmark-compare-id="${escapeHtml(item.id)}">${state.benchmarkCompareIds.includes(item.id) ? "Убрать из сравнения" : "Сравнить"}</button>`;
+  card.innerHTML = `
+    <div class="smet-card-backdrop" data-benchmark-action="close-card"></div>
+    <article>
+      <button type="button" class="smet-card-close" data-benchmark-action="close-card" aria-label="Закрыть">×</button>
+      ${renderBenchmarkDetail(item)}
+      <div class="smet-card-actions">${compareButton}${favoriteButton}</div>
+    </article>
+  `;
+}
+
+function renderBenchmarkPanelOnly() {
+  const container = document.getElementById("benchmark-list-panel");
+  if (!container) {
+    renderBenchmarksTool();
+    return;
+  }
+  const context = getBenchmarkContext();
+  container.innerHTML = renderBenchmarkResults(context);
+  renderBenchmarkCompare();
+  renderBenchmarkCard();
+}
+
+function renderBenchmarksTool() {
+  const section = document.getElementById("benchmarks-tool");
+  const panel = document.getElementById("benchmarks-panel");
+  if (!section || !panel) {
+    return;
+  }
+  section.hidden = state.appView !== "tools" || state.panelToolId !== "benchmarks";
+  if (section.hidden) {
+    state.benchmarkDrawerOpen = false;
+    document.body.classList.remove("benchmark-drawer-active");
+    return;
+  }
+  const data = state.panelToolsData;
+  if (!data) {
+    panel.innerHTML = `<div class="empty">Загружаю показатели</div>`;
+    return;
+  }
+  setText("benchmarks-status", benchmarkTabLabel().toLowerCase());
+  const context = getBenchmarkContext();
+  panel.innerHTML = `
+    <div class="smet-reference-tool benchmark-tool">
+      ${renderBenchmarkControls(context)}
+      <div class="smet-compare-panel" id="benchmark-compare" hidden></div>
+      <div id="benchmark-list-panel">${renderBenchmarkResults(context)}</div>
+    </div>
+  `;
+  renderBenchmarkCompare();
+  renderBenchmarkCard();
+}
+
+function renderCostChangePanelOnly() {
+  renderBenchmarkPanelOnly();
 }
 
 function readSupportTickets() {
@@ -8111,7 +8624,73 @@ document.addEventListener("click", (event) => {
   const benchmarkTabButton = event.target.closest("[data-benchmark-tab]");
   if (benchmarkTabButton) {
     state.benchmarkTab = benchmarkTabButton.dataset.benchmarkTab || "benchmarks";
+    state.benchmarkSelectedId = "";
+    state.benchmarkSavedMode = "";
+    state.benchmarkDrawerOpen = false;
+    state.benchmarkFilters = { type: "all", code: "all", changedOnly: false, growthOnly: false, declineOnly: false };
     renderBenchmarksTool();
+    return;
+  }
+
+  const benchmarkResultButton = event.target.closest("[data-benchmark-id]");
+  if (benchmarkResultButton && !event.target.closest("[data-benchmark-action]")) {
+    state.benchmarkSelectedId = benchmarkResultButton.dataset.benchmarkId || "";
+    state.benchmarkDrawerOpen = true;
+    touchBenchmarkRecent(state.benchmarkSelectedId);
+    renderBenchmarkPanelOnly();
+    return;
+  }
+
+  const benchmarkActionButton = event.target.closest("[data-benchmark-action]");
+  if (benchmarkActionButton) {
+    const action = benchmarkActionButton.dataset.benchmarkAction;
+    if (action === "close-card") {
+      state.benchmarkDrawerOpen = false;
+      renderBenchmarkCard();
+      return;
+    }
+    if (action === "clear") {
+      state.benchmarkQuery = "";
+      state.benchmarkSelectedId = "";
+      state.benchmarkSavedMode = "";
+      state.benchmarkSort = "relevance";
+      state.benchmarkFilters = { type: "all", code: "all", changedOnly: false, growthOnly: false, declineOnly: false };
+      state.benchmarkDrawerOpen = false;
+      renderBenchmarksTool();
+      return;
+    }
+    if (action === "show-recent") {
+      state.benchmarkSavedMode = "recent";
+      state.benchmarkDrawerOpen = false;
+      renderBenchmarksTool();
+      return;
+    }
+    if (action === "show-favorites") {
+      state.benchmarkSavedMode = "favorites";
+      state.benchmarkDrawerOpen = false;
+      renderBenchmarksTool();
+      return;
+    }
+    if (action === "toggle-favorite") {
+      toggleBenchmarkFavorite(benchmarkActionButton.dataset.benchmarkFavoriteId || state.benchmarkSelectedId);
+      renderBenchmarkPanelOnly();
+      return;
+    }
+    if (action === "toggle-compare") {
+      const id = benchmarkActionButton.dataset.benchmarkCompareId || state.benchmarkSelectedId;
+      if (id) {
+        state.benchmarkCompareIds = state.benchmarkCompareIds.includes(id)
+          ? state.benchmarkCompareIds.filter((current) => current !== id)
+          : [id, ...state.benchmarkCompareIds.filter((current) => current !== id)].slice(0, 4);
+        renderBenchmarkPanelOnly();
+      }
+      return;
+    }
+    if (action === "clear-compare") {
+      state.benchmarkCompareIds = [];
+      renderBenchmarkPanelOnly();
+      return;
+    }
     return;
   }
 
@@ -8438,6 +9017,39 @@ document.addEventListener("input", (event) => {
     renderTepProjectPanelOnly();
     return;
   }
+  if (field && field.id === "benchmark-search") {
+    state.benchmarkQuery = field.value;
+    state.benchmarkSelectedId = "";
+    state.benchmarkSavedMode = "";
+    state.benchmarkDrawerOpen = false;
+    renderBenchmarkPanelOnly();
+    return;
+  }
+  if (field && field.id === "benchmark-type") {
+    state.benchmarkFilters.type = field.value || "all";
+    state.benchmarkSelectedId = "";
+    state.benchmarkSavedMode = "";
+    renderBenchmarksTool();
+    return;
+  }
+  if (field && field.id === "benchmark-sort") {
+    state.benchmarkSort = field.value || "relevance";
+    renderBenchmarkPanelOnly();
+    return;
+  }
+  if (field && field.id === "benchmark-code") {
+    state.benchmarkFilters.code = field.value || "all";
+    state.benchmarkSelectedId = "";
+    renderBenchmarksTool();
+    return;
+  }
+  if (field && field.dataset && field.dataset.benchmarkFilter) {
+    state.benchmarkFilters[field.dataset.benchmarkFilter] = Boolean(field.checked);
+    state.benchmarkSavedMode = "";
+    state.benchmarkSelectedId = "";
+    renderBenchmarkPanelOnly();
+    return;
+  }
   if (field && field.id === "benchmark-cost-search") {
     state.benchmarkCostQuery = field.value;
     state.benchmarkCostSelectedId = "";
@@ -8548,6 +9160,31 @@ document.addEventListener("change", (event) => {
     renderTepProjectPanelOnly();
     return;
   }
+  if (field && field.id === "benchmark-type") {
+    state.benchmarkFilters.type = field.value || "all";
+    state.benchmarkSelectedId = "";
+    state.benchmarkSavedMode = "";
+    renderBenchmarksTool();
+    return;
+  }
+  if (field && field.id === "benchmark-sort") {
+    state.benchmarkSort = field.value || "relevance";
+    renderBenchmarkPanelOnly();
+    return;
+  }
+  if (field && field.id === "benchmark-code") {
+    state.benchmarkFilters.code = field.value || "all";
+    state.benchmarkSelectedId = "";
+    renderBenchmarksTool();
+    return;
+  }
+  if (field && field.dataset && field.dataset.benchmarkFilter) {
+    state.benchmarkFilters[field.dataset.benchmarkFilter] = Boolean(field.checked);
+    state.benchmarkSavedMode = "";
+    state.benchmarkSelectedId = "";
+    renderBenchmarkPanelOnly();
+    return;
+  }
   if (field && field.id === "ncs-collection") {
     state.ncsCollectionId = field.value || "";
     state.ncsSectionId = "";
@@ -8597,7 +9234,7 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape" || (!state.smetReferenceDrawerOpen && !state.tepProjectDrawerOpen)) {
+  if (event.key !== "Escape" || (!state.smetReferenceDrawerOpen && !state.tepProjectDrawerOpen && !state.benchmarkDrawerOpen)) {
     return;
   }
   if (state.smetReferenceDrawerOpen) {
@@ -8607,6 +9244,10 @@ document.addEventListener("keydown", (event) => {
   if (state.tepProjectDrawerOpen) {
     state.tepProjectDrawerOpen = false;
     renderTepProjectCard();
+  }
+  if (state.benchmarkDrawerOpen) {
+    state.benchmarkDrawerOpen = false;
+    renderBenchmarkCard();
   }
 });
 
@@ -8837,6 +9478,7 @@ if (searchInput) {
 restoreMiniAppState();
 loadSmetReferenceUserLists();
 readTepProjectUserLists();
+readBenchmarkUserLists();
 renderPanelVisualDigest();
 renderPanelTools();
 renderView();
