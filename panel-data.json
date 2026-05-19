@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-19T20:00:01Z",
+  "generated_at": "2026-05-19T20:05:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "74 входящих",
-    "errors": "3"
+    "today": "75 входящих",
+    "errors": "2"
   },
   "tasks": {
     "total": 2,
@@ -37,21 +37,21 @@
   "trace": {
     "total_finishes": 25,
     "finishes_24h": 0,
-    "finishes_7d": 8,
-    "errors_7d": 3,
-    "avg_latency_ms": 42060,
+    "finishes_7d": 6,
+    "errors_7d": 2,
+    "avg_latency_ms": 56066,
     "top_intents": [
-      [
-        "bot_to_bot_inbound_relay",
-        2
-      ],
-      [
-        "bot_to_bot_outbound",
-        2
-      ],
       [
         "reply_context",
         2
+      ],
+      [
+        "bot_to_bot_inbound_relay",
+        1
+      ],
+      [
+        "bot_to_bot_outbound",
+        1
       ],
       [
         "reply_file_task",
@@ -69,14 +69,14 @@
       ],
       [
         "relayed",
-        2
-      ],
-      [
-        "sent",
-        2
+        1
       ],
       [
         "reply_file_redirect",
+        1
+      ],
+      [
+        "sent",
         1
       ]
     ],
@@ -88,8 +88,8 @@
     }
   },
   "bridge": {
-    "incoming_today": 74,
+    "incoming_today": 75,
     "webapp_today": 0,
-    "last_event": "2026-05-19 22:59:33,881 INFO Incoming update uid=5059630577 chat=5059630577 message_id=6335 content_type=ContentType.TEXT media_group_id=None text_len=90 attachment_kind=None attac"
+    "last_event": "2026-05-19 23:03:16,925 INFO Incoming update uid=5059630577 chat=5059630577 message_id=6337 content_type=ContentType.PHOTO media_group_id=None text_len=212 attachment_kind=photo at"
   }
 }
