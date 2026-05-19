@@ -1415,6 +1415,102 @@ h2 {
   text-align: right;
 }
 
+.benchmark-detail-table .cost-code-table-head,
+.benchmark-detail-table .cost-code-row {
+  grid-template-columns: minmax(0, 1.45fr) minmax(160px, 0.48fr) minmax(130px, 0.34fr);
+}
+
+.benchmark-detail-table .cost-code-table-head span:nth-child(2),
+.benchmark-detail-table .cost-code-table-head span:nth-child(3),
+.benchmark-detail-table .cost-code-row span {
+  text-align: center;
+}
+
+.finishing-detail-groups {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.finishing-detail-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finishing-detail-group header,
+.finishing-detail-head,
+.finishing-detail-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(260px, 1.35fr) minmax(150px, 0.42fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.finishing-detail-group header {
+  padding: 10px 12px;
+  border: 1px solid rgba(88, 210, 196, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(88, 210, 196, 0.07);
+}
+
+.finishing-detail-group header strong,
+.finishing-detail-group header span,
+.finishing-detail-head span,
+.finishing-detail-row strong,
+.finishing-detail-row span,
+.finishing-detail-row em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.finishing-detail-group header strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.finishing-detail-group header span,
+.finishing-detail-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.finishing-detail-head {
+  padding: 0 12px;
+}
+
+.finishing-detail-head span:nth-child(3) {
+  text-align: right;
+}
+
+.finishing-detail-row {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.finishing-detail-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.finishing-detail-row span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.finishing-detail-row em {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .support-layout {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
   align-items: start;
@@ -1492,6 +1588,54 @@ h2 {
 .smet-reference-actions button {
   min-height: 42px;
   white-space: nowrap;
+}
+
+.benchmark-search-panel.compact-cost-filter {
+  grid-template-columns: minmax(210px, 1fr) minmax(140px, 0.42fr) minmax(160px, 0.45fr) minmax(130px, 0.34fr) minmax(260px, 0.72fr) minmax(190px, 0.5fr) max-content;
+  gap: 8px;
+  align-items: end;
+  padding: 9px 10px;
+}
+
+.benchmark-search-panel.compact-cost-filter .span-2,
+.benchmark-search-panel.compact-cost-filter .smet-reference-actions {
+  grid-column: auto;
+}
+
+.benchmark-search-panel.compact-cost-filter label {
+  font-size: 12px;
+}
+
+.benchmark-search-panel.compact-cost-filter input,
+.benchmark-search-panel.compact-cost-filter select {
+  min-height: 34px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.benchmark-search-panel.compact-cost-filter .smet-filter-row {
+  flex-wrap: nowrap;
+}
+
+.benchmark-search-panel.compact-cost-filter .smet-filter-row label {
+  min-height: 34px;
+  padding: 7px 8px;
+  white-space: nowrap;
+}
+
+.benchmark-search-panel.compact-cost-filter .smet-saved-row {
+  flex-wrap: nowrap;
+}
+
+.benchmark-search-panel.compact-cost-filter .smet-reference-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.benchmark-search-panel.compact-cost-filter .smet-reference-actions button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 12px;
 }
 
 .smet-compare-panel {
@@ -4276,6 +4420,11 @@ h2 {
   .cost-code-table-head,
   .cost-code-row,
   .cost-subcode-row,
+  .benchmark-detail-table .cost-code-table-head,
+  .benchmark-detail-table .cost-code-row,
+  .finishing-detail-group header,
+  .finishing-detail-head,
+  .finishing-detail-row,
   .public-skill-grid,
   .activity-grid,
   .trace-summary,
@@ -4286,6 +4435,23 @@ h2 {
   .form-grid,
   .ops {
     grid-template-columns: 1fr;
+  }
+
+  .benchmark-search-panel.compact-cost-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .benchmark-search-panel.compact-cost-filter .smet-filter-row,
+  .benchmark-search-panel.compact-cost-filter .smet-saved-row {
+    flex-wrap: wrap;
+  }
+
+  .benchmark-detail-table .cost-code-table-head span:nth-child(2),
+  .benchmark-detail-table .cost-code-table-head span:nth-child(3),
+  .benchmark-detail-table .cost-code-row span,
+  .finishing-detail-head span:nth-child(3),
+  .finishing-detail-row em {
+    text-align: left;
   }
 
   .parking-breakdown-row > div:last-child {

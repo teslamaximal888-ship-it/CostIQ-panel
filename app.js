@@ -3620,6 +3620,7 @@ function buildBenchmarkCards(data) {
       unit: data.benchmarks.buildings.unit,
       tone: "blue",
       meta: data.benchmarks.buildings.description,
+      region: "МО / Москва",
       ...row,
     })),
     ...(data.benchmarks.parking.items || []).map((row) => ({
@@ -3628,6 +3629,7 @@ function buildBenchmarkCards(data) {
       unit: data.benchmarks.parking.unit,
       tone: "green",
       meta: data.benchmarks.parking.description,
+      region: "МО / Москва",
       ...row,
     })),
     ...Object.entries(data.benchmarks.social.regions || {}).flatMap(([region, types]) => Object.entries(types).flatMap(([type, rows]) => (rows || []).map((row) => ({
@@ -3729,6 +3731,42 @@ function buildFinishingRows(data) {
       bestPrice,
     };
   })).filter((row) => row.bestPrice > 0);
+}
+
+function splitFinishingPackage(value) {
+  const parts = String(value || "")
+    .split("/")
+    .map((part) => part.replace(/[«»]/g, "").trim())
+    .filter(Boolean);
+  return {
+    segment: parts[0] || "Без класса",
+    constructive: parts[1] || "Без конструктива",
+    variant: parts.slice(2).join(" / ") || parts[0] || "Базовый пакет",
+  };
+}
+
+function groupFinishingDetails(rows) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    (row.prices || []).forEach((price) => {
+      const parsed = splitFinishingPackage(price.name);
+      const groupKey = `${parsed.segment}|${parsed.constructive}`;
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          segment: parsed.segment,
+          constructive: parsed.constructive,
+          rows: [],
+        });
+      }
+      groups.get(groupKey).rows.push({
+        objectType: row.objectType || "-",
+        variant: parsed.variant,
+        price: Number(price.price || 0),
+      });
+    });
+  });
+  return [...groups.values()].sort((left, right) => left.segment.localeCompare(right.segment, "ru", { numeric: true })
+    || left.constructive.localeCompare(right.constructive, "ru", { numeric: true }));
 }
 
 function renderFinishingOverview(rows, activeGroup) {
@@ -4316,7 +4354,7 @@ function renderBenchmarkControls(context) {
       </div>
     </div>
     ${renderBenchmarkOverviewLine(context)}
-    ${advancedControls ? `<div class="smet-search-panel benchmark-search-panel">
+    ${advancedControls ? `<div class="smet-search-panel benchmark-search-panel compact-cost-filter">
       <label class="span-2" for="benchmark-search">Запрос
         <input id="benchmark-search" type="search" autocomplete="off" value="${escapeHtml(state.benchmarkQuery)}" placeholder="Проект, объект или показатель">
       </label>
@@ -4362,16 +4400,19 @@ function benchmarkMetricCells(item) {
     ];
   }
   if (item.tab === "finishing") {
+    const rowPrices = item.raw && Array.isArray(item.raw.rows)
+      ? item.raw.rows.reduce((sum, row) => sum + ((row.prices || []).length), 0)
+      : 0;
     return [
-      { label: "Мин. ставка", value: item.primary || 0, unit: item.primaryLabel },
-      { label: "Ставок", value: item.raw && item.raw.prices ? item.raw.prices.length : 0, unit: "шт." },
+      { label: "Мин. ставка", valueText: `${formatMoney(item.primary || 0)} руб./м2`, unit: "" },
+      { label: "Ставок", value: rowPrices, unit: "шт." },
       { label: "Группа", valueText: item.subtitle || "-", unit: "" },
     ];
   }
   return [
-    { label: "Показатель", value: item.primary || 0, unit: item.primaryLabel },
+    { label: "Позиций", value: item.primary || 0, unit: item.primaryLabel },
     { label: "Группа", valueText: item.type || "-", unit: "" },
-    { label: "Основание", valueText: item.secondary || "-", unit: "" },
+    { label: "Минимум", valueText: item.secondary || "-", unit: "" },
   ];
 }
 
@@ -4381,9 +4422,8 @@ function renderBenchmarkResult(item) {
   const cells = benchmarkMetricCells(item);
   return `
     <div class="smet-result benchmark-result ${item.id === state.benchmarkSelectedId ? "active" : ""}" data-benchmark-id="${escapeHtml(item.id)}" role="button" tabindex="0">
-      ${item.tab === "cost" ? "" : `<span class="smet-result-kind">${escapeHtml(item.section)}</span>`}
       <strong>${escapeHtml(item.title)}</strong>
-      <small>${escapeHtml(item.tab === "cost" ? item.subtitle : [item.subtitle, item.type, item.codeBrief].filter(Boolean).join(" · "))}</small>
+      ${item.tab === "cost" ? `<small>${escapeHtml(item.subtitle)}</small>` : `<small></small>`}
       <div class="smet-result-prices">
         ${cells.map((cell) => `
           <span class="smet-result-price">
@@ -4392,7 +4432,7 @@ function renderBenchmarkResult(item) {
           </span>
         `).join("")}
       </div>
-      <em>${escapeHtml(item.tab === "cost" ? item.raw && item.raw.normalizedChange && item.raw.normalizedChange.pct ? `${formatMoney(item.raw.normalizedChange.pct)}%` : "0%" : item.secondary || item.project || item.object || "-")}</em>
+      <em>${escapeHtml(item.tab === "cost" ? item.raw && item.raw.normalizedChange && item.raw.normalizedChange.pct ? `${formatMoney(item.raw.normalizedChange.pct)}%` : "0%" : "")}</em>
       <div class="smet-result-tools">
         <button type="button" class="${isCompared ? "active" : ""}" data-benchmark-action="toggle-compare" data-benchmark-compare-id="${escapeHtml(item.id)}">Сравнить</button>
         <button type="button" class="${isFavorite ? "active" : ""}" data-benchmark-action="toggle-favorite" data-benchmark-favorite-id="${escapeHtml(item.id)}">${isFavorite ? "В избранном" : "В избранное"}</button>
@@ -4464,20 +4504,20 @@ function renderBenchmarkDetail(item) {
         <div><span>Показателей</span><strong>${escapeHtml(formatMoney(item.raw.rows.length))}</strong><small>шт.</small></div>
         <div><span>Минимум</span><strong>${escapeHtml(item.secondary.replace("от ", "").replace(" руб./м2", ""))}</strong><small>руб./м2</small></div>
       </div>
-      <div class="cost-code-table detailed">
-        <div class="cost-code-table-head"><span>Показатель</span><span>Ставка</span><span>Источник</span><span></span></div>
+      <div class="cost-code-table detailed benchmark-detail-table">
+        <div class="cost-code-table-head"><span>Показатель</span><span>Ставка</span><span>Регион</span></div>
         ${item.raw.rows.map((row) => `
           <div class="cost-code-row">
             <strong>${escapeHtml(row.name || "-")}</strong>
             <span>${escapeHtml(formatMoney(row.price || 0))} ${escapeHtml(row.unit || "руб./м2")}</span>
-            <span>${escapeHtml(row.meta || row.region || "-")}</span>
-            <em></em>
+            <span>${escapeHtml(row.region || "МО / Москва")}</span>
           </div>
         `).join("")}
       </div>
     `;
   }
   if (item.tab === "finishing" && item.raw && Array.isArray(item.raw.rows)) {
+    const groups = groupFinishingDetails(item.raw.rows);
     return `
       <div class="smet-card-head"><span>Отделка квартир</span><em>${escapeHtml(item.subtitle || "")}</em></div>
       <h3>${escapeHtml(item.title)}</h3>
@@ -4486,16 +4526,25 @@ function renderBenchmarkDetail(item) {
         <div><span>Вариантов</span><strong>${escapeHtml(formatMoney(item.raw.rows.length))}</strong><small>шт.</small></div>
         <div><span>Минимум</span><strong>${escapeHtml(item.secondary.replace("от ", "").replace(" руб./м2", ""))}</strong><small>руб./м2</small></div>
       </div>
-      <div class="cost-code-table detailed">
-        <div class="cost-code-table-head"><span>Объект / тип дома</span><span>Ставка</span><span>Пакет</span><span></span></div>
-        ${item.raw.rows.flatMap((row) => row.prices.map((price) => `
-          <div class="cost-code-row">
-            <strong>${escapeHtml(row.objectType || "-")}</strong>
-            <span>${escapeHtml(formatMoney(price.price || 0))} руб./м2</span>
-            <span>${escapeHtml(price.name || "-")}</span>
-            <em></em>
-          </div>
-        `)).join("") || `<div class="empty">Ставки не заполнены</div>`}
+      <div class="finishing-detail-groups">
+        ${groups.map((group) => `
+          <section class="finishing-detail-group">
+            <header>
+              <strong>${escapeHtml(group.segment)}</strong>
+              <span>${escapeHtml(group.constructive)}</span>
+            </header>
+            <div class="finishing-detail-head"><span>Тип дома</span><span>Вариант / пакет</span><span>Ставка</span></div>
+            ${group.rows
+              .sort((left, right) => left.objectType.localeCompare(right.objectType, "ru", { numeric: true }) || left.variant.localeCompare(right.variant, "ru", { numeric: true }))
+              .map((row) => `
+                <div class="finishing-detail-row">
+                  <strong>${escapeHtml(row.objectType)}</strong>
+                  <span>${escapeHtml(row.variant)}</span>
+                  <em>${escapeHtml(formatMoney(row.price))} руб./м2</em>
+                </div>
+              `).join("")}
+          </section>
+        `).join("") || `<div class="empty">Ставки не заполнены</div>`}
       </div>
     `;
   }
