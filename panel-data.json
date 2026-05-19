@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-19T19:00:01Z",
+  "generated_at": "2026-05-19T19:20:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "64 входящих",
+    "today": "66 входящих",
     "errors": "3"
   },
   "tasks": {
@@ -37,16 +37,16 @@
   "trace": {
     "total_finishes": 25,
     "finishes_24h": 0,
-    "finishes_7d": 10,
+    "finishes_7d": 8,
     "errors_7d": 3,
-    "avg_latency_ms": 33680,
+    "avg_latency_ms": 42060,
     "top_intents": [
       [
-        "bot_to_bot_outbound",
-        4
+        "bot_to_bot_inbound_relay",
+        2
       ],
       [
-        "bot_to_bot_inbound_relay",
+        "bot_to_bot_outbound",
         2
       ],
       [
@@ -64,15 +64,15 @@
     ],
     "top_statuses": [
       [
-        "sent",
-        4
-      ],
-      [
         "success",
         3
       ],
       [
         "relayed",
+        2
+      ],
+      [
+        "sent",
         2
       ],
       [
@@ -88,8 +88,8 @@
     }
   },
   "bridge": {
-    "incoming_today": 64,
+    "incoming_today": 66,
     "webapp_today": 0,
-    "last_event": "2026-05-19 21:49:55,057 INFO Incoming update uid=5059630577 chat=5059630577 message_id=6310 content_type=ContentType.VOICE media_group_id=None text_len=0 attachment_kind=voice atta"
+    "last_event": "2026-05-19 22:17:44,884 INFO Incoming update uid=5059630577 chat=5059630577 message_id=6314 content_type=ContentType.TEXT media_group_id=None text_len=6 attachment_kind=None attach"
   }
 }
