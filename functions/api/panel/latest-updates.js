@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "Сметный справочник",
+    action: "обновлено",
+    text: "Поиск расценок стал списком на всю ширину; полная карточка открывается в отдельной панели с ценой, КВР, медианой, источником, связанными материалами и действиями.",
+    meta: "2026-05-19T17:00:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "История заявок",
     action: "обновлено",
     text: "Комментарий при создании заявки стал необязательным, в «Навыках» осталась только последняя заявка, а в «Мои заявки» добавлены поиск, история, открытие карточки и скрытие отработанных задач.",

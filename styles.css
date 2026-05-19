@@ -32,6 +32,10 @@ body {
   color: var(--text);
 }
 
+body.smet-drawer-active {
+  overflow: hidden;
+}
+
 button,
 input,
 select,
@@ -1432,15 +1436,15 @@ h2 {
 
 .smet-reference-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 0.86fr) minmax(0, 1.14fr);
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 0;
   align-items: start;
 }
 
 .smet-results {
   display: grid;
-  gap: 8px;
-  max-height: 620px;
+  gap: 6px;
+  max-height: 680px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -1456,10 +1460,12 @@ h2 {
 
 .smet-result {
   display: grid;
-  gap: 5px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.82fr) minmax(92px, auto);
+  gap: 8px 12px;
+  align-items: center;
   width: 100%;
-  min-height: 98px;
-  padding: 11px;
+  min-height: 88px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1476,25 +1482,99 @@ h2 {
 
 .smet-result span,
 .smet-result small,
-.smet-result em {
+.smet-result em,
+.smet-result i {
   color: var(--muted);
   font-size: 12px;
   font-style: normal;
   line-height: 1.3;
 }
 
-.smet-result span {
+.smet-result-kind {
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid rgba(88, 210, 196, 0.32);
+  border-radius: 999px;
   color: var(--teal);
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .smet-result strong {
+  grid-column: 1;
   line-height: 1.25;
+}
+
+.smet-result > small {
+  grid-column: 1;
+}
+
+.smet-result-prices {
+  grid-row: 1 / span 3;
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.smet-result-price {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.smet-result-price.wide {
+  grid-column: 1 / -1;
+}
+
+.smet-result-price b,
+.smet-result-price small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.smet-result-price b {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.smet-result em {
+  grid-column: 1 / span 2;
+  overflow-wrap: anywhere;
+}
+
+.smet-result i {
+  grid-row: 1 / span 3;
+  grid-column: 3;
+  justify-self: end;
+  padding: 7px 10px;
+  border: 1px solid rgba(88, 210, 196, 0.34);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .smet-card {
   min-width: 0;
+}
+
+.smet-card.open {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  justify-items: end;
+  pointer-events: auto;
+}
+
+.smet-card-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 10, 0.54);
+  cursor: pointer;
 }
 
 .smet-card article {
@@ -1502,6 +1582,33 @@ h2 {
   border: 1px solid rgba(88, 210, 196, 0.35);
   border-radius: var(--radius);
   background: linear-gradient(135deg, #151819 0%, #172021 66%, #161d22 100%);
+}
+
+.smet-card.open article {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 58vw);
+  height: 100%;
+  overflow-y: auto;
+  border-radius: var(--radius) 0 0 var(--radius);
+  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.38);
+}
+
+.smet-card-close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  float: right;
+  width: 36px;
+  height: 36px;
+  margin: -2px -2px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .smet-card-head {
@@ -3915,6 +4022,24 @@ h2 {
   .smet-reference-actions {
     grid-column: 1 / -1;
   }
+
+  .smet-result {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.72fr);
+  }
+
+  .smet-result-prices {
+    grid-column: 2;
+  }
+
+  .smet-result i {
+    grid-row: auto;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .smet-card.open article {
+    width: min(680px, 72vw);
+  }
 }
 
 @media (max-width: 740px) {
@@ -4028,6 +4153,38 @@ h2 {
 
   .smet-variant-row {
     grid-template-columns: 1fr;
+  }
+
+  .smet-result {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .smet-result strong,
+  .smet-result > small,
+  .smet-result-prices,
+  .smet-result em,
+  .smet-result i {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .smet-result-prices {
+    grid-template-columns: 1fr;
+  }
+
+  .smet-result i {
+    justify-self: stretch;
+    text-align: center;
+  }
+
+  .smet-card.open {
+    justify-items: stretch;
+  }
+
+  .smet-card.open article {
+    width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
   }
 
   .web-recent-row {

@@ -956,6 +956,7 @@ const state = {
   smetReferenceSelectedId: "",
   smetReferenceResults: [],
   smetReferenceExpandedVariantsFor: "",
+  smetReferenceDrawerOpen: false,
   panelToolsData: null,
   ncsUpSsMode: "ncs",
   ncsQuery: "",
@@ -2028,6 +2029,27 @@ function smetReferencePrice(item) {
   return item.total ? `${formatMoney(item.total)} руб./${item.unit || "ед."}` : "без цены";
 }
 
+function smetReferenceMetric(value, fallback = "-") {
+  const number = Number(value || 0);
+  return number ? formatMoney(number) : fallback;
+}
+
+function smetReferenceMedianText(item) {
+  if (!item || !item.kvr_median || !Number(item.kvr_median.median || 0)) {
+    return "";
+  }
+  const parts = [
+    item.kvr_median.min ? formatMoney(item.kvr_median.min) : "",
+    item.kvr_median.median ? formatMoney(item.kvr_median.median) : "",
+    item.kvr_median.max ? formatMoney(item.kvr_median.max) : "",
+  ].filter(Boolean);
+  return `${parts.join(" / ")} руб.${item.kvr_median.ot_count ? ` (${item.kvr_median.ot_count} ОТ)` : ""}`;
+}
+
+function smetReferenceSourceText(item) {
+  return [item.basis, item.object].filter(Boolean).join(" · ") || "-";
+}
+
 function smetReferenceSearchBlob(item) {
   return normalizeSearchText([
     item.title,
@@ -2353,13 +2375,26 @@ function renderSmetReferenceResults() {
     const group = item.type === "kvr" ? "КВР" : item.rate_kind === "material" ? "Материалы" : "Работы";
     const groupHeader = group !== previousGroup ? `<div class="smet-result-group">${escapeHtml(group)}</div>` : "";
     previousGroup = group;
+    const title = item.material_name || item.title || "Без названия";
+    const codeLine = [item.code, item.section, item.unit].filter(Boolean).join(" · ");
+    const median = smetReferenceMedianText(item);
+    const source = smetReferenceSourceText(item);
+    const priceCells = item.type === "rate"
+      ? `
+        <span class="smet-result-price"><b>${escapeHtml(smetReferenceMetric(item.total, "0"))}</b><small>Всего</small></span>
+        <span class="smet-result-price"><b>${escapeHtml(smetReferenceMetric(item.work, "0"))}</b><small>Работа</small></span>
+        <span class="smet-result-price"><b>${escapeHtml(smetReferenceMetric(item.material, "0"))}</b><small>Материал</small></span>
+      `
+      : `<span class="smet-result-price wide"><b>${escapeHtml(smetReferencePrice(item))}</b><small>${escapeHtml(item.type === "kvr" ? "Связанные данные" : "Норма")}</small></span>`;
     return `
     ${groupHeader}
     <button type="button" class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}">
-      <span>${escapeHtml(smetReferenceLabel(item))}</span>
-      <strong>${escapeHtml(item.material_name || item.title || "Без названия")}</strong>
-      <small>${escapeHtml([item.code, item.section, item.unit].filter(Boolean).join(" · "))}</small>
-      <em>${escapeHtml(smetReferencePrice(item))}</em>
+      <span class="smet-result-kind">${escapeHtml(smetReferenceLabel(item))}</span>
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(codeLine || source)}</small>
+      <span class="smet-result-prices">${priceCells}</span>
+      <em>${escapeHtml(median || source)}</em>
+      <i>Подробнее</i>
     </button>
   `;
   }).join("");
@@ -2371,13 +2406,17 @@ function renderSmetReferenceCard() {
     return;
   }
   const item = findSmetReferenceItem(state.smetReferenceSelectedId);
-  if (!item) {
-    card.innerHTML = `<div class="empty">Выберите позицию из результатов</div>`;
+  card.classList.toggle("open", Boolean(item && state.smetReferenceDrawerOpen));
+  document.body.classList.toggle("smet-drawer-active", Boolean(item && state.smetReferenceDrawerOpen));
+  if (!item || !state.smetReferenceDrawerOpen) {
+    card.innerHTML = "";
     return;
   }
   if (item.type === "kvr") {
     card.innerHTML = `
+      <div class="smet-card-backdrop" data-smet-reference-action="close-card"></div>
       <article>
+        <button type="button" class="smet-card-close" data-smet-reference-action="close-card" aria-label="Закрыть">×</button>
         <div class="smet-card-head">
           <span>КВР</span>
           <em>${escapeHtml(item.code || "")}</em>
@@ -2409,11 +2448,7 @@ function renderSmetReferenceCard() {
       </div>
     `;
   const kvrMedian = item.kvr_median && Number(item.kvr_median.median || 0) > 0
-    ? `<div><dt>Медиана ФСК</dt><dd>${escapeHtml([
-        item.kvr_median.min ? formatMoney(item.kvr_median.min) : "",
-        item.kvr_median.median ? formatMoney(item.kvr_median.median) : "",
-        item.kvr_median.max ? formatMoney(item.kvr_median.max) : "",
-      ].filter(Boolean).join(" / "))} руб.${item.kvr_median.ot_count ? ` (${escapeHtml(String(item.kvr_median.ot_count))} ОТ)` : ""}</dd></div>`
+    ? `<div><dt>Медиана ФСК</dt><dd>${escapeHtml(smetReferenceMedianText(item))}</dd></div>`
     : "";
   const materials = Array.isArray(item.materials) && item.materials.length
     ? `<div class="smet-card-list"><span>Материалы</span>${item.materials.map((row) => `<em>${escapeHtml(row)}</em>`).join("")}</div>`
@@ -2459,7 +2494,9 @@ function renderSmetReferenceCard() {
       </div>`
     : "";
   card.innerHTML = `
+    <div class="smet-card-backdrop" data-smet-reference-action="close-card"></div>
     <article>
+      <button type="button" class="smet-card-close" data-smet-reference-action="close-card" aria-label="Закрыть">×</button>
       <div class="smet-card-head">
         <span>${escapeHtml(smetReferenceLabel(item))}</span>
         <em>${escapeHtml(item.code || item.section || "")}</em>
@@ -2491,6 +2528,8 @@ function renderSmetReferenceTool() {
   }
   section.hidden = state.appView !== "tools" || state.panelToolId !== "smet_reference";
   if (section.hidden) {
+    state.smetReferenceDrawerOpen = false;
+    renderSmetReferenceCard();
     return;
   }
   renderSmetReferenceFilters();
@@ -7692,6 +7731,7 @@ document.addEventListener("click", (event) => {
   const smetReferenceResult = event.target.closest("[data-smet-reference-id]");
   if (smetReferenceResult) {
     state.smetReferenceSelectedId = smetReferenceResult.dataset.smetReferenceId || "";
+    state.smetReferenceDrawerOpen = Boolean(state.smetReferenceSelectedId);
     renderSmetReferenceResults();
     renderSmetReferenceCard();
     return;
@@ -7706,7 +7746,12 @@ document.addEventListener("click", (event) => {
       state.smetReferenceSection = "all";
       state.smetReferenceSelectedId = "";
       state.smetReferenceExpandedVariantsFor = "";
+      state.smetReferenceDrawerOpen = false;
       renderSmetReferenceTool();
+    }
+    if (action === "close-card") {
+      state.smetReferenceDrawerOpen = false;
+      renderSmetReferenceCard();
     }
     if (action === "send") {
       sendSmetReferenceToCostIQ();
@@ -7761,6 +7806,7 @@ document.addEventListener("input", (event) => {
   }
   if (field && field.id === "smet-reference-query") {
     state.smetReferenceQuery = field.value;
+    state.smetReferenceDrawerOpen = false;
     renderSmetReferenceTool();
     return;
   }
@@ -7828,6 +7874,7 @@ document.addEventListener("change", (event) => {
     state.smetReferenceScope = field.value || "smr";
     state.smetReferenceSelectedId = "";
     state.smetReferenceExpandedVariantsFor = "";
+    state.smetReferenceDrawerOpen = false;
     if (state.smetReferenceScope === "mtr") {
       state.smetReferenceSection = "Материалы";
     } else if (state.smetReferenceScope === "kvr") {
@@ -7838,6 +7885,9 @@ document.addEventListener("change", (event) => {
   }
   if (field && field.id === "smet-reference-section") {
     state.smetReferenceSection = field.value || "all";
+    state.smetReferenceSelectedId = "";
+    state.smetReferenceExpandedVariantsFor = "";
+    state.smetReferenceDrawerOpen = false;
     renderSmetReferenceTool();
     return;
   }
@@ -7887,6 +7937,14 @@ document.addEventListener("change", (event) => {
   if (field && field.closest && field.closest("#web-intake-form") && field.type !== "file") {
     saveWebIntakeDraft();
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !state.smetReferenceDrawerOpen) {
+    return;
+  }
+  state.smetReferenceDrawerOpen = false;
+  renderSmetReferenceCard();
 });
 
 document.addEventListener("submit", (event) => {
