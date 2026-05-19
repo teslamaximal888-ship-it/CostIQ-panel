@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "ТЭП проекта",
+    action: "доработано",
+    text: "База ТЭП переведена на список объектов с карточкой справа, фильтрами, сортировкой, сравнением, недавними объектами и избранным.",
+    meta: "2026-05-19T18:10:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "Сметный справочник",
     action: "доработано",
     text: "Добавлены быстрые фильтры, сортировка, сравнение до 4 расценок, недавние позиции и избранное для повторного подбора типовых работ.",

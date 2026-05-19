@@ -1868,6 +1868,14 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.tep-card-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tep-result .smet-result-tools:empty {
+  display: none;
+}
+
 .smet-card-actions {
   display: flex;
   flex-wrap: wrap;

@@ -6,6 +6,8 @@ const OFFICE_CALC_DRAFT_STORAGE_KEY = "costiq_office_calculator_draft";
 const PARKING_CALC_DRAFT_STORAGE_KEY = "costiq_parking_calculator_draft";
 const SMET_REFERENCE_FAVORITES_STORAGE_KEY = "costiq_smet_reference_favorites";
 const SMET_REFERENCE_RECENT_STORAGE_KEY = "costiq_smet_reference_recent";
+const TEP_PROJECT_FAVORITES_STORAGE_KEY = "costiq_tep_project_favorites";
+const TEP_PROJECT_RECENT_STORAGE_KEY = "costiq_tep_project_recent";
 const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
@@ -979,6 +981,20 @@ const state = {
   upssQuantity: 1,
   tepProjectQuery: "",
   tepProjectSelectedId: "",
+  tepProjectDrawerOpen: false,
+  tepProjectCompareIds: [],
+  tepProjectFavoriteIds: [],
+  tepProjectRecentIds: [],
+  tepProjectSavedMode: "",
+  tepProjectSort: "relevance",
+  tepProjectFilters: {
+    type: "all",
+    class: "all",
+    queue: "all",
+    rveYear: "all",
+    underground: false,
+    parking: false,
+  },
   benchmarkTab: "benchmarks",
   benchmarkGroup: "all",
   benchmarkFinishingGroup: "all",
@@ -3091,6 +3107,8 @@ function renderTepProjectTool() {
   }
   section.hidden = state.appView !== "tools" || state.panelToolId !== "tep_project";
   if (section.hidden) {
+    state.tepProjectDrawerOpen = false;
+    renderTepProjectCard();
     return;
   }
   const tep = state.panelToolsData && state.panelToolsData.tep;
@@ -3100,29 +3118,113 @@ function renderTepProjectTool() {
   }
   setText("tep-project-status", `${formatMoney(tep.projects.length)} проектов · ${formatMoney(tep.objects.length)} объектов`);
   const context = getTepProjectContext(tep);
+  const options = getTepProjectFilterOptions(tep.objects || []);
   panel.innerHTML = `
-    <div class="reference-toolbar">
-      <input id="tep-project-search" type="search" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Проект или объект">
+    <div class="smet-reference-tool tep-project-tool">
+      <div class="smet-search-panel">
+        <div class="field wide">
+          <label for="tep-project-search">Запрос</label>
+          <input id="tep-project-search" type="search" autocomplete="off" value="${escapeHtml(state.tepProjectQuery)}" placeholder="Проект или объект">
+        </div>
+        <div class="field">
+          <label for="tep-project-type">Тип</label>
+          <select id="tep-project-type">${renderSelectOptions(options.types, state.tepProjectFilters.type, "Все типы")}</select>
+        </div>
+        <div class="field">
+          <label for="tep-project-class">Класс</label>
+          <select id="tep-project-class">${renderSelectOptions(options.classes, state.tepProjectFilters.class, "Все классы")}</select>
+        </div>
+        <div class="field">
+          <label for="tep-project-sort">Сортировка</label>
+          <select id="tep-project-sort">
+            <option value="relevance"${state.tepProjectSort === "relevance" ? " selected" : ""}>По релевантности</option>
+            <option value="above_desc"${state.tepProjectSort === "above_desc" ? " selected" : ""}>Надземная: больше</option>
+            <option value="underground_desc"${state.tepProjectSort === "underground_desc" ? " selected" : ""}>Подземная: больше</option>
+            <option value="rve"${state.tepProjectSort === "rve" ? " selected" : ""}>По РВЭ</option>
+            <option value="project"${state.tepProjectSort === "project" ? " selected" : ""}>По проекту</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tep-project-queue">Очередь</label>
+          <select id="tep-project-queue">${renderSelectOptions(options.queues, state.tepProjectFilters.queue, "Все очереди")}</select>
+        </div>
+        <div class="field">
+          <label for="tep-project-rve-year">РВЭ</label>
+          <select id="tep-project-rve-year">${renderSelectOptions(options.rveYears, state.tepProjectFilters.rveYear, "Все годы")}</select>
+        </div>
+        <div class="smet-filter-row" aria-label="Фильтры ТЭП">
+          <label><input type="checkbox" data-tep-filter="underground"${state.tepProjectFilters.underground ? " checked" : ""}> Есть подземная</label>
+          <label><input type="checkbox" data-tep-filter="parking"${state.tepProjectFilters.parking ? " checked" : ""}> Есть машиноместа</label>
+        </div>
+        <div class="smet-saved-row">
+          <button type="button" class="ghost-button compact" data-tep-action="show-recent">Недавние</button>
+          <button type="button" class="ghost-button compact" data-tep-action="show-favorites">Избранное</button>
+        </div>
+        <div class="smet-reference-actions">
+          <button type="button" class="ghost-button" data-tep-action="clear">Очистить</button>
+        </div>
+      </div>
+      <div class="smet-compare-panel" id="tep-project-compare" hidden></div>
+      <div class="smet-reference-layout">
+        <div class="smet-results" id="tep-project-results">${renderTepProjectPanel(context)}</div>
+        <div class="smet-card" id="tep-project-card"></div>
+      </div>
     </div>
-    <div id="tep-project-results">${renderTepProjectPanel(context)}</div>
   `;
+  renderTepProjectCompare();
+  renderTepProjectCard();
 }
 
 function getTepProjectContext(tep = state.panelToolsData && state.panelToolsData.tep) {
   const objects = tep && Array.isArray(tep.objects) ? tep.objects : [];
+  if (state.tepProjectSavedMode) {
+    const ids = state.tepProjectSavedMode === "favorites" ? state.tepProjectFavoriteIds : state.tepProjectRecentIds;
+    const results = sortTepProjectItems(applyTepProjectFilters(tepProjectItemsByIds(ids)), state.tepProjectSort).slice(0, 60);
+    const selected = results.find((item) => item.id === state.tepProjectSelectedId) || results[0] || null;
+    if (selected) {
+      state.tepProjectSelectedId = selected.id;
+    }
+    return { results, projectScope: "", objectQuery: "", projectSummary: null, selected, hint: state.tepProjectSavedMode === "favorites" ? "Избранные объекты ТЭП" : "Недавно открытые объекты ТЭП" };
+  }
   const search = resolveTepProjectSearch(objects, state.tepProjectQuery);
-  const projectSummary = search.projectScope && !search.objectQuery ? buildTepProjectSummary(search.projectScope, search.results) : null;
-  const selectedObject = objects.find((item) => item.id === state.tepProjectSelectedId);
-  const selected = selectedObject || projectSummary || search.results[0] || null;
-  if (selected) {
+  const filtered = applyTepProjectFilters(search.results);
+  const sorted = sortTepProjectItems(filtered, state.tepProjectSort).slice(0, 60);
+  const projectSummary = search.projectScope && !search.objectQuery ? buildTepProjectSummary(search.projectScope, filtered.length ? filtered : search.results) : null;
+  const selected = findTepProjectItem(state.tepProjectSelectedId, projectSummary) || projectSummary || sorted[0] || null;
+  if (selected && !sorted.some((item) => item.id === selected.id) && !selected.isProjectSummary) {
+    state.tepProjectSelectedId = sorted[0] ? sorted[0].id : "";
+  } else if (selected) {
     state.tepProjectSelectedId = selected.id;
   }
   return {
-    results: search.results,
+    results: sorted,
     projectScope: search.projectScope,
     objectQuery: search.objectQuery,
     projectSummary,
     selected,
+    hint: "",
+  };
+}
+
+function renderSelectOptions(values, selected, allLabel) {
+  return [
+    `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)}</option>`,
+    ...values.map((value) => `<option value="${escapeHtml(value)}"${String(selected) === String(value) ? " selected" : ""}>${escapeHtml(value)}</option>`),
+  ].join("");
+}
+
+function getTepProjectFilterOptions(items) {
+  const clean = (values) => [...new Set(values.filter(Boolean).map(String))]
+    .sort((a, b) => a.localeCompare(b, "ru", { numeric: true }));
+  const rveYears = clean(items.map((item) => {
+    const value = item.dates && (item.dates.rve_forecast || item.dates.rve_plan);
+    return value ? String(value).slice(0, 4) : "";
+  }));
+  return {
+    types: clean(items.map((item) => item.type)),
+    classes: clean(items.map((item) => item.class)),
+    queues: clean(items.map((item) => item.queue)),
+    rveYears,
   };
 }
 
@@ -3232,40 +3334,160 @@ function resolveTepProjectSearch(items, query) {
   return { results, projectScope, objectQuery: objectWords.join(" ") };
 }
 
+function tepProjectItems() {
+  const tep = state.panelToolsData && state.panelToolsData.tep;
+  return tep && Array.isArray(tep.objects) ? tep.objects : [];
+}
+
+function findTepProjectItem(id, projectSummary = null) {
+  if (!id) {
+    return null;
+  }
+  if (projectSummary && projectSummary.id === id) {
+    return projectSummary;
+  }
+  return tepProjectItems().find((item) => item.id === id) || null;
+}
+
+function tepProjectItemsByIds(ids) {
+  const itemMap = new Map(tepProjectItems().map((item) => [item.id, item]));
+  return ids.map((id) => itemMap.get(id)).filter(Boolean);
+}
+
+function readTepProjectUserLists() {
+  state.tepProjectFavoriteIds = readJsonStorage(TEP_PROJECT_FAVORITES_STORAGE_KEY, []);
+  state.tepProjectRecentIds = readJsonStorage(TEP_PROJECT_RECENT_STORAGE_KEY, []);
+}
+
+function saveTepProjectUserLists() {
+  writeJsonStorage(TEP_PROJECT_FAVORITES_STORAGE_KEY, state.tepProjectFavoriteIds.slice(0, 80));
+  writeJsonStorage(TEP_PROJECT_RECENT_STORAGE_KEY, state.tepProjectRecentIds.slice(0, 30));
+}
+
+function touchTepProjectRecent(id) {
+  const item = findTepProjectItem(id);
+  if (!item || item.isProjectSummary) {
+    return;
+  }
+  state.tepProjectRecentIds = [id, ...state.tepProjectRecentIds.filter((current) => current !== id)].slice(0, 30);
+  saveTepProjectUserLists();
+}
+
+function toggleTepProjectFavorite(id) {
+  const item = findTepProjectItem(id);
+  if (!item || item.isProjectSummary) {
+    return;
+  }
+  state.tepProjectFavoriteIds = state.tepProjectFavoriteIds.includes(id)
+    ? state.tepProjectFavoriteIds.filter((current) => current !== id)
+    : [id, ...state.tepProjectFavoriteIds].slice(0, 80);
+  saveTepProjectUserLists();
+}
+
+function applyTepProjectFilters(items) {
+  const filters = state.tepProjectFilters || {};
+  return items.filter((item) => {
+    if (filters.type !== "all" && String(item.type || "") !== String(filters.type)) {
+      return false;
+    }
+    if (filters.class !== "all" && String(item.class || "") !== String(filters.class)) {
+      return false;
+    }
+    if (filters.queue !== "all" && String(item.queue || "") !== String(filters.queue)) {
+      return false;
+    }
+    if (filters.rveYear !== "all") {
+      const rve = item.dates && (item.dates.rve_forecast || item.dates.rve_plan);
+      if (String(rve || "").slice(0, 4) !== String(filters.rveYear)) {
+        return false;
+      }
+    }
+    if (filters.underground && !(item.areas_total && Number(item.areas_total.underground || 0) > 0)) {
+      return false;
+    }
+    if (filters.parking && !tepProjectParkingMetric(item)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function sortTepProjectItems(items, sort) {
+  const area = (item, field) => Number((item.areas_total && item.areas_total[field]) || 0);
+  const rve = (item) => String((item.dates && (item.dates.rve_forecast || item.dates.rve_plan)) || "9999-99-99");
+  const rows = [...items];
+  if (sort === "above_desc") {
+    return rows.sort((a, b) => area(b, "above_ground") - area(a, "above_ground"));
+  }
+  if (sort === "underground_desc") {
+    return rows.sort((a, b) => area(b, "underground") - area(a, "underground"));
+  }
+  if (sort === "rve") {
+    return rows.sort((a, b) => rve(a).localeCompare(rve(b), "ru"));
+  }
+  if (sort === "project") {
+    return rows.sort((a, b) => [a.project, a.queue, a.object].join("|").localeCompare([b.project, b.queue, b.object].join("|"), "ru", { numeric: true }));
+  }
+  return rows;
+}
+
+function tepProjectParkingMetric(item) {
+  const realty = Array.isArray(item.realty) ? item.realty : [];
+  const row = realty.find((entry) => normalizeSearchText([entry.realty_type, entry.finish_type].join(" ")).includes("машиномест"));
+  return row ? Number(row.count || 0) : 0;
+}
+
+function tepProjectRealtyBrief(item, limit = 3) {
+  const realty = Array.isArray(item.realty) ? item.realty : [];
+  return realty
+    .filter((row) => row.realty_type)
+    .slice(0, limit)
+    .map((row) => [row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))
+    .join(" / ");
+}
+
+function tepProjectDatesBrief(item) {
+  const dates = item.dates || {};
+  return [
+    dates.rs_forecast || dates.rs_plan ? `РС ${dates.rs_forecast || dates.rs_plan}` : "",
+    dates.rve_forecast || dates.rve_plan ? `РВЭ ${dates.rve_forecast || dates.rve_plan}` : "",
+    dates.transfer_forecast || dates.transfer_plan ? `Передача ${dates.transfer_forecast || dates.transfer_plan}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
 function renderTepProjectPanel(context = getTepProjectContext()) {
   const selected = context.selected;
-  const realty = selected && Array.isArray(selected.realty) ? selected.realty : [];
-  const hint = context.projectScope
+  const hint = context.hint || (context.projectScope
     ? `Проект: ${context.projectScope}${context.objectQuery ? ` · объект: ${context.objectQuery}` : ""}`
-    : state.tepProjectQuery ? "Поиск по проектам и объектам" : "Показаны первые объекты базы";
+    : state.tepProjectQuery ? "Поиск по проектам и объектам" : "Показаны первые объекты базы");
   return `
     <div class="cost-search-hint">${escapeHtml(hint)}</div>
-    <div class="reference-layout">
-      <div class="reference-results">
-        ${context.projectSummary ? `<button type="button" class="${context.projectSummary.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(context.projectSummary.id)}"><span>${escapeHtml(context.projectSummary.project)}</span><strong>Сводная по проекту</strong><small>${escapeHtml(`${formatMoney(context.projectSummary.objectCount)} объектов`)}</small></button>` : ""}
-        ${context.results.map((item) => `<button type="button" class="${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}"><span>${escapeHtml(item.project)}</span><strong>${escapeHtml(item.object || item.type)}</strong><small>${escapeHtml([item.type, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small></button>`).join("") || `<div class="empty">Объекты не найдены</div>`}
-      </div>
-      <article class="reference-card">
-        ${selected ? `
-          <div class="smet-card-head"><span>ТЭП</span><em>${escapeHtml(selected.type || "")}</em></div>
-          <h3>${escapeHtml([selected.project, selected.object].filter(Boolean).join(" · "))}</h3>
-          <div class="smet-card-metrics">
-            <div><span>Надземная</span><strong>${escapeHtml(formatMoney(selected.areas_total.above_ground || 0))}</strong><small>м2</small></div>
-            <div><span>Подземная</span><strong>${escapeHtml(formatMoney(selected.areas_total.underground || 0))}</strong><small>м2</small></div>
-            <div><span>Благоустройство</span><strong>${escapeHtml(formatMoney(selected.areas_total.landscape || 0))}</strong><small>м2</small></div>
-          </div>
-          <dl class="tep-detail-list">
-            ${selected.isProjectSummary ? `<div><dt>Объектов в проекте</dt><dd>${escapeHtml(formatMoney(selected.objectCount || 0))}</dd></div>` : ""}
-            <div><dt>Класс</dt><dd>${escapeHtml(selected.class || "-")}</dd></div>
-            <div><dt>Очередь</dt><dd>${escapeHtml(selected.queue || "-")}</dd></div>
-            <div><dt>РС план / прогноз</dt><dd>${escapeHtml([selected.dates.rs_plan, selected.dates.rs_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
-            <div><dt>РВЭ план / прогноз</dt><dd>${escapeHtml([selected.dates.rve_plan, selected.dates.rve_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
-            <div><dt>Передача</dt><dd>${escapeHtml([selected.dates.transfer_plan, selected.dates.transfer_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
-            <div><dt>СМР</dt><dd>${escapeHtml([selected.dates.smr_start, selected.dates.smr_finish].filter(Boolean).join(" / ") || "-")}</dd></div>
-          </dl>
-          <div class="smet-card-list tep-realty-list"><span>Недвижимость</span>${realty.slice(0, 12).map((row) => `<em>${escapeHtml([row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))}</em>`).join("")}</div>
-        ` : `<div class="empty">Выберите объект</div>`}
-      </article>
+    ${context.projectSummary ? renderTepProjectRow(context.projectSummary, { summary: true }) : ""}
+    ${context.results.map((item) => renderTepProjectRow(item)).join("") || `<div class="empty">Объекты не найдены</div>`}
+  `;
+}
+
+function renderTepProjectRow(item, options = {}) {
+  const areas = item.areas_total || {};
+  const isCompared = state.tepProjectCompareIds.includes(item.id);
+  const isFavorite = state.tepProjectFavoriteIds.includes(item.id);
+  const canSave = !item.isProjectSummary;
+  return `
+    <div class="smet-result tep-result ${item.id === state.tepProjectSelectedId ? "active" : ""}" data-tep-id="${escapeHtml(item.id)}" role="button" tabindex="0">
+      <span class="smet-result-kind">${escapeHtml(options.summary ? "сводная" : item.type || "ТЭП")}</span>
+      <strong>${escapeHtml(options.summary ? item.project : item.object || item.type || "Без названия")}</strong>
+      <small>${escapeHtml([item.project, item.class, item.queue ? `очередь ${item.queue}` : ""].filter(Boolean).join(" · "))}</small>
+      <span class="smet-result-prices">
+        <span class="smet-result-price"><b>${escapeHtml(formatMoney(areas.above_ground || 0))}</b><small>Надземная</small></span>
+        <span class="smet-result-price"><b>${escapeHtml(formatMoney(areas.underground || 0))}</b><small>Подземная</small></span>
+        <span class="smet-result-price"><b>${escapeHtml(formatMoney(tepProjectParkingMetric(item) || 0))}</b><small>М/м</small></span>
+      </span>
+      <em>${escapeHtml(tepProjectDatesBrief(item) || tepProjectRealtyBrief(item) || `${formatMoney(item.objectCount || 0)} объектов`)}</em>
+      <span class="smet-result-tools">
+        ${canSave ? `<button type="button" class="${isCompared ? "active" : ""}" data-tep-action="toggle-compare" data-tep-compare-id="${escapeHtml(item.id)}">Сравнить</button>` : ""}
+        ${canSave ? `<button type="button" class="${isFavorite ? "active" : ""}" data-tep-action="toggle-favorite" data-tep-favorite-id="${escapeHtml(item.id)}">${isFavorite ? "В избранном" : "В избранное"}</button>` : ""}
+      </span>
+      <i>Подробнее</i>
     </div>
   `;
 }
@@ -3277,6 +3499,99 @@ function renderTepProjectPanelOnly() {
     return;
   }
   panel.innerHTML = renderTepProjectPanel(getTepProjectContext());
+  renderTepProjectCompare();
+  renderTepProjectCard();
+}
+
+function renderTepProjectCompare() {
+  const container = document.getElementById("tep-project-compare");
+  if (!container) {
+    return;
+  }
+  const items = tepProjectItemsByIds(state.tepProjectCompareIds).slice(0, 4);
+  container.hidden = !items.length;
+  if (!items.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="smet-compare-head">
+      <strong>Сравнение объектов ТЭП</strong>
+      <span>${items.length} из 4</span>
+      <button type="button" class="ghost-button compact" data-tep-action="clear-compare">Очистить</button>
+    </div>
+    <div class="smet-compare-table tep-compare-table">
+      ${items.map((item) => {
+        const areas = item.areas_total || {};
+        return `
+          <div class="smet-compare-row" data-tep-id="${escapeHtml(item.id)}">
+            <strong>${escapeHtml([item.project, item.object].filter(Boolean).join(" · "))}</strong>
+            <span>${escapeHtml(formatMoney(areas.above_ground || 0))}<small>Надземная</small></span>
+            <span>${escapeHtml(formatMoney(areas.underground || 0))}<small>Подземная</small></span>
+            <span>${escapeHtml(formatMoney(areas.landscape || 0))}<small>Благоустройство</small></span>
+            <span>${escapeHtml(formatMoney(tepProjectParkingMetric(item) || 0))}<small>М/м</small></span>
+            <em>${escapeHtml(tepProjectDatesBrief(item) || "-")}</em>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderTepProjectCard() {
+  const card = document.getElementById("tep-project-card");
+  if (!card) {
+    return;
+  }
+  const context = getTepProjectContext();
+  const item = context.selected;
+  card.classList.toggle("open", Boolean(item && state.tepProjectDrawerOpen));
+  document.body.classList.toggle("tep-drawer-active", Boolean(item && state.tepProjectDrawerOpen));
+  if (!item || !state.tepProjectDrawerOpen) {
+    card.innerHTML = "";
+    return;
+  }
+  const areas = item.areas_total || {};
+  const dates = item.dates || {};
+  const realty = Array.isArray(item.realty) ? item.realty : [];
+  const canSave = !item.isProjectSummary;
+  const favoriteButton = canSave
+    ? `<button type="button" class="ghost-button compact" data-tep-action="toggle-favorite" data-tep-favorite-id="${escapeHtml(item.id)}">${state.tepProjectFavoriteIds.includes(item.id) ? "Убрать из избранного" : "В избранное"}</button>`
+    : "";
+  const compareButton = canSave
+    ? `<button type="button" class="ghost-button compact" data-tep-action="toggle-compare" data-tep-compare-id="${escapeHtml(item.id)}">${state.tepProjectCompareIds.includes(item.id) ? "Убрать из сравнения" : "Сравнить"}</button>`
+    : "";
+  card.innerHTML = `
+    <div class="smet-card-backdrop" data-tep-action="close-card"></div>
+    <article>
+      <button type="button" class="smet-card-close" data-tep-action="close-card" aria-label="Закрыть">×</button>
+      <div class="smet-card-head">
+        <span>${escapeHtml(item.isProjectSummary ? "Сводная ТЭП" : "ТЭП")}</span>
+        <em>${escapeHtml(item.type || "")}</em>
+      </div>
+      <h3>${escapeHtml([item.project, item.object].filter(Boolean).join(" · "))}</h3>
+      <div class="smet-card-metrics tep-card-metrics">
+        <div><span>Всего</span><strong>${escapeHtml(formatMoney(areas.total || 0))}</strong><small>м2</small></div>
+        <div><span>Надземная</span><strong>${escapeHtml(formatMoney(areas.above_ground || 0))}</strong><small>м2</small></div>
+        <div><span>Подземная</span><strong>${escapeHtml(formatMoney(areas.underground || 0))}</strong><small>м2</small></div>
+        <div><span>Благоустройство</span><strong>${escapeHtml(formatMoney(areas.landscape || 0))}</strong><small>м2</small></div>
+      </div>
+      <dl class="tep-detail-list">
+        ${item.isProjectSummary ? `<div><dt>Объектов в проекте</dt><dd>${escapeHtml(formatMoney(item.objectCount || 0))}</dd></div>` : ""}
+        <div><dt>Класс</dt><dd>${escapeHtml(item.class || "-")}</dd></div>
+        <div><dt>Очередь</dt><dd>${escapeHtml(item.queue || "-")}</dd></div>
+        <div><dt>РС план / прогноз</dt><dd>${escapeHtml([dates.rs_plan, dates.rs_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+        <div><dt>РВЭ план / прогноз</dt><dd>${escapeHtml([dates.rve_plan, dates.rve_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+        <div><dt>Передача</dt><dd>${escapeHtml([dates.transfer_plan, dates.transfer_forecast].filter(Boolean).join(" / ") || "-")}</dd></div>
+        <div><dt>СМР</dt><dd>${escapeHtml([dates.smr_start, dates.smr_finish].filter(Boolean).join(" / ") || "-")}</dd></div>
+      </dl>
+      <div class="smet-card-list tep-realty-list">
+        <span>Недвижимость</span>
+        ${realty.length ? realty.slice(0, 18).map((row) => `<em>${escapeHtml([row.realty_type, row.finish_type, row.sale_area ? `${formatMoney(row.sale_area)} м2` : "", row.count ? `${formatMoney(row.count)} шт.` : ""].filter(Boolean).join(" · "))}</em>`).join("") : `<em>Нет детализации</em>`}
+      </div>
+      ${favoriteButton || compareButton ? `<div class="smet-card-actions">${compareButton}${favoriteButton}</div>` : ""}
+    </article>
+  `;
 }
 
 function buildBenchmarkCards(data) {
@@ -7732,9 +8047,64 @@ document.addEventListener("click", (event) => {
   }
 
   const tepResultButton = event.target.closest("[data-tep-id]");
-  if (tepResultButton) {
+  if (tepResultButton && !event.target.closest("[data-tep-action]")) {
     state.tepProjectSelectedId = tepResultButton.dataset.tepId || "";
-    renderTepProjectTool();
+    state.tepProjectDrawerOpen = true;
+    touchTepProjectRecent(state.tepProjectSelectedId);
+    renderTepProjectPanelOnly();
+    return;
+  }
+
+  const tepActionButton = event.target.closest("[data-tep-action]");
+  if (tepActionButton) {
+    const action = tepActionButton.dataset.tepAction;
+    if (action === "close-card") {
+      state.tepProjectDrawerOpen = false;
+      renderTepProjectCard();
+      return;
+    }
+    if (action === "clear") {
+      state.tepProjectQuery = "";
+      state.tepProjectSelectedId = "";
+      state.tepProjectSavedMode = "";
+      state.tepProjectSort = "relevance";
+      state.tepProjectFilters = { type: "all", class: "all", queue: "all", rveYear: "all", underground: false, parking: false };
+      state.tepProjectDrawerOpen = false;
+      renderTepProjectTool();
+      return;
+    }
+    if (action === "show-recent") {
+      state.tepProjectSavedMode = "recent";
+      state.tepProjectDrawerOpen = false;
+      renderTepProjectTool();
+      return;
+    }
+    if (action === "show-favorites") {
+      state.tepProjectSavedMode = "favorites";
+      state.tepProjectDrawerOpen = false;
+      renderTepProjectTool();
+      return;
+    }
+    if (action === "toggle-favorite") {
+      toggleTepProjectFavorite(tepActionButton.dataset.tepFavoriteId || state.tepProjectSelectedId);
+      renderTepProjectPanelOnly();
+      return;
+    }
+    if (action === "toggle-compare") {
+      const id = tepActionButton.dataset.tepCompareId || state.tepProjectSelectedId;
+      if (id) {
+        state.tepProjectCompareIds = state.tepProjectCompareIds.includes(id)
+          ? state.tepProjectCompareIds.filter((current) => current !== id)
+          : [id, ...state.tepProjectCompareIds].slice(0, 4);
+        renderTepProjectPanelOnly();
+      }
+      return;
+    }
+    if (action === "clear-compare") {
+      state.tepProjectCompareIds = [];
+      renderTepProjectPanelOnly();
+      return;
+    }
     return;
   }
 
@@ -8023,6 +8393,48 @@ document.addEventListener("input", (event) => {
   if (field && field.id === "tep-project-search") {
     state.tepProjectQuery = field.value;
     state.tepProjectSelectedId = "";
+    state.tepProjectSavedMode = "";
+    state.tepProjectDrawerOpen = false;
+    renderTepProjectPanelOnly();
+    return;
+  }
+  if (field && field.id === "tep-project-type") {
+    state.tepProjectFilters.type = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-class") {
+    state.tepProjectFilters.class = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-queue") {
+    state.tepProjectFilters.queue = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-rve-year") {
+    state.tepProjectFilters.rveYear = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-sort") {
+    state.tepProjectSort = field.value || "relevance";
+    renderTepProjectPanelOnly();
+    return;
+  }
+  if (field && field.dataset && field.dataset.tepFilter) {
+    state.tepProjectFilters[field.dataset.tepFilter] = Boolean(field.checked);
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
     renderTepProjectPanelOnly();
     return;
   }
@@ -8096,6 +8508,46 @@ document.addEventListener("change", (event) => {
     renderSmetReferenceTool();
     return;
   }
+  if (field && field.id === "tep-project-type") {
+    state.tepProjectFilters.type = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-class") {
+    state.tepProjectFilters.class = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-queue") {
+    state.tepProjectFilters.queue = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-rve-year") {
+    state.tepProjectFilters.rveYear = field.value || "all";
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectTool();
+    return;
+  }
+  if (field && field.id === "tep-project-sort") {
+    state.tepProjectSort = field.value || "relevance";
+    renderTepProjectPanelOnly();
+    return;
+  }
+  if (field && field.dataset && field.dataset.tepFilter) {
+    state.tepProjectFilters[field.dataset.tepFilter] = Boolean(field.checked);
+    state.tepProjectSavedMode = "";
+    state.tepProjectSelectedId = "";
+    renderTepProjectPanelOnly();
+    return;
+  }
   if (field && field.id === "ncs-collection") {
     state.ncsCollectionId = field.value || "";
     state.ncsSectionId = "";
@@ -8145,11 +8597,17 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape" || !state.smetReferenceDrawerOpen) {
+  if (event.key !== "Escape" || (!state.smetReferenceDrawerOpen && !state.tepProjectDrawerOpen)) {
     return;
   }
-  state.smetReferenceDrawerOpen = false;
-  renderSmetReferenceCard();
+  if (state.smetReferenceDrawerOpen) {
+    state.smetReferenceDrawerOpen = false;
+    renderSmetReferenceCard();
+  }
+  if (state.tepProjectDrawerOpen) {
+    state.tepProjectDrawerOpen = false;
+    renderTepProjectCard();
+  }
 });
 
 document.addEventListener("submit", (event) => {
@@ -8378,6 +8836,7 @@ if (searchInput) {
 
 restoreMiniAppState();
 loadSmetReferenceUserLists();
+readTepProjectUserLists();
 renderPanelVisualDigest();
 renderPanelTools();
 renderView();
