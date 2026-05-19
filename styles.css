@@ -3028,8 +3028,17 @@ h2 {
 }
 
 .web-task-title,
+.web-task-title strong,
 .web-task-title small {
   display: block;
+}
+
+.web-task-title strong {
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .web-task-title em {
@@ -3047,6 +3056,17 @@ h2 {
   margin-top: 4px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.web-task-tech-id {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+.web-task-tech-id summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .web-task-message {
@@ -3192,6 +3212,23 @@ h2 {
   background: var(--surface-2);
 }
 
+.web-technical-log {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.web-technical-log summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.web-technical-log[open] summary {
+  margin-bottom: 6px;
+}
+
 .web-event-log-head,
 .web-event-row {
   display: grid;
@@ -3245,7 +3282,7 @@ h2 {
 
 .web-task-visual-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
   margin-bottom: 10px;
 }

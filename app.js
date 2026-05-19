@@ -6042,51 +6042,51 @@ function appendWebMetadata(formData, skill) {
 function webTaskStatusLabel(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "created") {
-    return "создана";
+    return "Заявка создана";
   }
   if (normalized === "queued") {
-    return "в очереди";
+    return "В очереди";
   }
   if (normalized === "in_progress") {
-    return "в работе";
+    return "Идёт обработка";
   }
   if (normalized === "retry") {
-    return "повтор";
+    return "Повторная обработка";
   }
   if (normalized === "done") {
-    return "готово";
+    return "Результат готов";
   }
   if (normalized === "ready_for_review") {
-    return "на проверке";
+    return "Готово к проверке";
   }
   if (normalized === "question_requested") {
-    return "вопрос задан";
+    return "Вопрос отправлен";
   }
   if (normalized === "revision_requested") {
-    return "нужна доработка";
+    return "Запрошена доработка";
   }
   if (normalized === "question_answered") {
-    return "ответ готов";
+    return "Ответ готов";
   }
   if (normalized === "revision_completed") {
-    return "доработано";
+    return "Доработка готова";
   }
   if (normalized === "reworking") {
-    return "доработка";
+    return "Идёт доработка";
   }
   if (normalized === "accepted") {
-    return "принято";
+    return "Результат принят";
   }
   if (normalized === "closed") {
-    return "закрыто";
+    return "Заявка закрыта";
   }
   if (normalized === "closed_by_timeout") {
-    return "закрыто по сроку";
+    return "Закрыта по сроку";
   }
   if (normalized === "failed") {
-    return "ошибка";
+    return "Нужна проверка";
   }
-  return status || "статус";
+  return status || "Статус";
 }
 
 function webTaskStatusTone(status) {
@@ -6153,16 +6153,16 @@ function webStatusMessage(task) {
 function webTaskCheckpointLabel(checkpoint) {
   const normalized = String(checkpoint || "").toLowerCase();
   const labels = {
-    file_received: "файл получен",
-    file_parsed: "файл распознан",
-    validated_input: "данные проверены",
-    matched_rates: "расценки сопоставлены",
-    calculated: "расчёт выполнен",
+    file_received: "Файл получен",
+    file_parsed: "Файл распознан",
+    validated_input: "Данные проверены",
+    matched_rates: "Расценки сопоставлены",
+    calculated: "Расчёт выполнен",
     ai_review_started: "AI-анализ начат",
     ai_review_done: "AI-анализ завершён",
-    result_file_created: "файл сформирован",
-    result_uploaded: "результат загружен",
-    ready_for_review: "готово к проверке",
+    result_file_created: "Файл результата сформирован",
+    result_uploaded: "Результат загружен",
+    ready_for_review: "Готово к проверке",
   };
   return labels[normalized] || "";
 }
@@ -6170,20 +6170,80 @@ function webTaskCheckpointLabel(checkpoint) {
 function webTaskEventLabel(type) {
   const normalized = String(type || "").toLowerCase();
   const labels = {
-    task_created: "заявка создана",
-    state_changed: "статус изменён",
-    checkpoint_saved: "checkpoint",
-    resume_scheduled: "resume",
-    operator_event: "оператор",
-    bridge_event: "bridge",
-    ready_for_review: "готово к проверке",
-    question_requested: "вопрос",
-    revision_requested: "доработка",
-    accepted: "принято",
-    closed: "закрыто",
-    closed_by_timeout: "закрыто по сроку",
+    task_created: "Заявка создана",
+    state_changed: "Статус изменён",
+    checkpoint_saved: "Этап выполнен",
+    resume_scheduled: "Повтор запланирован",
+    operator_event: "Оператор",
+    bridge_event: "Обработка",
+    ready_for_review: "Готово к проверке",
+    question_requested: "Вопрос отправлен",
+    revision_requested: "Запрошена доработка",
+    accepted: "Результат принят",
+    closed: "Заявка закрыта",
+    closed_by_timeout: "Закрыта по сроку",
   };
   return labels[normalized] || webTaskStatusLabel(normalized);
+}
+
+function webTaskEventUserLabel(event) {
+  if (!event || typeof event !== "object") {
+    return "";
+  }
+  const type = String(event.type || "").toLowerCase();
+  const checkpoint = String(event.checkpoint || "").toLowerCase();
+  if (type === "task_created") {
+    return "Заявка создана";
+  }
+  if (type === "checkpoint_saved" && checkpoint) {
+    return webTaskCheckpointLabel(checkpoint);
+  }
+  if (type === "ready_for_review" || checkpoint === "ready_for_review") {
+    return "Готово к проверке";
+  }
+  if (["question_requested", "revision_requested", "accepted", "closed", "closed_by_timeout"].includes(type)) {
+    return webTaskEventLabel(type);
+  }
+  if (type === "processing_failed" || type === "bridge_processing_failed") {
+    return "Обработка остановлена";
+  }
+  return "";
+}
+
+function webTaskEventUserDetail(event) {
+  const type = String((event && event.type) || "").toLowerCase();
+  const checkpoint = String((event && event.checkpoint) || "").toLowerCase();
+  if (type === "task_created") {
+    return "Заявка передана в CostIQ";
+  }
+  if (type === "checkpoint_saved" && checkpoint) {
+    const details = {
+      file_received: "Исходный файл принят в обработку",
+      file_parsed: "Структура файла прочитана",
+      validated_input: "Входные данные подготовлены",
+      matched_rates: "Позиции сопоставлены с базой",
+      calculated: "Расчётная часть завершена",
+      ai_review_started: "Запущен аналитический проход",
+      ai_review_done: "Аналитический проход завершён",
+      result_file_created: "Подготовлен итоговый файл",
+      result_uploaded: "Файл результата доступен для скачивания",
+      ready_for_review: "Результат можно проверить и принять",
+    };
+    return details[checkpoint] || "";
+  }
+  if (type === "accepted") {
+    return "Пользователь подтвердил результат";
+  }
+  if (type === "question_requested") {
+    return "Вопрос сохранён и будет обработан";
+  }
+  if (type === "revision_requested") {
+    return "Комментарий сохранён для доработки";
+  }
+  if (type === "closed" || type === "closed_by_timeout") {
+    return "Работа по заявке завершена";
+  }
+  return compact((event && event.message) || "", 160);
 }
 
 function renderTaskCheckpoint(task) {
@@ -6192,7 +6252,9 @@ function renderTaskCheckpoint(task) {
   if (!label && !checkpoint.message) {
     return "";
   }
-  const message = checkpoint.message || "Последний технический этап обработки";
+  const message = checkpoint.current === "ready_for_review"
+    ? "Результат можно проверить и принять"
+    : checkpoint.message || "Последний этап обработки";
   const updated = checkpoint.updated_at ? ` · ${formatShortDate(checkpoint.updated_at)}` : "";
   const completed = Array.isArray(checkpoint.completed) ? checkpoint.completed : [];
   return `
@@ -6218,7 +6280,7 @@ function renderTaskResume(task) {
   return `
     <div class="web-resume">
       <span>
-        <strong>${escapeHtml(`Resume: ${checkpointLabel}`)}</strong>
+        <strong>${escapeHtml(`Повтор: ${checkpointLabel}`)}</strong>
         <small>${escapeHtml(message)}${escapeHtml(requested)}</small>
       </span>
       ${next.length ? `<em>${escapeHtml(compact(next.join(", "), 80))}</em>` : ""}
@@ -6235,18 +6297,31 @@ function renderTaskEventLog(task, options = {}) {
     return "";
   }
   const visibleItems = items.slice(-limit).reverse();
-  return `
-    <div class="web-event-log">
-      <div class="web-event-log-head">
-        <strong>${escapeHtml(title)}</strong>
-        <small>${escapeHtml(String(events.total || items.length))} событий</small>
-      </div>
-      ${events.last_error ? `<div class="web-event-row danger"><span>ошибка</span><small>${escapeHtml(compact(events.last_error, 180))}</small></div>` : ""}
+  const userEvents = [];
+  const seenUserEvents = new Set();
+  items.forEach((event) => {
+    const label = webTaskEventUserLabel(event);
+    if (!label) {
+      return;
+    }
+    const detail = webTaskEventUserDetail(event);
+    const key = `${label}|${detail}`;
+    if (seenUserEvents.has(key)) {
+      return;
+    }
+    seenUserEvents.add(key);
+    userEvents.push({ label, detail, created_at: event.created_at });
+  });
+  const visibleUserEvents = userEvents.slice(-limit);
+  const technicalLog = `
+    <details class="web-technical-log">
+      <summary>Технический журнал</summary>
+      ${events.last_error ? `<div class="web-event-row danger"><span>Ошибка</span><small>${escapeHtml(compact(events.last_error, 180))}</small></div>` : ""}
       ${visibleItems.map((event) => {
         const checkpoint = webTaskCheckpointLabel(event.checkpoint) || event.checkpoint || "";
-        const movement = event.from || event.to ? [event.from, event.to].filter(Boolean).join(" → ") : "";
+        const movement = event.from || event.to ? [event.from, event.to].filter(Boolean).join(" -> ") : "";
         const detail = event.message || checkpoint || movement || event.source || "";
-        const meta = [event.actor, formatShortDate(event.created_at)].filter(Boolean).join(" · ");
+        const meta = [event.actor || event.by, formatShortDate(event.created_at)].filter(Boolean).join(" · ");
         return `
           <div class="web-event-row" data-category="${escapeHtml(event.category || "system")}">
             <span>${escapeHtml(webTaskEventLabel(event.type))}</span>
@@ -6255,6 +6330,25 @@ function renderTaskEventLog(task, options = {}) {
           </div>
         `;
       }).join("")}
+    </details>
+  `;
+  return `
+    <div class="web-event-log">
+      <div class="web-event-log-head">
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(String(userEvents.length || items.length))} этапов</small>
+      </div>
+      ${events.last_error ? `<div class="web-event-row danger"><span>Обработка остановлена</span><small>${escapeHtml(compact(events.last_error, 180))}</small></div>` : ""}
+      ${visibleUserEvents.length ? visibleUserEvents.map((event) => {
+        return `
+          <div class="web-event-row">
+            <span>${escapeHtml(event.label)}</span>
+            <small>${escapeHtml(event.detail || "")}</small>
+            ${event.created_at ? `<em>${escapeHtml(formatShortDate(event.created_at))}</em>` : ""}
+          </div>
+        `;
+      }).join("") : `<div class="web-event-row"><span>Заявка создана</span><small>${escapeHtml(webStatusMessage(task))}</small></div>`}
+      ${technicalLog}
     </div>
   `;
 }
@@ -6419,7 +6513,93 @@ function isReviewOpen(task) {
 }
 
 function taskResultText(task) {
-  return task.result_text || task.result || task.summary || "";
+  return cleanPanelResultText(task.result_text || task.result || task.summary || "");
+}
+
+function cleanPanelResultText(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .filter((line) => {
+      const normalized = line.trim();
+      if (!normalized) {
+        return true;
+      }
+      if (/^файл:\s*\[[^\]]+\]\(\/home\//i.test(normalized)) {
+        return false;
+      }
+      if (/^файл:\s*\/home\//i.test(normalized)) {
+        return false;
+      }
+      return !/\/home\/ClawdCostIQ\/workspace\/exports\//.test(normalized);
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractResultFileNameFromText(text) {
+  const source = String(text || "");
+  const markdown = source.match(/\[([^\]]+\.(?:zip|xlsx|xls|docx|pdf))\]\([^)]+\)/i);
+  if (markdown) {
+    return markdown[1].trim();
+  }
+  const plain = source.match(/([^\/\\\s]+(?:_[^\/\\\s]+)*\.(?:zip|xlsx|xls|docx|pdf))/i);
+  return plain ? plain[1].trim() : "";
+}
+
+function extractTaskSubjectNumber(task) {
+  const source = [
+    task && task.result,
+    task && task.result_text,
+    task && task.summary,
+    task && task.file_name,
+    task && task.object,
+    task && task.project,
+  ].filter(Boolean).join(" ");
+  const otMatch = source.match(/ОТ\s*№?\s*0*(\d{3,6})/i);
+  if (otMatch) {
+    return `ОТ №${otMatch[1].padStart(5, "0")}`;
+  }
+  const numberMatch = source.match(/№\s*0*(\d{3,6})/);
+  if (numberMatch) {
+    return `№${numberMatch[1].padStart(5, "0")}`;
+  }
+  return "";
+}
+
+function taskHumanTitle(task) {
+  const skill = task && (task.skill_title || task.skill) ? task.skill_title || task.skill : "Заявка";
+  const subject = extractTaskSubjectNumber(task);
+  if (subject) {
+    return `${subject} · ${skill}`;
+  }
+  const created = formatShortDate(task && task.created_at);
+  return created ? `${skill} · ${created}` : skill;
+}
+
+function fallbackResultFileName(task, sourceName = "") {
+  const extMatch = String(sourceName || "").match(/\.(zip|xlsx|xls|docx|pdf)$/i);
+  const ext = extMatch ? extMatch[0].toLowerCase() : ".zip";
+  const subject = extractTaskSubjectNumber(task).replace("ОТ №", "ОТ_").replace("№", "");
+  const skill = String((task && (task.skill_title || task.skill)) || "CostIQ")
+    .replace(/[«»"]/g, "")
+    .replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48) || "CostIQ";
+  const date = String((task && (task.updated_at || task.created_at)) || new Date().toISOString()).slice(0, 10);
+  return [skill, subject, date].filter(Boolean).join("_") + ext;
+}
+
+function humanResultFileName(task, file, isArchive = false) {
+  const rawName = String((file && file.name) || "");
+  const fromResult = extractResultFileNameFromText((task && (task.result || task.result_text)) || "");
+  if (fromResult && (isArchive || !/^results_web-/i.test(rawName))) {
+    return fromResult;
+  }
+  if (rawName && !/^results_web-/i.test(rawName)) {
+    return rawName;
+  }
+  return fallbackResultFileName(task, rawName || (isArchive ? "result.zip" : "result.xlsx"));
 }
 
 function reviewVersion(task) {
@@ -6460,25 +6640,28 @@ function renderReviewPanel(task) {
   const traceId = task.trace_id || "";
   const version = reviewVersion(task);
   const draft = state.webReviewDraft && state.webReviewDraft.traceId === traceId ? state.webReviewDraft : null;
+  const latestAccepted = status === "accepted" && (review.accepted_at || (events.find((event) => event.type === "accepted") || {}).created_at);
   const history = events.length
     ? `
       <div class="web-review-history">
-        <strong>История проверки</strong>
+        <strong>Действия с результатом</strong>
         ${events.map((event) => `
           <div>
-            <span>${escapeHtml(webTaskStatusLabel(event.type || ""))} · v${escapeHtml(event.version || version)} · ${escapeHtml(formatShortDate(event.created_at) || "")}</span>
+            <span>${escapeHtml(webTaskStatusLabel(event.type || ""))}${event.version ? ` · v${escapeHtml(event.version)}` : ""}${event.created_at ? ` · ${escapeHtml(formatShortDate(event.created_at) || "")}` : ""}</span>
             ${event.text ? `<small>${escapeHtml(event.text)}</small>` : ""}
           </div>
         `).join("")}
       </div>
     `
-    : "";
+    : latestAccepted
+      ? `<div class="web-review-history"><strong>Действия с результатом</strong><div><span>Результат принят · ${escapeHtml(formatShortDate(latestAccepted) || "")}</span></div></div>`
+      : "";
   return `
     <div class="web-review">
       <div class="web-review-head">
         <span>
-          <strong>Проверка результата</strong>
-          <small>Актуальная версия: v${escapeHtml(version)}</small>
+          <strong>Действия с результатом</strong>
+          <small>Версия результата: v${escapeHtml(version)}</small>
         </span>
         ${task.review_hint ? `<em>${escapeHtml(task.review_hint)}</em>` : ""}
       </div>
@@ -6530,15 +6713,20 @@ function renderTaskTimeline(task) {
 function renderTaskVisualSummary(task, primaryDownload) {
   const warnings = Array.isArray(task.warnings) ? task.warnings.filter(Boolean) : [];
   const version = `v${reviewVersion(task)}`;
-  const fileLabel = primaryDownload ? primaryDownload.name || "готов" : task.file_name ? "входной файл" : "без файла";
-  const checkpointLabel = webTaskCheckpointLabel(task && task.checkpoint && task.checkpoint.current) || "нет";
+  const fileLabel = primaryDownload ? humanResultFileName(task, primaryDownload, Boolean(task.result_archive)) : task.file_name ? "Исходный файл" : "Без файла";
+  const checkpointLabel = webTaskCheckpointLabel(task && task.checkpoint && task.checkpoint.current) || webTaskStatusLabel(task.status);
+  const summaryItems = [
+    ["Статус", webTaskStatusLabel(task.status)],
+    ["Версия результата", version],
+    ["Сейчас", checkpointLabel],
+    ["Результат", fileLabel],
+  ];
+  if (warnings.length) {
+    summaryItems.push(["Предупреждения", String(warnings.length)]);
+  }
   return `
     <div class="web-task-visual-summary">
-      <div><span>Статус</span><strong>${escapeHtml(webTaskStatusLabel(task.status))}</strong></div>
-      <div><span>Версия</span><strong>${escapeHtml(version)}</strong></div>
-      <div><span>Этап</span><strong>${escapeHtml(compact(checkpointLabel, 32))}</strong></div>
-      <div><span>Файл</span><strong>${escapeHtml(compact(fileLabel, 32))}</strong></div>
-      <div><span>Предупреждения</span><strong>${escapeHtml(String(warnings.length))}</strong></div>
+      ${summaryItems.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(compact(value, 42))}</strong></div>`).join("")}
     </div>
   `;
 }
@@ -6807,7 +6995,7 @@ function renderWebTask(task) {
   const primaryDownload = archive || resultFiles[0] || null;
   const primaryDownloadLabel = archive ? "Скачать ZIP" : "Скачать файл";
   const primaryDownloadUrl = primaryDownload ? withTelegramInitData(primaryDownload.url || "") : "";
-  const primaryDownloadName = primaryDownload ? primaryDownload.name || primaryDownloadLabel : "";
+  const primaryDownloadName = primaryDownload ? humanResultFileName(task, primaryDownload, Boolean(archive)) : "";
   const visibleResultFiles = archive ? [] : resultFiles;
   const downloads = resultFiles.length || archive
     ? `
@@ -6815,14 +7003,14 @@ function renderWebTask(task) {
         <strong>Файлы результата</strong>
         <div>
           ${visibleResultFiles.map((file) => `
-            <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(file.name || "CostIQ-result")}" data-download-url="${escapeHtml(withTelegramInitData(file.url || ""))}">
-              <span>${escapeHtml(file.name || "Скачать файл")}</span>
+            <a class="web-download-button" href="${escapeHtml(withTelegramInitData(file.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(humanResultFileName(task, file, false) || "CostIQ-result")}" data-download-url="${escapeHtml(withTelegramInitData(file.url || ""))}">
+              <span>${escapeHtml(humanResultFileName(task, file, false) || "Скачать файл")}</span>
               <small>${escapeHtml(formatFileSize(file.size))}</small>
             </a>
           `).join("")}
           ${archive ? `
-            <a class="web-download-button accent" href="${escapeHtml(withTelegramInitData(archive.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(archive.name || "CostIQ-results.zip")}" data-download-url="${escapeHtml(withTelegramInitData(archive.url || ""))}">
-              <span>${escapeHtml(archive.name || "Скачать архив ZIP")}</span>
+            <a class="web-download-button accent" href="${escapeHtml(withTelegramInitData(archive.url || ""))}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(humanResultFileName(task, archive, true) || "CostIQ-results.zip")}" data-download-url="${escapeHtml(withTelegramInitData(archive.url || ""))}">
+              <span>${escapeHtml(humanResultFileName(task, archive, true) || "Скачать архив ZIP")}</span>
               <small>${escapeHtml(formatFileSize(archive.size))}</small>
             </a>
           ` : ""}
@@ -6843,7 +7031,8 @@ function renderWebTask(task) {
     <div class="web-task-head">
       <span class="web-task-title">
         <em data-tone="${escapeHtml(tone)}">${escapeHtml(status)}</em>
-        <small>${escapeHtml(traceId)}</small>
+        <strong>${escapeHtml(taskHumanTitle(task))}</strong>
+        ${traceId ? `<details class="web-task-tech-id"><summary>Технические данные</summary><small>Trace ID: ${escapeHtml(traceId)}</small></details>` : ""}
       </span>
       <span class="web-task-actions">
         ${primaryDownloadUrl ? `<a class="web-download-button accent" href="${escapeHtml(primaryDownloadUrl)}" target="_blank" rel="noopener" data-native-download="1" data-file-name="${escapeHtml(primaryDownloadName || "CostIQ-result.zip")}" data-download-url="${escapeHtml(primaryDownloadUrl)}">${escapeHtml(primaryDownloadLabel)}</a>` : ""}
@@ -6860,7 +7049,7 @@ function renderWebTask(task) {
       <div><dt>Навык</dt><dd>${escapeHtml(task.skill_title || task.skill || "не указан")}</dd></div>
       <div><dt>Запрос</dt><dd>${escapeHtml(objectLabel)}</dd></div>
       <div><dt>Срок</dt><dd>${escapeHtml(task.deadline || "не указан")}</dd></div>
-      <div><dt>Файл</dt><dd>${escapeHtml(task.file_name || "не приложен")}</dd></div>
+      <div><dt>Исходный файл</dt><dd>${escapeHtml(task.file_name || "не приложен")}</dd></div>
       <div><dt>Создана</dt><dd>${escapeHtml(formatShortDate(task.created_at) || "не указано")}</dd></div>
       <div><dt>Обновлена</dt><dd>${escapeHtml(formatShortDate(task.updated_at) || "не указано")}</dd></div>
       ${extraDetails}
