@@ -2682,6 +2682,7 @@ function renderSmetReferenceTool() {
   const query = document.getElementById("smet-reference-query");
   const scope = document.getElementById("smet-reference-scope");
   const sectionSelect = document.getElementById("smet-reference-section");
+  const sortSelect = document.getElementById("smet-reference-sort");
   if (query && query.value !== state.smetReferenceQuery) {
     query.value = state.smetReferenceQuery;
   }
