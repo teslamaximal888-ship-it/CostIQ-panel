@@ -141,8 +141,10 @@ async function canDownload(request, env, task) {
 }
 
 function contentDisposition(fileName) {
-  const fallback = cleanText(fileName, 180).replace(/[\\/:*?"<>|#%{}^~[\]`]/g, "_") || "results.zip";
-  return `attachment; filename="${fallback.replace(/"/g, "")}"`;
+  const original = cleanText(fileName, 180) || "results.zip";
+  const fallback = original.replace(/[\\/:*?"<>|#%{}^~[\]`]/g, "_").replace(/[^\x20-\x7E]/g, "_") || "results.zip";
+  const encoded = encodeURIComponent(original).replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${fallback.replace(/"/g, "")}"; filename*=UTF-8''${encoded}`;
 }
 
 function downloadCorsOrigin(request) {
@@ -191,7 +193,7 @@ export async function onRequestGet({ request, env, params }) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("Content-Type", headers.get("Content-Type") || archive.type || "application/zip");
-  headers.set("Content-Disposition", headers.get("Content-Disposition") || contentDisposition(archive.name));
+  headers.set("Content-Disposition", contentDisposition(archive.name));
   headers.set("Cache-Control", "private, max-age=0, no-store");
   headers.set("Access-Control-Allow-Origin", downloadCorsOrigin(request));
   headers.set("Vary", "Origin");

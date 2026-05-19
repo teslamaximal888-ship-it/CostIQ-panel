@@ -43,8 +43,10 @@ async function hasAdminAccess(request, env) {
 }
 
 function contentDisposition(fileName) {
-  const fallback = cleanText(fileName, 180).replace(/[\\/:*?"<>|#%{}^~[\]`]/g, "_") || "web-intake-file";
-  return `attachment; filename="${fallback.replace(/"/g, "")}"`;
+  const original = cleanText(fileName, 180) || "web-intake-file";
+  const fallback = original.replace(/[\\/:*?"<>|#%{}^~[\]`]/g, "_").replace(/[^\x20-\x7E]/g, "_") || "web-intake-file";
+  const encoded = encodeURIComponent(original).replace(/['()]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${fallback.replace(/"/g, "")}"; filename*=UTF-8''${encoded}`;
 }
 
 export async function onRequestOptions() {
@@ -89,7 +91,7 @@ export async function onRequestGet({ request, env, params }) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("Content-Type", headers.get("Content-Type") || attachment.type || "application/octet-stream");
-  headers.set("Content-Disposition", headers.get("Content-Disposition") || contentDisposition(attachment.name || task.file_name));
+  headers.set("Content-Disposition", contentDisposition(attachment.name || task.file_name));
   headers.set("Cache-Control", "private, max-age=0, no-store");
   headers.set("Access-Control-Allow-Origin", "*");
   return new Response(object.body, { headers });
