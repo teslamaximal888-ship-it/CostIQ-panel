@@ -4308,6 +4308,7 @@ function renderBenchmarkControls(context) {
     { id: "finishing", label: "Отделка квартир" },
     { id: "cost", label: "Изменение себестоимости" },
   ];
+  const advancedControls = state.benchmarkTab === "cost";
   return `
     <div class="reference-toolbar">
       <div class="view-toggle">
@@ -4315,7 +4316,7 @@ function renderBenchmarkControls(context) {
       </div>
     </div>
     ${renderBenchmarkOverviewLine(context)}
-    <div class="smet-search-panel benchmark-search-panel">
+    ${advancedControls ? `<div class="smet-search-panel benchmark-search-panel">
       <label class="span-2" for="benchmark-search">Запрос
         <input id="benchmark-search" type="search" autocomplete="off" value="${escapeHtml(state.benchmarkQuery)}" placeholder="Проект, объект или показатель">
       </label>
@@ -4347,7 +4348,7 @@ function renderBenchmarkControls(context) {
       <div class="smet-reference-actions">
         <button type="button" class="ghost-button" data-benchmark-action="clear">Очистить</button>
       </div>
-    </div>
+    </div>` : ""}
   `;
 }
 
@@ -8653,8 +8654,10 @@ document.addEventListener("click", (event) => {
   const benchmarkTabButton = event.target.closest("[data-benchmark-tab]");
   if (benchmarkTabButton) {
     state.benchmarkTab = benchmarkTabButton.dataset.benchmarkTab || "benchmarks";
+    state.benchmarkQuery = "";
     state.benchmarkSelectedId = "";
     state.benchmarkSavedMode = "";
+    state.benchmarkSort = "relevance";
     state.benchmarkDrawerOpen = false;
     state.benchmarkFilters = { type: "all", code: "all", changedOnly: false, growthOnly: false, declineOnly: false };
     renderBenchmarksTool();
