@@ -4,6 +4,8 @@ const WEB_HIDDEN_TASKS_STORAGE_KEY = "costiq_web_hidden_tasks";
 const OFFICE_CALC_STORAGE_KEY = "costiq_office_calculations";
 const OFFICE_CALC_DRAFT_STORAGE_KEY = "costiq_office_calculator_draft";
 const PARKING_CALC_DRAFT_STORAGE_KEY = "costiq_parking_calculator_draft";
+const SMET_REFERENCE_FAVORITES_STORAGE_KEY = "costiq_smet_reference_favorites";
+const SMET_REFERENCE_RECENT_STORAGE_KEY = "costiq_smet_reference_recent";
 const MINI_APP_STATE_STORAGE_KEY = "costiq_mini_app_state";
 const WEB_INTAKE_DRAFT_STORAGE_KEY = "costiq_web_intake_draft";
 const POLL_DRAFT_STORAGE_KEY = "costiq_poll_draft";
@@ -953,10 +955,16 @@ const state = {
   smetReferenceQuery: "",
   smetReferenceScope: "smr",
   smetReferenceSection: "all",
+  smetReferenceSort: "relevance",
+  smetReferenceFilters: { priced: false, median: false, linked: false },
+  smetReferenceSavedMode: "",
   smetReferenceSelectedId: "",
   smetReferenceResults: [],
   smetReferenceExpandedVariantsFor: "",
   smetReferenceDrawerOpen: false,
+  smetReferenceCompareIds: [],
+  smetReferenceFavoriteIds: [],
+  smetReferenceRecentIds: [],
   panelToolsData: null,
   ncsUpSsMode: "ncs",
   ncsQuery: "",
@@ -2034,6 +2042,48 @@ function smetReferenceMetric(value, fallback = "-") {
   return number ? formatMoney(number) : fallback;
 }
 
+function smetReferenceHasMedian(item) {
+  return Boolean(item && item.kvr_median && Number(item.kvr_median.median || 0) > 0);
+}
+
+function smetReferenceHasLinkedMaterials(item) {
+  return Boolean(item && Array.isArray(item.linked_materials) && item.linked_materials.length);
+}
+
+function smetReferenceSortItems(items) {
+  const sortMode = state.smetReferenceSort || "relevance";
+  const list = Array.isArray(items) ? [...items] : [];
+  if (sortMode === "price_desc") {
+    return list.sort((a, b) => Number(b.total || 0) - Number(a.total || 0) || (b._score || 0) - (a._score || 0));
+  }
+  if (sortMode === "price_asc") {
+    return list.sort((a, b) => Number(a.total || 0) - Number(b.total || 0) || (b._score || 0) - (a._score || 0));
+  }
+  if (sortMode === "median") {
+    return list.sort((a, b) => Number(Boolean(smetReferenceHasMedian(b))) - Number(Boolean(smetReferenceHasMedian(a))) || (b._score || 0) - (a._score || 0));
+  }
+  if (sortMode === "section") {
+    return list.sort((a, b) => String(a.section || "").localeCompare(String(b.section || ""), "ru") || (b._score || 0) - (a._score || 0));
+  }
+  return list;
+}
+
+function applySmetReferenceFilters(items) {
+  const filters = state.smetReferenceFilters || {};
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    if (filters.priced && item.type === "rate" && Number(item.total || 0) <= 0) {
+      return false;
+    }
+    if (filters.median && !smetReferenceHasMedian(item)) {
+      return false;
+    }
+    if (filters.linked && !smetReferenceHasLinkedMaterials(item)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function smetReferenceMedianText(item) {
   if (!item || !item.kvr_median || !Number(item.kvr_median.median || 0)) {
     return "";
@@ -2257,14 +2307,60 @@ function findSmetReferenceItem(id) {
   return currentSmetReferenceItems().find((item) => item.id === id) || null;
 }
 
+function loadSmetReferenceUserLists() {
+  state.smetReferenceFavoriteIds = readJsonStorage(SMET_REFERENCE_FAVORITES_STORAGE_KEY, [], window.localStorage).filter(Boolean);
+  state.smetReferenceRecentIds = readJsonStorage(SMET_REFERENCE_RECENT_STORAGE_KEY, [], window.localStorage).filter(Boolean);
+}
+
+function saveSmetReferenceUserLists() {
+  writeJsonStorage(SMET_REFERENCE_FAVORITES_STORAGE_KEY, state.smetReferenceFavoriteIds.slice(0, 80), window.localStorage);
+  writeJsonStorage(SMET_REFERENCE_RECENT_STORAGE_KEY, state.smetReferenceRecentIds.slice(0, 30), window.localStorage);
+}
+
+function touchSmetReferenceRecent(id) {
+  if (!id) {
+    return;
+  }
+  state.smetReferenceRecentIds = [id, ...state.smetReferenceRecentIds.filter((item) => item !== id)].slice(0, 30);
+  saveSmetReferenceUserLists();
+}
+
+function toggleSmetReferenceFavorite(id) {
+  if (!id) {
+    return;
+  }
+  const ids = new Set(state.smetReferenceFavoriteIds);
+  if (ids.has(id)) {
+    ids.delete(id);
+  } else {
+    ids.add(id);
+  }
+  state.smetReferenceFavoriteIds = Array.from(ids);
+  saveSmetReferenceUserLists();
+}
+
+function smetReferenceItemsByIds(ids) {
+  const itemMap = new Map(currentSmetReferenceItems().map((item) => [item.id, item]));
+  return (Array.isArray(ids) ? ids : []).map((id) => itemMap.get(id)).filter(Boolean);
+}
+
 function searchSmetReference() {
   const items = currentSmetReferenceItems();
+  if (state.smetReferenceSavedMode) {
+    const ids = state.smetReferenceSavedMode === "favorites" ? state.smetReferenceFavoriteIds : state.smetReferenceRecentIds;
+    const savedItems = applySmetReferenceFilters(smetReferenceItemsByIds(ids)).slice(0, 30);
+    state.smetReferenceResults = savedItems;
+    if (!savedItems.some((item) => item.id === state.smetReferenceSelectedId)) {
+      state.smetReferenceSelectedId = savedItems[0] ? savedItems[0].id : "";
+    }
+    return;
+  }
   const parts = smetReferenceQueryParts(state.smetReferenceQuery);
   const hasQuery = parts.query.length > 0;
   const section = state.smetReferenceSection;
   const scope = state.smetReferenceScope;
   if (scope === "kvr") {
-    const kvrItems = items
+    const kvrItems = smetReferenceSortItems(applySmetReferenceFilters(items
       .map((item) => {
         const haystack = normalizeSearchText([item.code, item.title, item.section].filter(Boolean).join(" "));
         const score = hasQuery
@@ -2273,7 +2369,7 @@ function searchSmetReference() {
         return { ...item, _score: score };
       })
       .filter((item) => item._score > 0)
-      .sort((a, b) => b._score - a._score || String(a.code || "").localeCompare(String(b.code || ""), "ru"))
+      .sort((a, b) => b._score - a._score || String(a.code || "").localeCompare(String(b.code || ""), "ru"))))
       .slice(0, 40);
     state.smetReferenceResults = kvrItems;
     if (!kvrItems.some((item) => item.id === state.smetReferenceSelectedId)) {
@@ -2295,9 +2391,9 @@ function searchSmetReference() {
   });
 
   if (!hasQuery) {
-    const scored = sectionFiltered
+    const scored = smetReferenceSortItems(applySmetReferenceFilters(sectionFiltered
       .filter((item) => item.type === "rate" && Number(item.total || 0) > 0)
-      .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
+      .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))))
       .slice(0, 40);
     state.smetReferenceResults = scored;
     if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
@@ -2317,10 +2413,11 @@ function searchSmetReference() {
       return { ...item, _score: score };
     })
     .filter((item) => item._score > 0));
-  const works = rateResults
+  const filteredRateResults = applySmetReferenceFilters(rateResults);
+  const works = filteredRateResults
     .filter((item) => item.rate_kind === "work")
     .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b));
-  const materials = rateResults
+  const materials = filteredRateResults
     .filter((item) => item.rate_kind === "material")
     .sort((a, b) => b._score - a._score || smetReferenceOrder(a) - smetReferenceOrder(b));
   const half = Math.floor(SMET_REFERENCE_RESULT_LIMIT / 2);
@@ -2331,7 +2428,7 @@ function searchSmetReference() {
   } else if (pageMaterials.length < half) {
     pageWorks = works.slice(0, half + (half - pageMaterials.length));
   }
-  const scored = scope === "mtr" ? materials.slice(0, SMET_REFERENCE_RESULT_LIMIT) : scope === "smr" ? works.slice(0, SMET_REFERENCE_RESULT_LIMIT) : [...pageWorks, ...pageMaterials];
+  const scored = smetReferenceSortItems(scope === "mtr" ? materials : scope === "smr" ? works : [...pageWorks, ...pageMaterials]).slice(0, SMET_REFERENCE_RESULT_LIMIT);
   state.smetReferenceResults = scored;
   if (!scored.some((item) => item.id === state.smetReferenceSelectedId)) {
     state.smetReferenceSelectedId = scored[0] ? scored[0].id : "";
@@ -2341,6 +2438,7 @@ function searchSmetReference() {
 function renderSmetReferenceFilters() {
   const data = state.smetReferenceData;
   const sectionSelect = document.getElementById("smet-reference-section");
+  const sortSelect = document.getElementById("smet-reference-sort");
   if (!data || !sectionSelect || sectionSelect.dataset.ready === "1") {
     return;
   }
@@ -2362,12 +2460,12 @@ function renderSmetReferenceResults() {
     container.innerHTML = `<div class="empty">Загружаю раздел ${escapeHtml(state.smetReferenceLoadingSection)}</div>`;
     return;
   }
-  if (state.smetReferenceScope === "smr" && state.smetReferenceSection === "all") {
+  if (!state.smetReferenceSavedMode && state.smetReferenceScope === "smr" && state.smetReferenceSection === "all") {
     container.innerHTML = `<div class="empty">Выберите раздел, как в боте. Поиск расценок выполняется внутри выбранного раздела.</div>`;
     return;
   }
   if (!results.length) {
-    container.innerHTML = `<div class="empty">Введите запрос или выберите раздел</div>`;
+    container.innerHTML = `<div class="empty">${state.smetReferenceSavedMode ? "Список пока пуст" : "Введите запрос или выберите раздел"}</div>`;
     return;
   }
   let previousGroup = "";
@@ -2379,6 +2477,8 @@ function renderSmetReferenceResults() {
     const codeLine = [item.code, item.section, item.unit].filter(Boolean).join(" · ");
     const median = smetReferenceMedianText(item);
     const source = smetReferenceSourceText(item);
+    const isCompared = state.smetReferenceCompareIds.includes(item.id);
+    const isFavorite = state.smetReferenceFavoriteIds.includes(item.id);
     const priceCells = item.type === "rate"
       ? `
         <span class="smet-result-price"><b>${escapeHtml(smetReferenceMetric(item.total, "0"))}</b><small>Всего</small></span>
@@ -2388,16 +2488,56 @@ function renderSmetReferenceResults() {
       : `<span class="smet-result-price wide"><b>${escapeHtml(smetReferencePrice(item))}</b><small>${escapeHtml(item.type === "kvr" ? "Связанные данные" : "Норма")}</small></span>`;
     return `
     ${groupHeader}
-    <button type="button" class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}">
+    <div class="smet-result ${item.id === state.smetReferenceSelectedId ? "active" : ""}" data-smet-reference-id="${escapeHtml(item.id)}" role="button" tabindex="0">
       <span class="smet-result-kind">${escapeHtml(smetReferenceLabel(item))}</span>
       <strong>${escapeHtml(title)}</strong>
       <small>${escapeHtml(codeLine || source)}</small>
       <span class="smet-result-prices">${priceCells}</span>
       <em>${escapeHtml(median || source)}</em>
+      <span class="smet-result-tools">
+        <button type="button" class="${isCompared ? "active" : ""}" data-smet-reference-action="toggle-compare" data-smet-reference-compare-id="${escapeHtml(item.id)}">Сравнить</button>
+        <button type="button" class="${isFavorite ? "active" : ""}" data-smet-reference-action="toggle-favorite" data-smet-reference-favorite-id="${escapeHtml(item.id)}">${isFavorite ? "В избранном" : "В избранное"}</button>
+      </span>
       <i>Подробнее</i>
-    </button>
+    </div>
   `;
   }).join("");
+}
+
+function renderSmetReferenceCompare() {
+  const container = document.getElementById("smet-reference-compare");
+  if (!container) {
+    return;
+  }
+  const items = smetReferenceItemsByIds(state.smetReferenceCompareIds).slice(0, 4);
+  container.hidden = !items.length;
+  if (!items.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <div class="smet-compare-head">
+      <strong>Сравнение расценок</strong>
+      <span>${items.length} из 4</span>
+      <button type="button" class="ghost-button compact" data-smet-reference-action="clear-compare">Очистить</button>
+    </div>
+    <div class="smet-compare-table">
+      ${items.map((item) => {
+        const median = item.kvr_median && item.kvr_median.median ? Number(item.kvr_median.median || 0) : 0;
+        const deviation = median && item.total ? `${Math.round(((Number(item.total || 0) - median) / median) * 100)}%` : "-";
+        return `
+          <div class="smet-compare-row" data-smet-reference-id="${escapeHtml(item.id)}">
+            <strong>${escapeHtml(item.material_name || item.title || "Без названия")}</strong>
+            <span>${escapeHtml(formatMoney(item.total || 0))}<small>Всего</small></span>
+            <span>${escapeHtml(formatMoney(item.work || 0))}<small>Работа</small></span>
+            <span>${escapeHtml(formatMoney(item.material || 0))}<small>Материал</small></span>
+            <span>${escapeHtml(deviation)}<small>К медиане</small></span>
+            <em>${escapeHtml([item.object, item.basis].filter(Boolean).join(" · ") || "-")}</em>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function renderSmetReferenceCard() {
@@ -2476,8 +2616,14 @@ function renderSmetReferenceCard() {
   const gesnAiButton = item.type === "rate"
     ? `<button type="button" class="ghost-button compact" data-smet-reference-action="gesn-ai">Подобрать ГЭСН через AI</button>`
     : "";
-  const cardActions = variantsButton || gesnAiButton
-    ? `<div class="smet-card-actions">${variantsButton}${gesnAiButton}</div>`
+  const favoriteButton = item.type === "rate"
+    ? `<button type="button" class="ghost-button compact" data-smet-reference-action="toggle-favorite" data-smet-reference-favorite-id="${escapeHtml(item.id)}">${state.smetReferenceFavoriteIds.includes(item.id) ? "Убрать из избранного" : "В избранное"}</button>`
+    : "";
+  const compareButton = item.type === "rate"
+    ? `<button type="button" class="ghost-button compact" data-smet-reference-action="toggle-compare" data-smet-reference-compare-id="${escapeHtml(item.id)}">${state.smetReferenceCompareIds.includes(item.id) ? "Убрать из сравнения" : "Сравнить"}</button>`
+    : "";
+  const cardActions = variantsButton || gesnAiButton || favoriteButton || compareButton
+    ? `<div class="smet-card-actions">${variantsButton}${gesnAiButton}${compareButton}${favoriteButton}</div>`
     : "";
   const variantsBlock = variantsExpanded && rateVariants.length > 1
     ? `<div class="smet-variants">
@@ -2554,6 +2700,12 @@ function renderSmetReferenceTool() {
     }
     sectionSelect.value = state.smetReferenceSection;
   }
+  if (sortSelect) {
+    sortSelect.value = state.smetReferenceSort;
+  }
+  document.querySelectorAll("[data-smet-filter]").forEach((checkbox) => {
+    checkbox.checked = Boolean(state.smetReferenceFilters && state.smetReferenceFilters[checkbox.dataset.smetFilter]);
+  });
   ensureSmetReferenceSectionLoaded(state.smetReferenceSection);
   searchSmetReference();
   const data = state.smetReferenceData;
@@ -2563,6 +2715,7 @@ function renderSmetReferenceTool() {
     : stats ? `${formatMoney(stats.rates)} расценок` : "загрузка";
   setText("smet-reference-status", statusText);
   renderSmetReferenceResults();
+  renderSmetReferenceCompare();
   renderSmetReferenceCard();
 }
 
@@ -7728,15 +7881,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const smetReferenceResult = event.target.closest("[data-smet-reference-id]");
-  if (smetReferenceResult) {
-    state.smetReferenceSelectedId = smetReferenceResult.dataset.smetReferenceId || "";
-    state.smetReferenceDrawerOpen = Boolean(state.smetReferenceSelectedId);
-    renderSmetReferenceResults();
-    renderSmetReferenceCard();
-    return;
-  }
-
   const smetReferenceAction = event.target.closest("[data-smet-reference-action]");
   if (smetReferenceAction) {
     const action = smetReferenceAction.dataset.smetReferenceAction;
@@ -7744,10 +7888,47 @@ document.addEventListener("click", (event) => {
       state.smetReferenceQuery = "";
       state.smetReferenceScope = "smr";
       state.smetReferenceSection = "all";
+      state.smetReferenceSort = "relevance";
+      state.smetReferenceFilters = { priced: false, median: false, linked: false };
+      state.smetReferenceSavedMode = "";
       state.smetReferenceSelectedId = "";
       state.smetReferenceExpandedVariantsFor = "";
       state.smetReferenceDrawerOpen = false;
       renderSmetReferenceTool();
+    }
+    if (action === "show-recent") {
+      state.smetReferenceSavedMode = "recent";
+      state.smetReferenceDrawerOpen = false;
+      renderSmetReferenceTool();
+    }
+    if (action === "show-favorites") {
+      state.smetReferenceSavedMode = "favorites";
+      state.smetReferenceDrawerOpen = false;
+      renderSmetReferenceTool();
+    }
+    if (action === "toggle-compare") {
+      const id = smetReferenceAction.dataset.smetReferenceCompareId || state.smetReferenceSelectedId;
+      if (id) {
+        const hasId = state.smetReferenceCompareIds.includes(id);
+        state.smetReferenceCompareIds = hasId
+          ? state.smetReferenceCompareIds.filter((item) => item !== id)
+          : [id, ...state.smetReferenceCompareIds.filter((item) => item !== id)].slice(0, 4);
+        renderSmetReferenceResults();
+        renderSmetReferenceCompare();
+        renderSmetReferenceCard();
+      }
+    }
+    if (action === "clear-compare") {
+      state.smetReferenceCompareIds = [];
+      renderSmetReferenceResults();
+      renderSmetReferenceCompare();
+      renderSmetReferenceCard();
+    }
+    if (action === "toggle-favorite") {
+      const id = smetReferenceAction.dataset.smetReferenceFavoriteId || state.smetReferenceSelectedId;
+      toggleSmetReferenceFavorite(id);
+      renderSmetReferenceResults();
+      renderSmetReferenceCard();
     }
     if (action === "close-card") {
       state.smetReferenceDrawerOpen = false;
@@ -7765,6 +7946,16 @@ document.addEventListener("click", (event) => {
     if (action === "gesn-ai") {
       sendSmetReferenceGesnAiRequest();
     }
+    return;
+  }
+
+  const smetReferenceResult = event.target.closest("[data-smet-reference-id]");
+  if (smetReferenceResult) {
+    state.smetReferenceSelectedId = smetReferenceResult.dataset.smetReferenceId || "";
+    touchSmetReferenceRecent(state.smetReferenceSelectedId);
+    state.smetReferenceDrawerOpen = Boolean(state.smetReferenceSelectedId);
+    renderSmetReferenceResults();
+    renderSmetReferenceCard();
     return;
   }
 });
@@ -7806,6 +7997,7 @@ document.addEventListener("input", (event) => {
   }
   if (field && field.id === "smet-reference-query") {
     state.smetReferenceQuery = field.value;
+    state.smetReferenceSavedMode = "";
     state.smetReferenceDrawerOpen = false;
     renderSmetReferenceTool();
     return;
@@ -7872,6 +8064,7 @@ document.addEventListener("change", (event) => {
   }
   if (field && field.id === "smet-reference-scope") {
     state.smetReferenceScope = field.value || "smr";
+    state.smetReferenceSavedMode = "";
     state.smetReferenceSelectedId = "";
     state.smetReferenceExpandedVariantsFor = "";
     state.smetReferenceDrawerOpen = false;
@@ -7885,9 +8078,20 @@ document.addEventListener("change", (event) => {
   }
   if (field && field.id === "smet-reference-section") {
     state.smetReferenceSection = field.value || "all";
+    state.smetReferenceSavedMode = "";
     state.smetReferenceSelectedId = "";
     state.smetReferenceExpandedVariantsFor = "";
     state.smetReferenceDrawerOpen = false;
+    renderSmetReferenceTool();
+    return;
+  }
+  if (field && field.id === "smet-reference-sort") {
+    state.smetReferenceSort = field.value || "relevance";
+    renderSmetReferenceTool();
+    return;
+  }
+  if (field && field.dataset && field.dataset.smetFilter) {
+    state.smetReferenceFilters[field.dataset.smetFilter] = Boolean(field.checked);
     renderSmetReferenceTool();
     return;
   }
@@ -8172,6 +8376,7 @@ if (searchInput) {
 }
 
 restoreMiniAppState();
+loadSmetReferenceUserLists();
 renderPanelVisualDigest();
 renderPanelTools();
 renderView();

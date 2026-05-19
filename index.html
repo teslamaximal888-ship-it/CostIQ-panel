@@ -423,11 +423,31 @@
                 <option value="all">Все разделы</option>
               </select>
             </div>
+            <div class="field">
+              <label for="smet-reference-sort">Сортировка</label>
+              <select id="smet-reference-sort">
+                <option value="relevance">По релевантности</option>
+                <option value="price_desc">Цена: выше</option>
+                <option value="price_asc">Цена: ниже</option>
+                <option value="median">Есть медиана</option>
+                <option value="section">По разделу</option>
+              </select>
+            </div>
+            <div class="smet-filter-row" aria-label="Фильтры справочника">
+              <label><input type="checkbox" data-smet-filter="priced"> С ценой</label>
+              <label><input type="checkbox" data-smet-filter="median"> Есть медиана ФСК</label>
+              <label><input type="checkbox" data-smet-filter="linked"> Есть материалы Л7</label>
+            </div>
+            <div class="smet-saved-row">
+              <button type="button" class="ghost-button compact" data-smet-reference-action="show-recent">Недавние</button>
+              <button type="button" class="ghost-button compact" data-smet-reference-action="show-favorites">Избранное</button>
+            </div>
             <div class="smet-reference-actions">
               <button type="button" class="ghost-button" data-smet-reference-action="clear">Очистить</button>
               <button type="button" class="submit-button" data-smet-reference-action="send">Отправить в CostIQ</button>
             </div>
           </div>
+          <div class="smet-compare-panel" id="smet-reference-compare" hidden></div>
           <div class="smet-reference-layout">
             <div class="smet-results" id="smet-reference-results"></div>
             <div class="smet-card" id="smet-reference-card"></div>
