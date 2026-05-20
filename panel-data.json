@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-05-20T20:15:02Z",
+  "generated_at": "2026-05-20T21:00:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
     "queue": "0 в ожидании",
-    "today": "43 входящих",
+    "today": "0 входящих",
     "errors": "1"
   },
   "tasks": {
@@ -72,7 +72,7 @@
     }
   },
   "bridge": {
-    "incoming_today": 43,
+    "incoming_today": 0,
     "webapp_today": 0,
     "last_event": "2026-05-20 23:10:29,088 INFO Incoming update uid=5059630577 chat=5059630577 message_id=6443 content_type=ContentType.TEXT media_group_id=None text_len=6 attachment_kind=None attach"
   }
