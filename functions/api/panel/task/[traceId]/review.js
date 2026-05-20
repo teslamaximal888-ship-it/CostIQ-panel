@@ -11,6 +11,7 @@ const TASK_TTL_SECONDS = 60 * 60 * 24 * 30;
 const TASK_INDEX_KEY = "tasks:index";
 const TASK_INDEX_LIMIT = 500;
 const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
+const REVIEW_ACCESS_TTL_SECONDS = 60 * 60 * 6;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -146,8 +147,41 @@ async function verifyPanelAuth(panelAuth, env) {
   return { ok: true, user: { id } };
 }
 
+async function reviewAccessSecret(env) {
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  return adminSecret ? sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+}
+
+async function createReviewAccessToken(task, env) {
+  if (!task || !task.trace_id || !task.telegram_user || !task.telegram_user.id) {
+    return "";
+  }
+  const exp = Math.floor(Date.now() / 1000) + REVIEW_ACCESS_TTL_SECONDS;
+  const value = `${task.trace_id}.${task.created_at || ""}.${task.telegram_user.id}.${exp}`;
+  const sig = hex(await hmacSha256(new TextEncoder().encode(await reviewAccessSecret(env)), value));
+  return `${exp}.${sig}`;
+}
+
+async function verifyReviewAccessToken(token, env, task) {
+  const raw = cleanText(token, 500);
+  if (!raw || !task || !task.trace_id || !task.telegram_user || !task.telegram_user.id) {
+    return false;
+  }
+  const [expText, providedSig] = raw.split(".");
+  const exp = Number(expText || 0);
+  if (!Number.isFinite(exp) || exp * 1000 < Date.now() || !providedSig) {
+    return false;
+  }
+  const value = `${task.trace_id}.${task.created_at || ""}.${task.telegram_user.id}.${exp}`;
+  const expectedSig = hex(await hmacSha256(new TextEncoder().encode(await reviewAccessSecret(env)), value));
+  return timingSafeEqualHex(expectedSig, providedSig);
+}
+
 async function canReview(request, env, task, payload = {}) {
   if (!task.telegram_user || !task.telegram_user.id) {
+    return true;
+  }
+  if (await verifyReviewAccessToken(payload.review_access_token, env, task)) {
     return true;
   }
   const url = new URL(request.url);
@@ -182,7 +216,7 @@ async function upsertTaskIndex(env, task) {
   });
 }
 
-function publicTask(task) {
+async function publicTask(task, env) {
   const { attachment, telegram_user, telegram_auth_date, retry_after, processing_started_at, processing_finished_at, ...safeTask } = task;
   safeTask.checkpoint = taskCheckpointSnapshot(task);
   safeTask.events = taskEventLogSnapshot(task, 40);
@@ -212,6 +246,7 @@ function publicTask(task) {
       url: `/api/panel/task/${encodeURIComponent(task.trace_id)}/result-archive`,
     };
   }
+  safeTask.review_access_token = await createReviewAccessToken(task, env);
   return safeTask;
 }
 
@@ -314,5 +349,5 @@ export async function onRequestPost({ request, env, params }) {
   });
   await upsertTaskIndex(env, updatedTask);
 
-  return jsonResponse({ ok: true, task: publicTask(updatedTask) });
+  return jsonResponse({ ok: true, task: await publicTask(updatedTask, env) });
 }

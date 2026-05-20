@@ -8505,7 +8505,9 @@ async function submitWebReviewAction(traceId, action, text = "") {
   }
   state.telegramInitData = state.telegramInitData || readTelegramInitData();
   state.panelAuth = state.panelAuth || readPanelAuth();
-  if (!hasVerifiedTelegramProfile()) {
+  const reviewAccessToken =
+    state.webCurrentTask && state.webCurrentTask.trace_id === traceId ? state.webCurrentTask.review_access_token || "" : "";
+  if (!hasVerifiedTelegramProfile() && !reviewAccessToken) {
     showIdentityRequired("Откройте панель через кнопку бота, чтобы отправить вопрос или доработку.");
     return;
   }
@@ -8527,6 +8529,7 @@ async function submitWebReviewAction(traceId, action, text = "") {
         text: reviewText,
         telegram_init_data: state.telegramInitData,
         panel_auth: state.panelAuth,
+        review_access_token: reviewAccessToken,
       }),
     });
     const data = await response.json().catch(() => ({}));

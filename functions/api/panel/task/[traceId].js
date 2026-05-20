@@ -3,6 +3,9 @@ import { taskCheckpointSnapshot } from "../_shared/task-checkpoints.js";
 import { taskEventLogSnapshot } from "../_shared/task-events.js";
 import { taskResumeSnapshot } from "../_shared/task-resume.js";
 
+const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
+const REVIEW_ACCESS_TTL_SECONDS = 60 * 60 * 6;
+
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -20,6 +23,39 @@ function cleanTraceId(value) {
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, "")
     .slice(0, 80);
+}
+
+function cleanText(value, limit = 1000) {
+  return String(value || "").trim().slice(0, limit);
+}
+
+async function hmacSha256(key, value) {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(value)));
+}
+
+function hex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return hex(new Uint8Array(digest));
+}
+
+async function reviewAccessSecret(env) {
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  return adminSecret ? sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+}
+
+async function createReviewAccessToken(task, env) {
+  if (!task || !task.trace_id || !task.telegram_user || !task.telegram_user.id) {
+    return "";
+  }
+  const exp = Math.floor(Date.now() / 1000) + REVIEW_ACCESS_TTL_SECONDS;
+  const value = `${task.trace_id}.${task.created_at || ""}.${task.telegram_user.id}.${exp}`;
+  const sig = hex(await hmacSha256(new TextEncoder().encode(await reviewAccessSecret(env)), value));
+  return `${exp}.${sig}`;
 }
 
 export async function onRequestOptions() {
@@ -81,5 +117,6 @@ export async function onRequestGet({ env, params }) {
   if (publicTask.error_text) {
     publicTask.error_text = String(publicTask.error_text).slice(0, 500);
   }
+  publicTask.review_access_token = await createReviewAccessToken(task, env);
   return jsonResponse({ ok: true, task: publicTask });
 }
