@@ -1252,8 +1252,9 @@ function handleTelegramMainButton() {
   }
   if (state.telegramMainButtonAction === "review_submit") {
     const form = document.querySelector("[data-web-review-form]");
-    if (form && typeof form.requestSubmit === "function") {
-      form.requestSubmit();
+    if (form) {
+      const textField = form.querySelector("textarea[name='review_text']");
+      submitWebReviewAction(form.dataset.webReviewTrace, form.dataset.webReviewAction, textField ? textField.value : "");
     }
     return;
   }
@@ -7833,7 +7834,7 @@ function renderReviewPanel(task) {
             <label for="web-review-comment">${escapeHtml(reviewActionLabel(draft.action))}</label>
             <textarea id="web-review-comment" name="review_text" rows="4" placeholder="${escapeHtml(reviewActionPlaceholder(draft.action))}" required>${escapeHtml(draft.text || "")}</textarea>
             <div>
-              <button type="button" class="submit-button" data-web-review-submit="1"${state.webReviewSubmitting ? " disabled" : ""}>${escapeHtml(state.webReviewSubmitting ? "Отправляю..." : reviewActionTitle(draft.action))}</button>
+              <button type="button" class="submit-button" data-web-review-submit="1" onclick="return window.__costiqReviewSubmit && window.__costiqReviewSubmit(this);"${state.webReviewSubmitting ? " disabled" : ""}>${escapeHtml(state.webReviewSubmitting ? "Отправляю..." : reviewActionTitle(draft.action))}</button>
               <button type="button" class="ghost-button" data-web-review-cancel="1"${state.webReviewSubmitting ? " disabled" : ""}>Отмена</button>
             </div>
           </form>
@@ -8504,6 +8505,8 @@ async function submitWebReviewAction(traceId, action, text = "") {
     showToast("Комментарий обязателен");
     return;
   }
+  state.webReviewSubmitting = true;
+  updateTelegramControls();
   state.telegramInitData = state.telegramInitData || readTelegramInitData();
   state.panelAuth = state.panelAuth || readPanelAuth();
   let reviewAccessToken =
@@ -8517,12 +8520,12 @@ async function submitWebReviewAction(traceId, action, text = "") {
     }
   }
   if (!hasVerifiedTelegramProfile() && !reviewAccessToken) {
+    state.webReviewSubmitting = false;
+    updateTelegramControls();
     showIdentityRequired("Откройте панель через кнопку бота, чтобы отправить вопрос или доработку.");
     return;
   }
   const headers = { "Content-Type": "application/json" };
-  state.webReviewSubmitting = true;
-  updateTelegramControls();
   try {
     const buildPayload = (token) => ({
         action,
@@ -8968,11 +8971,8 @@ document.addEventListener("click", (event) => {
 
   const reviewSubmit = event.target.closest("[data-web-review-submit]");
   if (reviewSubmit) {
-    const form = reviewSubmit.closest("[data-web-review-form]");
-    if (form) {
-      const textField = form.querySelector("textarea[name='review_text']");
-      submitWebReviewAction(form.dataset.webReviewTrace, form.dataset.webReviewAction, textField ? textField.value : "");
-    }
+    event.preventDefault();
+    handleWebReviewSubmitElement(reviewSubmit);
     return;
   }
 
@@ -9475,6 +9475,33 @@ document.addEventListener("keydown", (event) => {
     renderBenchmarkCard();
   }
 });
+
+function handleWebReviewSubmitElement(element) {
+  if (!element || state.webReviewSubmitting) {
+    return false;
+  }
+  const form = element.closest("[data-web-review-form]");
+  if (!form) {
+    return false;
+  }
+  const textField = form.querySelector("textarea[name='review_text']");
+  submitWebReviewAction(form.dataset.webReviewTrace, form.dataset.webReviewAction, textField ? textField.value : "");
+  return false;
+}
+
+function handleWebReviewPointerSubmit(event) {
+  const target = event.target && event.target.closest ? event.target.closest("[data-web-review-submit]") : null;
+  if (!target) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  handleWebReviewSubmitElement(target);
+}
+
+document.addEventListener("pointerup", handleWebReviewPointerSubmit, true);
+document.addEventListener("touchend", handleWebReviewPointerSubmit, true);
+window.__costiqReviewSubmit = handleWebReviewSubmitElement;
 
 document.addEventListener("submit", (event) => {
   const form = event.target.closest("[data-web-review-form]");
