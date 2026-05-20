@@ -7643,6 +7643,7 @@ function compactWebTask(task) {
     created_at: task.created_at || new Date().toISOString(),
     updated_at: task.updated_at || new Date().toISOString(),
     has_result: Boolean(task.result || (Array.isArray(task.result_files) && task.result_files.length) || task.result_archive),
+    review_access_token: task.review_access_token || "",
   };
 }
 
@@ -8505,8 +8506,16 @@ async function submitWebReviewAction(traceId, action, text = "") {
   }
   state.telegramInitData = state.telegramInitData || readTelegramInitData();
   state.panelAuth = state.panelAuth || readPanelAuth();
-  const reviewAccessToken =
+  let reviewAccessToken =
     state.webCurrentTask && state.webCurrentTask.trace_id === traceId ? state.webCurrentTask.review_access_token || "" : "";
+  if (!reviewAccessToken) {
+    try {
+      const task = await fetchWebTask(traceId);
+      reviewAccessToken = task && task.review_access_token ? task.review_access_token : "";
+    } catch (error) {
+      reviewAccessToken = "";
+    }
+  }
   if (!hasVerifiedTelegramProfile() && !reviewAccessToken) {
     showIdentityRequired("Откройте панель через кнопку бота, чтобы отправить вопрос или доработку.");
     return;

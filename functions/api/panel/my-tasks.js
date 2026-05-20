@@ -47,6 +47,21 @@ async function sha256Hex(value) {
   return hex(new Uint8Array(digest));
 }
 
+async function reviewAccessSecret(env) {
+  const adminSecret = cleanText(env.COSTIQ_PANEL_ADMIN_TOKEN || "", 500);
+  return adminSecret ? sha256Hex(adminSecret) : BRIDGE_ADMIN_TOKEN_SHA256;
+}
+
+async function createReviewAccessToken(task, env) {
+  if (!task || !task.trace_id || !task.telegram_user || !task.telegram_user.id) {
+    return "";
+  }
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7;
+  const value = `${task.trace_id}.${task.created_at || ""}.${task.telegram_user.id}.${exp}`;
+  const sig = hex(await hmacSha256(new TextEncoder().encode(await reviewAccessSecret(env)), value));
+  return `${exp}.${sig}`;
+}
+
 function base64UrlToBytes(value) {
   const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
@@ -164,7 +179,7 @@ async function readTask(env, key) {
   }
 }
 
-function publicTask(task) {
+async function publicTask(task, env) {
   const { attachment, telegram_user, telegram_auth_date, ...safeTask } = task;
   safeTask.lifecycle = taskLifecycleSnapshot(task);
   safeTask.checkpoint = taskCheckpointSnapshot(task);
@@ -195,6 +210,7 @@ function publicTask(task) {
       url: `/api/panel/task/${encodeURIComponent(task.trace_id)}/result-archive`,
     };
   }
+  safeTask.review_access_token = await createReviewAccessToken(task, env);
   return safeTask;
 }
 
@@ -219,8 +235,8 @@ export async function onRequestGet({ request, env }) {
   const tasks = (await Promise.all(list.keys.map((key) => readTask(env, key))))
     .filter((task) => task && task.telegram_user && Number(task.telegram_user.id) === auth.user.id)
     .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
-    .slice(0, limit)
-    .map(publicTask);
+    .slice(0, limit);
+  const publicTasks = await Promise.all(tasks.map((task) => publicTask(task, env)));
 
-  return jsonResponse({ ok: true, tasks, count: tasks.length });
+  return jsonResponse({ ok: true, tasks: publicTasks, count: publicTasks.length });
 }
