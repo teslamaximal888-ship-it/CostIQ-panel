@@ -7833,7 +7833,7 @@ function renderReviewPanel(task) {
             <label for="web-review-comment">${escapeHtml(reviewActionLabel(draft.action))}</label>
             <textarea id="web-review-comment" name="review_text" rows="4" placeholder="${escapeHtml(reviewActionPlaceholder(draft.action))}" required>${escapeHtml(draft.text || "")}</textarea>
             <div>
-              <button type="submit" class="submit-button"${state.webReviewSubmitting ? " disabled" : ""}>${escapeHtml(state.webReviewSubmitting ? "Отправляю..." : reviewActionTitle(draft.action))}</button>
+              <button type="button" class="submit-button" data-web-review-submit="1"${state.webReviewSubmitting ? " disabled" : ""}>${escapeHtml(state.webReviewSubmitting ? "Отправляю..." : reviewActionTitle(draft.action))}</button>
               <button type="button" class="ghost-button" data-web-review-cancel="1"${state.webReviewSubmitting ? " disabled" : ""}>Отмена</button>
             </div>
           </form>
@@ -8963,6 +8963,16 @@ document.addEventListener("click", (event) => {
   const reviewCancel = event.target.closest("[data-web-review-cancel]");
   if (reviewCancel) {
     closeWebReviewDraft();
+    return;
+  }
+
+  const reviewSubmit = event.target.closest("[data-web-review-submit]");
+  if (reviewSubmit) {
+    const form = reviewSubmit.closest("[data-web-review-form]");
+    if (form) {
+      const textField = form.querySelector("textarea[name='review_text']");
+      submitWebReviewAction(form.dataset.webReviewTrace, form.dataset.webReviewAction, textField ? textField.value : "");
+    }
     return;
   }
 
