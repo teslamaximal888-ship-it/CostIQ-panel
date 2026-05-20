@@ -146,14 +146,15 @@ async function verifyPanelAuth(panelAuth, env) {
   return { ok: true, user: { id } };
 }
 
-async function canReview(request, env, task) {
+async function canReview(request, env, task, payload = {}) {
   if (!task.telegram_user || !task.telegram_user.id) {
     return true;
   }
   const url = new URL(request.url);
-  const initData = request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || "";
+  const initData = request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || cleanText(payload.telegram_init_data, 5000) || "";
   const initAuth = await verifyTelegramInitData(initData, env);
-  const auth = initAuth.ok ? initAuth : await verifyPanelAuth(request.headers.get("X-CostIQ-Panel-Auth") || url.searchParams.get("panel_auth") || "", env);
+  const panelAuth = request.headers.get("X-CostIQ-Panel-Auth") || url.searchParams.get("panel_auth") || cleanText(payload.panel_auth, 5000) || "";
+  const auth = initAuth.ok ? initAuth : await verifyPanelAuth(panelAuth, env);
   return Boolean(auth.ok && Number(auth.user.id) === Number(task.telegram_user.id));
 }
 
@@ -255,7 +256,7 @@ export async function onRequestPost({ request, env, params }) {
   } catch (error) {
     return jsonResponse({ ok: false, error: "task_corrupted" }, 500);
   }
-  if (!(await canReview(request, env, task))) {
+  if (!(await canReview(request, env, task, payload))) {
     return jsonResponse({ ok: false, error: "telegram_auth_required" }, 401);
   }
 

@@ -8480,6 +8480,12 @@ async function submitWebReviewAction(traceId, action, text = "") {
     showToast("Комментарий обязателен");
     return;
   }
+  state.telegramInitData = state.telegramInitData || readTelegramInitData();
+  state.panelAuth = state.panelAuth || readPanelAuth();
+  if (!hasVerifiedTelegramProfile()) {
+    showIdentityRequired("Откройте панель через кнопку бота, чтобы отправить вопрос или доработку.");
+    return;
+  }
   const headers = { "Content-Type": "application/json" };
   if (state.telegramInitData) {
     headers["X-Telegram-Init-Data"] = state.telegramInitData;
@@ -8493,7 +8499,12 @@ async function submitWebReviewAction(traceId, action, text = "") {
     const response = await fetch(withTelegramInitData(`/api/panel/task/${encodeURIComponent(traceId)}/review`), {
       method: "POST",
       headers,
-      body: JSON.stringify({ action, text: reviewText }),
+      body: JSON.stringify({
+        action,
+        text: reviewText,
+        telegram_init_data: state.telegramInitData,
+        panel_auth: state.panelAuth,
+      }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) {
