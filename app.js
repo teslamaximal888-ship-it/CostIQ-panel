@@ -944,6 +944,7 @@ const state = {
   webRecentFilter: "all",
   webRecentQuery: "",
   webReviewDraft: null,
+  webReviewSubmitting: false,
   webCurrentTask: null,
   homeFeedTimer: null,
   homeFeedItems: [],
@@ -7808,8 +7809,8 @@ function renderReviewPanel(task) {
             <label for="web-review-comment">${escapeHtml(reviewActionLabel(draft.action))}</label>
             <textarea id="web-review-comment" name="review_text" rows="4" placeholder="${escapeHtml(reviewActionPlaceholder(draft.action))}" required>${escapeHtml(draft.text || "")}</textarea>
             <div>
-              <button type="submit" class="submit-button">${escapeHtml(reviewActionTitle(draft.action))}</button>
-              <button type="button" class="ghost-button" data-web-review-cancel="1">Отмена</button>
+              <button type="submit" class="submit-button"${state.webReviewSubmitting ? " disabled" : ""}>${escapeHtml(state.webReviewSubmitting ? "Отправляю..." : reviewActionTitle(draft.action))}</button>
+              <button type="button" class="ghost-button" data-web-review-cancel="1"${state.webReviewSubmitting ? " disabled" : ""}>Отмена</button>
             </div>
           </form>
         ` : ""}
@@ -7864,13 +7865,17 @@ function renderTaskVisualSummary(task, primaryDownload) {
 }
 
 function openWebReviewDraft(traceId, action) {
-  state.webReviewDraft = { traceId, action, text: "" };
+  const current = state.webReviewDraft;
+  const text = current && current.traceId === traceId && current.action === action ? current.text || "" : "";
+  state.webReviewDraft = { traceId, action, text };
   if (state.webCurrentTask && state.webCurrentTask.trace_id === traceId) {
     renderWebTask(state.webCurrentTask);
     const input = document.getElementById("web-review-comment");
     if (input) {
-      input.focus();
-      input.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (typeof input.focus === "function") {
+        input.focus({ preventScroll: true });
+      }
+      input.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }
   updateTelegramControls();
@@ -8450,6 +8455,13 @@ async function fetchWebTask(traceId) {
   if (!data || !data.ok) {
     throw new Error(data && data.error ? data.error : "status_error");
   }
+  const activeDraft = state.webReviewDraft && state.webReviewDraft.traceId === traceId;
+  const activeField = document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-web-review-form]");
+  if (activeDraft && activeField && !state.webReviewSubmitting) {
+    state.webCurrentTask = data.task;
+    rememberWebTask(data.task);
+    return data.task;
+  }
   renderWebTask(data.task);
   rememberWebTask(data.task);
   return data.task;
@@ -8459,7 +8471,12 @@ async function submitWebReviewAction(traceId, action, text = "") {
   if (!traceId || !action) {
     return;
   }
-  if ((action === "ask_question" || action === "request_revision") && !text.trim()) {
+  if (state.webReviewSubmitting) {
+    return;
+  }
+  const draftText = state.webReviewDraft && state.webReviewDraft.traceId === traceId && state.webReviewDraft.action === action ? state.webReviewDraft.text || "" : "";
+  const reviewText = String(text || draftText || "");
+  if ((action === "ask_question" || action === "request_revision") && !reviewText.trim()) {
     showToast("Комментарий обязателен");
     return;
   }
@@ -8470,27 +8487,34 @@ async function submitWebReviewAction(traceId, action, text = "") {
   if (state.panelAuth) {
     headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
   }
-  const response = await fetch(`/api/panel/task/${encodeURIComponent(traceId)}/review`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ action, text }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.ok) {
-    showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
-    return;
-  }
-  if (state.webReviewDraft && state.webReviewDraft.traceId === traceId && state.webReviewDraft.action === action) {
-    state.webReviewDraft = null;
-  }
-  renderWebTask(data.task);
-  rememberWebTask(data.task);
-  if (action === "accept_result") {
-    showToast("Результат принят");
-  } else if (action === "ask_question") {
-    showToast("Вопрос сохранён");
-  } else {
-    showToast("Доработка сохранена");
+  state.webReviewSubmitting = true;
+  updateTelegramControls();
+  try {
+    const response = await fetch(withTelegramInitData(`/api/panel/task/${encodeURIComponent(traceId)}/review`), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action, text: reviewText }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
+      return;
+    }
+    if (state.webReviewDraft && state.webReviewDraft.traceId === traceId && state.webReviewDraft.action === action) {
+      state.webReviewDraft = null;
+    }
+    renderWebTask(data.task);
+    rememberWebTask(data.task);
+    if (action === "accept_result") {
+      showToast("Результат принят");
+    } else if (action === "ask_question") {
+      showToast("Вопрос отправлен");
+    } else {
+      showToast("Доработка отправлена");
+    }
+  } finally {
+    state.webReviewSubmitting = false;
+    updateTelegramControls();
   }
 }
 

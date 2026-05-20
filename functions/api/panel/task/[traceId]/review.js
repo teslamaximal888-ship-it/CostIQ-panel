@@ -150,9 +150,10 @@ async function canReview(request, env, task) {
   if (!task.telegram_user || !task.telegram_user.id) {
     return true;
   }
-  const initData = request.headers.get("X-Telegram-Init-Data") || "";
+  const url = new URL(request.url);
+  const initData = request.headers.get("X-Telegram-Init-Data") || url.searchParams.get("tg_init_data") || "";
   const initAuth = await verifyTelegramInitData(initData, env);
-  const auth = initAuth.ok ? initAuth : await verifyPanelAuth(request.headers.get("X-CostIQ-Panel-Auth") || "", env);
+  const auth = initAuth.ok ? initAuth : await verifyPanelAuth(request.headers.get("X-CostIQ-Panel-Auth") || url.searchParams.get("panel_auth") || "", env);
   return Boolean(auth.ok && Number(auth.user.id) === Number(task.telegram_user.id));
 }
 
