@@ -1417,7 +1417,7 @@ h2 {
 
 .benchmark-detail-table .cost-code-table-head,
 .benchmark-detail-table .cost-code-row {
-  grid-template-columns: minmax(0, 1.45fr) minmax(160px, 0.48fr) minmax(130px, 0.34fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(190px, 0.58fr) minmax(130px, 0.34fr);
 }
 
 .benchmark-detail-table .cost-code-table-head span:nth-child(2),
@@ -1442,7 +1442,7 @@ h2 {
 .finishing-detail-head,
 .finishing-detail-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(260px, 1.35fr) minmax(150px, 0.42fr);
+  grid-template-columns: minmax(0, 0.78fr) minmax(280px, 1.22fr) minmax(190px, 0.52fr);
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -1509,6 +1509,57 @@ h2 {
   font-size: 13px;
   font-weight: 800;
   text-align: right;
+}
+
+.benchmark-finishing-menu {
+  display: grid;
+  gap: 10px;
+}
+
+.benchmark-finishing-menu section {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.benchmark-finishing-menu section > strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.benchmark-finishing-menu section > div {
+  display: grid;
+  gap: 2px;
+}
+
+.benchmark-finishing-menu button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 8px 5px 16px;
+  border: 0;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.benchmark-finishing-menu button:hover,
+.benchmark-finishing-menu button.active {
+  border-left-color: var(--teal);
+  background: rgba(88, 210, 196, 0.09);
+}
+
+.benchmark-finishing-menu button span {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .support-layout {
@@ -1591,7 +1642,7 @@ h2 {
 }
 
 .benchmark-search-panel.compact-cost-filter {
-  grid-template-columns: minmax(210px, 1fr) minmax(140px, 0.42fr) minmax(160px, 0.45fr) minmax(130px, 0.34fr) minmax(260px, 0.72fr) minmax(190px, 0.5fr) max-content;
+  grid-template-columns: minmax(220px, 1fr) minmax(130px, 0.38fr) minmax(150px, 0.42fr) minmax(120px, 0.32fr) max-content max-content;
   gap: 8px;
   align-items: end;
   padding: 9px 10px;
@@ -1614,27 +1665,34 @@ h2 {
 }
 
 .benchmark-search-panel.compact-cost-filter .smet-filter-row {
+  grid-column: 1 / span 4;
   flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .benchmark-search-panel.compact-cost-filter .smet-filter-row label {
   min-height: 34px;
-  padding: 7px 8px;
+  padding: 7px 7px;
   white-space: nowrap;
 }
 
 .benchmark-search-panel.compact-cost-filter .smet-saved-row {
+  grid-column: 5;
   flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .benchmark-search-panel.compact-cost-filter .smet-reference-actions {
+  grid-column: 6;
   display: flex;
   justify-content: flex-end;
+  min-width: 0;
 }
 
-.benchmark-search-panel.compact-cost-filter .smet-reference-actions button {
+.benchmark-search-panel.compact-cost-filter .smet-reference-actions button,
+.benchmark-search-panel.compact-cost-filter .smet-saved-row button {
   min-height: 34px;
-  padding: 7px 10px;
+  padding: 7px 9px;
   font-size: 12px;
 }
 
@@ -1817,6 +1875,18 @@ h2 {
 .smet-result em {
   grid-column: 1 / span 2;
   overflow-wrap: anywhere;
+}
+
+.smet-result em:empty {
+  display: none;
+}
+
+.benchmark-result {
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.9fr) minmax(124px, 0.24fr);
+}
+
+.benchmark-result .smet-result-prices {
+  grid-template-columns: repeat(3, minmax(108px, 1fr));
 }
 
 .smet-result i {

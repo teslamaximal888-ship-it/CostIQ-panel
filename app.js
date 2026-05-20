@@ -3769,6 +3769,35 @@ function groupFinishingDetails(rows) {
     || left.constructive.localeCompare(right.constructive, "ru", { numeric: true }));
 }
 
+function renderFinishingMenuItems(items) {
+  const order = { "Предчистовая": 1, "Дизайнерская отделка": 2 };
+  const groups = [
+    { label: "Перспективные проекты", items: items.filter((item) => item.subtitle === "Перспективные проекты") },
+    { label: "Проекты в реализации", items: items.filter((item) => item.subtitle === "Проекты в реализации") },
+  ].filter((group) => group.items.length);
+  if (!groups.length) {
+    return `<div class="empty">Группы отделки не найдены</div>`;
+  }
+  return `
+    <nav class="benchmark-finishing-menu" aria-label="Меню отделки квартир">
+      ${groups.map((group) => `
+        <section>
+          <strong>${escapeHtml(group.label)}</strong>
+          <div>
+            ${group.items
+              .sort((left, right) => (order[left.title] || 99) - (order[right.title] || 99) || left.title.localeCompare(right.title, "ru"))
+              .map((item) => `
+              <button type="button" class="${item.id === state.benchmarkSelectedId ? "active" : ""}" data-benchmark-id="${escapeHtml(item.id)}">
+                <span>${escapeHtml(item.title)}</span>
+              </button>
+            `).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </nav>
+  `;
+}
+
 function renderFinishingOverview(rows, activeGroup) {
   const priceCount = rows.reduce((sum, row) => sum + row.prices.length, 0);
   const groups = [
@@ -4432,7 +4461,7 @@ function renderBenchmarkResult(item) {
           </span>
         `).join("")}
       </div>
-      <em>${escapeHtml(item.tab === "cost" ? item.raw && item.raw.normalizedChange && item.raw.normalizedChange.pct ? `${formatMoney(item.raw.normalizedChange.pct)}%` : "0%" : "")}</em>
+      <em></em>
       <div class="smet-result-tools">
         <button type="button" class="${isCompared ? "active" : ""}" data-benchmark-action="toggle-compare" data-benchmark-compare-id="${escapeHtml(item.id)}">Сравнить</button>
         <button type="button" class="${isFavorite ? "active" : ""}" data-benchmark-action="toggle-favorite" data-benchmark-favorite-id="${escapeHtml(item.id)}">${isFavorite ? "В избранном" : "В избранное"}</button>
@@ -4442,11 +4471,14 @@ function renderBenchmarkResult(item) {
 }
 
 function renderBenchmarkResults(context) {
+  const content = state.benchmarkTab === "finishing"
+    ? renderFinishingMenuItems(context.results)
+    : context.results.map((item) => renderBenchmarkResult(item)).join("") || `<div class="empty">Показатели не найдены</div>`;
   return `
     <div class="cost-search-hint">${escapeHtml(context.hint)}</div>
     <div class="smet-reference-layout">
       <div class="smet-results" id="benchmark-results">
-        ${context.results.map((item) => renderBenchmarkResult(item)).join("") || `<div class="empty">Показатели не найдены</div>`}
+        ${content}
       </div>
       <div class="smet-card" id="benchmark-card"></div>
     </div>
