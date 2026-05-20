@@ -112,6 +112,26 @@ function normalizeReview(task, status, now, reviewEvent = null) {
   const current = task.review && typeof task.review === "object" && !Array.isArray(task.review) ? task.review : {};
   const version = cleanInteger(task.result_version || current.current_version, 1, 1, 99);
   const events = Array.isArray(current.events) ? current.events.slice(0, 50) : [];
+  const action = cleanText(task.review_action, 40);
+  const userComment = cleanText(task.review_comment, RESULT_TEXT_LIMIT);
+  if ((action === "ask_question" || action === "request_revision") && userComment) {
+    const userType = action === "ask_question" ? "question_requested" : "revision_requested";
+    const hasUserEvent = events.some((event) =>
+      event &&
+      event.type === userType &&
+      event.author === "user" &&
+      cleanText(event.text, RESULT_TEXT_LIMIT) === userComment
+    );
+    if (!hasUserEvent) {
+      events.push({
+        type: userType,
+        version,
+        author: "user",
+        text: userComment,
+        created_at: cleanText(task.updated_at, 80) || now,
+      });
+    }
+  }
   if (reviewEvent && typeof reviewEvent === "object" && !Array.isArray(reviewEvent)) {
     const event = {
       type: cleanText(reviewEvent.type, 40) || "review_event",
@@ -123,13 +143,34 @@ function normalizeReview(task, status, now, reviewEvent = null) {
     if (event.text) {
       events.push(event);
     }
+  } else if (status === "ready_for_review" && (action === "ask_question" || action === "request_revision")) {
+    const eventType = action === "ask_question" ? "question_answered" : "revision_completed";
+    const eventText =
+      cleanText(task.result_text, RESULT_TEXT_LIMIT) ||
+      cleanText(task.result, RESULT_TEXT_LIMIT) ||
+      cleanText(task.summary, RESULT_TEXT_LIMIT);
+    const hasBridgeEvent = events.some((event) =>
+      event &&
+      event.type === eventType &&
+      event.author === "bridge" &&
+      cleanText(event.text, RESULT_TEXT_LIMIT) === eventText
+    );
+    if (eventText && !hasBridgeEvent) {
+      events.push({
+        type: eventType,
+        version,
+        author: "bridge",
+        text: eventText,
+        created_at: now,
+      });
+    }
   }
   const review = {
     state: REVIEW_STATUSES.has(status) ? status : current.state || "",
     current_version: version,
     accepted_at: cleanText(current.accepted_at, 80),
     closed_at: cleanText(current.closed_at, 80),
-    events,
+    events: events.slice(-50),
   };
   if (status === "ready_for_review") {
     review.state = "ready_for_review";
@@ -211,7 +252,18 @@ export async function onRequestPost({ request, env, params }) {
     warnings: payload.warnings === undefined ? (Array.isArray(task.warnings) ? task.warnings : []) : cleanStringArray(payload.warnings),
     review_hint: cleanText(payload.review_hint, 1000) || task.review_hint || "",
     result_version: resultVersion,
-    review: normalizeReview({ ...task, result_version: resultVersion }, status, now, payload.review_event),
+    review: normalizeReview(
+      {
+        ...task,
+        result: resultProvided ? result : task.result || "",
+        result_text: cleanText(payload.result_text, RESULT_TEXT_LIMIT) || task.result_text || "",
+        summary: cleanText(payload.summary, 1000) || task.summary || "",
+        result_version: resultVersion,
+      },
+      status,
+      now,
+      payload.review_event,
+    ),
     lifecycle: appendLifecycleEvent({ ...task, status }, transition.event),
     attempts,
     max_attempts: maxAttempts,
