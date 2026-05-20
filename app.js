@@ -8521,27 +8521,37 @@ async function submitWebReviewAction(traceId, action, text = "") {
     return;
   }
   const headers = { "Content-Type": "application/json" };
-  if (state.telegramInitData) {
-    headers["X-Telegram-Init-Data"] = state.telegramInitData;
-  }
-  if (state.panelAuth) {
-    headers["X-CostIQ-Panel-Auth"] = state.panelAuth;
-  }
   state.webReviewSubmitting = true;
   updateTelegramControls();
   try {
-    const response = await fetch(withTelegramInitData(`/api/panel/task/${encodeURIComponent(traceId)}/review`), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
+    const buildPayload = (token) => ({
         action,
         text: reviewText,
         telegram_init_data: state.telegramInitData,
         panel_auth: state.panelAuth,
-        review_access_token: reviewAccessToken,
-      }),
+        review_access_token: token,
     });
+    const postReview = (token) => fetch(`/api/panel/task/${encodeURIComponent(traceId)}/review`, {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      body: JSON.stringify(buildPayload(token)),
+    });
+    let response = await postReview(reviewAccessToken);
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401 && reviewAccessToken) {
+      try {
+        const freshTask = await fetchWebTask(traceId);
+        const freshToken = freshTask && freshTask.review_access_token ? freshTask.review_access_token : "";
+        if (freshToken && freshToken !== reviewAccessToken) {
+          response = await postReview(freshToken);
+          Object.assign(data, await response.json().catch(() => ({})));
+          reviewAccessToken = freshToken;
+        }
+      } catch (error) {
+        // Keep the original response and show the normal user-facing error below.
+      }
+    }
     if (!response.ok || !data.ok) {
       showToast(safeErrorMessage(data.error || `HTTP ${response.status}`));
       return;

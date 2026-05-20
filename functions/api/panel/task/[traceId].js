@@ -4,7 +4,7 @@ import { taskEventLogSnapshot } from "../_shared/task-events.js";
 import { taskResumeSnapshot } from "../_shared/task-resume.js";
 
 const BRIDGE_ADMIN_TOKEN_SHA256 = "4114f8b668ea37337c30b5b92f78a91d9739435330e71dbba6472188e9368126";
-const REVIEW_ACCESS_TTL_SECONDS = 60 * 60 * 6;
+const REVIEW_ACCESS_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
