@@ -33,6 +33,14 @@ const PANEL_UPDATE_TYPES = new Set(["panel_update", "panel_release", "database_u
 const PANEL_UPDATE_TAGS = new Set(["panel_update", "panel", "database_update", "snapshot_update", "tool_update"]);
 const BUILT_IN_PANEL_UPDATES = [
   {
+    title: "Отделка квартир",
+    action: "доработано",
+    text: "Типы отделки в правой расшифровке стали сворачиваемыми: видны группы Бизнес/Комфорт/Премиум, состав ставок раскрывается нажатием; повторы пакетов внутри строк убраны.",
+    meta: "2026-05-20T22:55:00+03:00",
+    status: "published",
+    source: "built_in_release",
+  },
+  {
     title: "Удельные показатели",
     action: "доработано",
     text: "В «Отделке квартир» слева сделано меню Перспективные/Реализация с пунктами Предчистовая и Дизайнерская; в себестоимости убран процент слева, фильтр не накладывается на Недавние/Избранное, денежные колонки расширены.",

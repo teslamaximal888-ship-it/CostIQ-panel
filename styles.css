@@ -1438,25 +1438,35 @@ h2 {
   min-width: 0;
 }
 
-.finishing-detail-group header,
+.finishing-detail-toggle,
 .finishing-detail-head,
 .finishing-detail-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.78fr) minmax(280px, 1.22fr) minmax(190px, 0.52fr);
+  grid-template-columns: 26px minmax(0, 0.74fr) minmax(250px, 1.12fr) minmax(200px, 0.58fr);
   gap: 10px;
   align-items: center;
   min-width: 0;
 }
 
-.finishing-detail-group header {
+.finishing-detail-head,
+.finishing-detail-row {
+  grid-template-columns: minmax(0, 0.78fr) minmax(280px, 1.22fr) minmax(190px, 0.52fr);
+}
+
+.finishing-detail-toggle {
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid rgba(88, 210, 196, 0.28);
   border-radius: var(--radius-sm);
   background: rgba(88, 210, 196, 0.07);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
 }
 
-.finishing-detail-group header strong,
-.finishing-detail-group header span,
+.finishing-detail-toggle strong,
+.finishing-detail-toggle span,
+.finishing-detail-toggle em,
 .finishing-detail-head span,
 .finishing-detail-row strong,
 .finishing-detail-row span,
@@ -1467,15 +1477,40 @@ h2 {
   line-height: 1.25;
 }
 
-.finishing-detail-group header strong {
+.finishing-detail-toggle strong {
   color: var(--text);
   font-size: 14px;
 }
 
-.finishing-detail-group header span,
+.finishing-detail-toggle span,
 .finishing-detail-head span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.finishing-detail-toggle em {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.finishing-detail-chevron {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(88, 210, 196, 0.32);
+  border-radius: 999px;
+  color: var(--teal) !important;
+  font-size: 15px !important;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.finishing-detail-toggle:hover {
+  background: rgba(88, 210, 196, 0.12);
 }
 
 .finishing-detail-head {
@@ -4492,7 +4527,7 @@ h2 {
   .cost-subcode-row,
   .benchmark-detail-table .cost-code-table-head,
   .benchmark-detail-table .cost-code-row,
-  .finishing-detail-group header,
+  .finishing-detail-toggle,
   .finishing-detail-head,
   .finishing-detail-row,
   .public-skill-grid,
@@ -4520,7 +4555,8 @@ h2 {
   .benchmark-detail-table .cost-code-table-head span:nth-child(3),
   .benchmark-detail-table .cost-code-row span,
   .finishing-detail-head span:nth-child(3),
-  .finishing-detail-row em {
+  .finishing-detail-row em,
+  .finishing-detail-toggle em {
     text-align: left;
   }
 

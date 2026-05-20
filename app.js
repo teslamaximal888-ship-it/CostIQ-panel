@@ -1020,6 +1020,7 @@ const state = {
   benchmarkCostCode: "Итого",
   benchmarkCostSelectedId: "",
   benchmarkExpandedCostCodes: {},
+  benchmarkExpandedFinishingGroups: {},
   appViewHistory: [],
   agentFactoryStep: "request",
   restoringState: false,
@@ -3770,6 +3771,18 @@ function groupFinishingDetails(rows) {
     || left.constructive.localeCompare(right.constructive, "ru", { numeric: true }));
 }
 
+function finishingDetailGroupKey(group) {
+  return `${group.segment || ""}|${group.constructive || ""}`;
+}
+
+function finishingVariantLabel(group, variant) {
+  const label = String(variant || "").trim();
+  if (!label || label === group.segment) {
+    return "";
+  }
+  return label;
+}
+
 function renderFinishingMenuItems(items) {
   const order = { "Предчистовая": 1, "Дизайнерская отделка": 2 };
   const groups = [
@@ -4551,33 +4564,43 @@ function renderBenchmarkDetail(item) {
   }
   if (item.tab === "finishing" && item.raw && Array.isArray(item.raw.rows)) {
     const groups = groupFinishingDetails(item.raw.rows);
+    const rateCount = groups.reduce((sum, group) => sum + group.rows.length, 0);
     return `
       <div class="smet-card-head"><span>Отделка квартир</span><em>${escapeHtml(item.subtitle || "")}</em></div>
       <h3>${escapeHtml(item.title)}</h3>
       <div class="smet-card-metrics">
         <div><span>Тип</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.subtitle || "")}</small></div>
-        <div><span>Вариантов</span><strong>${escapeHtml(formatMoney(item.raw.rows.length))}</strong><small>шт.</small></div>
+        <div><span>Вариантов</span><strong>${escapeHtml(formatMoney(rateCount))}</strong><small>шт.</small></div>
         <div><span>Минимум</span><strong>${escapeHtml(item.secondary.replace("от ", "").replace(" руб./м2", ""))}</strong><small>руб./м2</small></div>
       </div>
       <div class="finishing-detail-groups">
-        ${groups.map((group) => `
-          <section class="finishing-detail-group">
-            <header>
-              <strong>${escapeHtml(group.segment)}</strong>
-              <span>${escapeHtml(group.constructive)}</span>
-            </header>
-            <div class="finishing-detail-head"><span>Тип дома</span><span>Вариант / пакет</span><span>Ставка</span></div>
-            ${group.rows
-              .sort((left, right) => left.objectType.localeCompare(right.objectType, "ru", { numeric: true }) || left.variant.localeCompare(right.variant, "ru", { numeric: true }))
-              .map((row) => `
-                <div class="finishing-detail-row">
-                  <strong>${escapeHtml(row.objectType)}</strong>
-                  <span>${escapeHtml(row.variant)}</span>
-                  <em>${escapeHtml(formatMoney(row.price))} руб./м2</em>
-                </div>
-              `).join("")}
-          </section>
-        `).join("") || `<div class="empty">Ставки не заполнены</div>`}
+        ${groups.map((group) => {
+          const groupKey = finishingDetailGroupKey(group);
+          const isExpanded = Boolean((state.benchmarkExpandedFinishingGroups || {})[groupKey]);
+          const minPrice = Math.min(...group.rows.map((row) => Number(row.price || 0)).filter((price) => price > 0));
+          return `
+            <section class="finishing-detail-group ${isExpanded ? "expanded" : ""}">
+              <button type="button" class="finishing-detail-toggle" data-finishing-detail-toggle="${escapeHtml(groupKey)}" aria-expanded="${isExpanded ? "true" : "false"}">
+                <span class="finishing-detail-chevron">${isExpanded ? "−" : "+"}</span>
+                <strong>${escapeHtml(group.segment)}</strong>
+                <span>${escapeHtml(group.constructive)}</span>
+                <em>${escapeHtml(formatMoney(group.rows.length))} шт. · от ${escapeHtml(formatMoney(Number.isFinite(minPrice) ? minPrice : 0))} руб./м2</em>
+              </button>
+              ${isExpanded ? `
+                <div class="finishing-detail-head"><span>Тип дома</span><span>Вариант / пакет</span><span>Ставка</span></div>
+                ${group.rows
+                  .sort((left, right) => left.objectType.localeCompare(right.objectType, "ru", { numeric: true }) || left.variant.localeCompare(right.variant, "ru", { numeric: true }))
+                  .map((row) => `
+                    <div class="finishing-detail-row">
+                      <strong>${escapeHtml(row.objectType)}</strong>
+                      <span>${escapeHtml(finishingVariantLabel(group, row.variant) || "Базовый пакет")}</span>
+                      <em>${escapeHtml(formatMoney(row.price))} руб./м2</em>
+                    </div>
+                  `).join("")}
+              ` : ""}
+            </section>
+          `;
+        }).join("") || `<div class="empty">Ставки не заполнены</div>`}
       </div>
     `;
   }
@@ -8869,6 +8892,17 @@ document.addEventListener("click", (event) => {
     state.benchmarkExpandedCostCodes = {
       ...(state.benchmarkExpandedCostCodes || {}),
       [code]: !((state.benchmarkExpandedCostCodes || {})[code]),
+    };
+    renderBenchmarkCard();
+    return;
+  }
+
+  const finishingDetailToggle = event.target.closest("[data-finishing-detail-toggle]");
+  if (finishingDetailToggle) {
+    const key = finishingDetailToggle.dataset.finishingDetailToggle || "";
+    state.benchmarkExpandedFinishingGroups = {
+      ...(state.benchmarkExpandedFinishingGroups || {}),
+      [key]: !((state.benchmarkExpandedFinishingGroups || {})[key]),
     };
     renderBenchmarkCard();
     return;
