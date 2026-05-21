@@ -147,6 +147,18 @@ function contentDisposition(fileName) {
   return `attachment; filename="${fallback.replace(/"/g, "")}"; filename*=UTF-8''${encoded}`;
 }
 
+function shortResultFileName(task, fileName, fallbackExt = ".xlsx") {
+  const rawName = cleanText(fileName, 220);
+  if (rawName && !/^results[_-]/i.test(rawName) && !/web-\d{14}-[0-9a-f]{6,}/i.test(rawName) && rawName.length <= 64) {
+    return rawName;
+  }
+  const source = [rawName, task?.file_name, task?.object, task?.project, task?.query, task?.result, task?.result_text, task?.summary].filter(Boolean).join(" ");
+  const extMatch = rawName.match(/\.(zip|xlsx|xls|docx|pdf)$/i);
+  const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : fallbackExt;
+  const otMatch = source.match(/(?:ОТ|OT)[_\s\-№N]*0*(\d{3,6})/i);
+  return otMatch ? `Итог_ОТ_${otMatch[1].padStart(5, "0")}${ext}` : `Итог_CostIQ${ext}`;
+}
+
 function downloadCorsOrigin(request) {
   const origin = request.headers.get("Origin") || "";
   return origin === "https://web.telegram.org" ? origin : "*";
@@ -201,7 +213,7 @@ export async function onRequestGet({ request, env, params }) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("Content-Type", headers.get("Content-Type") || file.type || "application/octet-stream");
-  headers.set("Content-Disposition", contentDisposition(file.name));
+  headers.set("Content-Disposition", contentDisposition(shortResultFileName(task, file.name, ".xlsx")));
   headers.set("Cache-Control", "private, max-age=0, no-store");
   headers.set("Access-Control-Allow-Origin", downloadCorsOrigin(request));
   headers.set("Vary", "Origin");

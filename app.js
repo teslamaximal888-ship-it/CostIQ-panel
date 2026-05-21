@@ -7714,7 +7714,7 @@ function extractTaskSubjectNumber(task) {
     task && task.object,
     task && task.project,
   ].filter(Boolean).join(" ");
-  const otMatch = source.match(/ОТ\s*№?\s*0*(\d{3,6})/i);
+  const otMatch = source.match(/(?:ОТ|OT)[_\s\-№N]*0*(\d{3,6})/i);
   if (otMatch) {
     return `ОТ №${otMatch[1].padStart(5, "0")}`;
   }
@@ -7735,26 +7735,34 @@ function taskHumanTitle(task) {
   return created ? `${skill} · ${created}` : skill;
 }
 
+function isTechnicalResultFileName(name) {
+  const normalized = String(name || "").trim();
+  return (
+    !normalized ||
+    /^results[_-]/i.test(normalized) ||
+    /web-\d{14}-[0-9a-f]{6,}/i.test(normalized) ||
+    /\/home\/ClawdCostIQ\//i.test(normalized) ||
+    normalized.length > 64
+  );
+}
+
 function fallbackResultFileName(task, sourceName = "") {
   const extMatch = String(sourceName || "").match(/\.(zip|xlsx|xls|docx|pdf)$/i);
   const ext = extMatch ? extMatch[0].toLowerCase() : ".zip";
-  const subject = extractTaskSubjectNumber(task).replace("ОТ №", "ОТ_").replace("№", "");
-  const skill = String((task && (task.skill_title || task.skill)) || "CostIQ")
-    .replace(/[«»"]/g, "")
-    .replace(/[^0-9A-Za-zА-Яа-яЁё]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 48) || "CostIQ";
-  const date = String((task && (task.updated_at || task.created_at)) || new Date().toISOString()).slice(0, 10);
-  return [skill, subject, date].filter(Boolean).join("_") + ext;
+  const subject = extractTaskSubjectNumber(task).replace("ОТ №", "ОТ_").replace("№", "").replace(/\s+/g, "_");
+  return ["Итог", subject || "CostIQ"].filter(Boolean).join("_") + ext;
 }
 
 function humanResultFileName(task, file, isArchive = false) {
   const rawName = String((file && file.name) || "");
   const fromResult = extractResultFileNameFromText((task && (task.result || task.result_text)) || "");
-  if (fromResult && (isArchive || !/^results_web-/i.test(rawName))) {
+  if (isArchive || isTechnicalResultFileName(rawName) || (fromResult && isTechnicalResultFileName(fromResult))) {
+    return fallbackResultFileName(task, rawName || fromResult || "result.zip");
+  }
+  if (fromResult) {
     return fromResult;
   }
-  if (rawName && !/^results_web-/i.test(rawName)) {
+  if (rawName) {
     return rawName;
   }
   return fallbackResultFileName(task, rawName || (isArchive ? "result.zip" : "result.xlsx"));
