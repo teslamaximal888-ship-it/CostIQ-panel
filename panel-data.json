@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-21T11:15:01Z",
+  "generated_at": "2026-05-21T11:25:01Z",
   "status": "контроль",
   "metrics": {
     "bot": "активен",
@@ -37,9 +37,9 @@
   "trace": {
     "total_finishes": 25,
     "finishes_24h": 0,
-    "finishes_7d": 3,
+    "finishes_7d": 2,
     "errors_7d": 1,
-    "avg_latency_ms": 97796,
+    "avg_latency_ms": 137526,
     "top_intents": [
       [
         "reply_context",
@@ -48,19 +48,15 @@
       [
         "reply_file_task",
         1
-      ],
-      [
-        "reply_risk_check",
-        1
       ]
     ],
     "top_statuses": [
       [
-        "success",
-        2
+        "reply_file_redirect",
+        1
       ],
       [
-        "reply_file_redirect",
+        "success",
         1
       ]
     ],
