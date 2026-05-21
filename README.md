@@ -2,6 +2,11 @@
 
 Static Telegram Mini App for `@SAUFSK_bot`.
 
+Design context:
+
+- `DESIGN.md` is mandatory context before UI changes to public screens, admin screens, tools, calculators and the future AI workspace.
+- `PRESENTATION_DESIGN.md` is mandatory context before CostIQ / Agent Factory presentation slide generation.
+
 Cloudflare Pages settings:
 
 - Framework preset: `None`
